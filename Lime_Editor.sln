@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.31729.503
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Lime_Editor", "Lime_Editor\Lime_Editor.csproj", "{FB713CF2-FE84-40CD-BBDF-4B34B2C725C8}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{FB713CF2-FE84-40CD-BBDF-4B34B2C725C8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{FB713CF2-FE84-40CD-BBDF-4B34B2C725C8}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{FB713CF2-FE84-40CD-BBDF-4B34B2C725C8}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{FB713CF2-FE84-40CD-BBDF-4B34B2C725C8}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {215D5868-659C-4521-9BF2-6CBCFDF06F16}
+	EndGlobalSection
+EndGlobal

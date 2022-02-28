@@ -1,0 +1,4625 @@
+﻿md-input-container .md-input, md-input-container.md-input-invalid .md-input {
+    border-bottom: solid 1px #e1e1e1
+}
+
+.container.desktop enter-code .old form .links-container .resend-code-container a, .container.mobile enter-code .old form .links-container .resend-code-container a, .redesign .main-box .links-container .resend-code-container a {
+    grid-column-start: 2;
+    grid-column-end: 2;
+    text-align: center
+}
+
+@font-face {
+    font-family: login-svg-font-icons;
+    src: url(svg-font/login-svg-font-icons.eot);
+    src: url(svg-font/login-svg-font-icons.eot?#iefix) format("embedded-opentype"), url(svg-font/login-svg-font-icons.woff) format("woff"), url(svg-font/login-svg-font-icons.ttf) format("truetype"), url(svg-font/login-svg-font-icons.svg?#login-svg-font-icons) format("svg");
+    font-weight: 400;
+    font-style: normal
+}
+
+.login-svg-font-icons, [class*=" login-svg-font-icons-"]:before, [class^=login-svg-font-icons-]:before {
+    font-family: login-svg-font-icons;
+    display: inline-block;
+    vertical-align: middle;
+    line-height: 1;
+    font-weight: 400;
+    font-style: normal;
+    speak: none;
+    text-decoration: inherit;
+    text-transform: none;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale
+}
+
+md-input-container, md-input-container .md-input {
+    font-family: Madefor, HelveticaNeueW01-Thin, HelveticaNeueW02-Thin, HelveticaNeueW10-35Thin, sans-serif;
+    font-size: 20px;
+    height: 36px;
+    font-weight: 400
+}
+
+.login-svg-font-icons-Wixblack:before {
+    content: "\f101"
+}
+
+.login-svg-font-icons-error-icon:before {
+    content: "\f102"
+}
+
+.login-svg-font-icons-error-new:before {
+    content: "\f103"
+}
+
+.login-svg-font-icons-error-updated:before {
+    content: "\f104"
+}
+
+.login-svg-font-icons-error:before {
+    content: "\f105"
+}
+
+.login-svg-font-icons-fazebook:before {
+    content: "\f106"
+}
+
+.login-svg-font-icons-info:before {
+    content: "\f107"
+}
+
+.login-svg-font-icons-v:before {
+    content: "\f108"
+}
+
+.login-svg-font-icons-warning:before {
+    content: "\f109"
+}
+
+.login-svg-font-icons-wix-logo:before {
+    content: "\f10a"
+}
+
+.login-svg-font-icons-x:before {
+    content: "\f10b"
+}
+
+.login-svg-font-icons-zoogle:before {
+    content: "\f10c"
+}
+
+login-dialog ~ .wix-tooltip {
+    -webkit-animation: opac .3s ease-in;
+    animation: opac .3s ease-in
+}
+
+    login-dialog ~ .wix-tooltip.placement-left {
+        -webkit-transform: translate(2px, -4px);
+        -ms-transform: translate(2px, -4px);
+        transform: translate(2px, -4px)
+    }
+
+        login-dialog ~ .wix-tooltip.placement-left.password-strength {
+            -webkit-transform: translate(-6px, -4px);
+            -ms-transform: translate(-6px, -4px);
+            transform: translate(-6px, -4px)
+        }
+
+            login-dialog ~ .wix-tooltip.placement-left.password-strength.fix-no-repeating {
+                -webkit-transform: translate(-6px, 11px);
+                -ms-transform: translate(-6px, 11px);
+                transform: translate(-6px, 11px)
+            }
+
+            login-dialog ~ .wix-tooltip.placement-left.password-strength.fix-repeating {
+                -webkit-transform: translate(-6px, -19px);
+                -ms-transform: translate(-6px, -19px);
+                transform: translate(-6px, -19px)
+            }
+
+    login-dialog ~ .wix-tooltip.placement-right {
+        -webkit-transform: translate(-8px, -4px);
+        -ms-transform: translate(-8px, -4px);
+        transform: translate(-8px, -4px)
+    }
+
+        login-dialog ~ .wix-tooltip.placement-right.password-strength {
+            -webkit-transform: translate(6px, -4px);
+            -ms-transform: translate(6px, -4px);
+            transform: translate(6px, -4px)
+        }
+
+            login-dialog ~ .wix-tooltip.placement-right.password-strength.fix-no-repeating {
+                -webkit-transform: translate(6px, 11px);
+                -ms-transform: translate(6px, 11px);
+                transform: translate(6px, 11px)
+            }
+
+            login-dialog ~ .wix-tooltip.placement-right.password-strength.fix-repeating {
+                -webkit-transform: translate(6px, -19px);
+                -ms-transform: translate(6px, -19px);
+                transform: translate(6px, -19px)
+            }
+
+        login-dialog ~ .wix-tooltip.placement-right.error-tooltip {
+            -webkit-transform: translate(4px, 0);
+            -ms-transform: translate(4px, 0);
+            transform: translate(4px, 0)
+        }
+
+@-webkit-keyframes opac {
+    from {
+        opacity: 0
+    }
+
+    to {
+        opacity: 1
+    }
+}
+
+@keyframes opac {
+    from {
+        opacity: 0
+    }
+
+    to {
+        opacity: 1
+    }
+}
+
+md-input-container {
+    width: 100%
+}
+
+    md-input-container .label {
+        color: #162d3d !important
+    }
+
+    md-input-container .md-input {
+        box-shadow: 0 0 0 1000px #fff inset !important
+    }
+
+        md-input-container .md-input.ng-dirty:not(:focus) {
+            border-width: 0 0 1px
+        }
+
+    md-input-container .error, md-input-container .warning {
+        visibility: hidden;
+        position: absolute;
+        color: transparent;
+        opacity: 0;
+        transition: opacity .3s ease-in
+    }
+
+    md-input-container .float-warning {
+        float: left
+    }
+
+    md-input-container.md-input-focused .label {
+        color: #162d3d !important
+    }
+
+    .ng-submitted md-input-container.has-error:not(.md-input-focused) .error, md-input-container.md-input-invalid.has-error.new-input.show-error:not(.has-warning) .md-input.ng-touched ~ .error {
+        color: #f2564d;
+        position: absolute;
+        opacity: 1;
+        visibility: visible
+    }
+
+    md-input-container:not(.md-input-focused) .md-input:hover {
+        border-bottom: solid 1px #162d3d
+    }
+
+    md-input-container:not(.md-input-focused).md-input-invalid.has-error:not(.has-warning) .md-input.ng-touched:not(.ng-invalid-required) {
+        border-bottom: solid 2px #f2564d
+    }
+
+    md-input-container:not(.md-input-focused).md-input-invalid.has-warning .md-input.ng-touched:not(.ng-invalid-required) {
+        border-bottom: solid 2px #fdb10c
+    }
+
+    md-input-container.md-input-invalid.has-error.new-input.show-error:not(.has-warning) .md-input.ng-touched {
+        border-bottom: solid 2px #f2564d !important
+    }
+
+.ng-submitted md-input-container:not(.md-input-focused) .md-input.ng-invalid, .ng-submitted md-input-container:not(.md-input-focused).has-error:not(.has-warning) .md-input {
+    border-bottom: solid 2px #f2564d
+}
+
+.ng-submitted md-input-container:not(.md-input-focused).has-warning .md-input {
+    border-bottom: solid 2px #fdb10c
+}
+
+.ng-submitted md-input-container.has-error:not(.md-input-focused) .float-warning, .ng-submitted md-input-container.has-error:not(.md-input-focused) .warning {
+    position: absolute;
+    color: #fdb10c;
+    visibility: visible;
+    opacity: 1
+}
+
+.ng-submitted md-input-container.has-error:not(.md-input-focused) .warning-container {
+    visibility: visible
+}
+
+    .ng-submitted md-input-container.has-error:not(.md-input-focused) .warning-container .warning-label {
+        white-space: normal;
+        display: block
+    }
+
+        .ng-submitted md-input-container.has-error:not(.md-input-focused) .warning-container .warning-label .placeholder-label {
+            display: none
+        }
+
+md-input-container.has-error:not(.md-input-focused) .md-input.ng-touched:not(.ng-invalid-required) ~ .error {
+    position: absolute;
+    color: #f2564d;
+    visibility: visible;
+    opacity: 1
+}
+
+md-input-container.has-error:not(.md-input-focused) .md-input.ng-touched:not(.ng-invalid-required) ~ .float-warning, md-input-container.has-error:not(.md-input-focused) .md-input.ng-touched:not(.ng-invalid-required) ~ .warning {
+    position: absolute;
+    color: #fdb10c;
+    visibility: visible;
+    opacity: 1
+}
+
+md-input-container.has-error:not(.md-input-focused) .md-input.ng-touched:not(.ng-invalid-required) ~ .warning-container {
+    visibility: visible
+}
+
+    md-input-container.has-error:not(.md-input-focused) .md-input.ng-touched:not(.ng-invalid-required) ~ .warning-container .warning-label {
+        white-space: normal;
+        display: block
+    }
+
+        md-input-container.has-error:not(.md-input-focused) .md-input.ng-touched:not(.ng-invalid-required) ~ .warning-container .warning-label .placeholder-label {
+            display: none
+        }
+
+md-input-container.has-warning i.error {
+    visibility: hidden !important
+}
+
+md-input-container .md-placeholder, md-input-container label:not(.md-no-float):not(.md-container-ignore) {
+    padding-left: 12px
+}
+
+md-input-container .md-input, md-input-container .md-input.ng-invalid.ng-dirty, md-input-container.md-input-focused .md-input {
+    padding-bottom: 9px;
+    padding-left: 11px
+}
+
+.login md-input-container .md-input, .login md-input-container .md-input.ng-invalid.ng-dirty, .login md-input-container.md-input-focused .md-input {
+    padding-bottom: 10px
+}
+
+md-input-container .md-input[type=password] {
+    letter-spacing: 2px
+}
+
+md-input-container .warning-container {
+    margin-top: 50px;
+    background-color: #fdf7df;
+    padding: 12px 18px 12px 12px;
+    border-radius: 6px;
+    border: 1px solid #fef0ba;
+    height: 87px;
+    visibility: hidden
+}
+
+    md-input-container .warning-container .warning-label {
+        display: none;
+        font-size: 14px;
+        margin-left: 32px;
+        color: #153346
+    }
+
+        md-input-container .warning-container .warning-label a {
+            color: #162d3d;
+            font-weight: 700;
+            text-decoration: underline
+        }
+
+mobile-input label {
+    height: 29px
+}
+
+mobile-input md-input-container:not(.new).md-input-focused label, mobile-input md-input-container:not(.new).md-input-has-value label {
+    -webkit-transform: translate3d(0, 0, 0) scale(.75) !important;
+    transform: translate3d(0, 0, 0) scale(.75) !important;
+    width: 118%;
+    letter-spacing: 1px
+}
+
+mobile-input md-input-container:not(.new).md-input-focused .md-input {
+    border-bottom: solid 2px #116dff !important
+}
+
+mobile-input .error-label {
+    display: none;
+    font-size: 12px;
+    margin-top: 30px;
+    margin-right: 5px
+}
+
+mobile-input .placeholder-label {
+    display: block
+}
+
+.ng-submitted mobile-input .has-error.new-input .error-label, .ng-submitted mobile-input .has-error:not(.md-input-focused) .error-label, mobile-input .has-error.new-input .md-input.ng-touched:not(.ng-invalid-required) ~ .error-label, mobile-input .has-error:not(.md-input-focused) .md-input.ng-touched:not(.ng-invalid-required) ~ .error-label {
+    color: #f2564d;
+    height: auto;
+    white-space: normal;
+    display: block
+}
+
+    .ng-submitted mobile-input .has-error.new-input .error-label .placeholder-label, .ng-submitted mobile-input .has-error:not(.md-input-focused) .error-label .placeholder-label, mobile-input .has-error.new-input .md-input.ng-touched:not(.ng-invalid-required) ~ .error-label .placeholder-label, mobile-input .has-error:not(.md-input-focused) .md-input.ng-touched:not(.ng-invalid-required) ~ .error-label .placeholder-label {
+        display: none
+    }
+
+.wix-modal-body-open .container.desktop {
+    -webkit-filter: blur(8px);
+    filter: blur(8px)
+}
+
+.wix-modal-body-open .wix-modal.wix-modal--container {
+    background-color: rgba(255, 255, 255, .7)
+}
+
+.wix-modal-body-open .post-signup-modal {
+    width: 464px !important;
+    height: 386px;
+    background-color: #fff;
+    border-radius: 0;
+    margin-bottom: 200px;
+    box-shadow: 0 0 20px 0 rgba(22, 45, 60, .18)
+}
+
+    .wix-modal-body-open .post-signup-modal .disabled {
+        pointer-events: none;
+        opacity: .4
+    }
+
+    .wix-modal-body-open .post-signup-modal .spinner-container {
+        position: relative;
+        top: -170px;
+        left: 216px
+    }
+
+    .wix-modal-body-open .post-signup-modal .x-close {
+        position: relative;
+        left: 437px;
+        bottom: -11px;
+        color: #162d3d;
+        font-size: 12px;
+        cursor: pointer
+    }
+
+        .wix-modal-body-open .post-signup-modal .x-close::before {
+            font-weight: 700
+        }
+
+    .wix-modal-body-open .post-signup-modal .post-signup-modal-container {
+        display: -webkit-flex;
+        display: -ms-flexbox;
+        display: flex;
+        -webkit-flex-direction: column;
+        -ms-flex-direction: column;
+        flex-direction: column;
+        -webkit-align-items: center;
+        -ms-flex-align: center;
+        align-items: center;
+        margin-top: 30px;
+        color: #000
+    }
+
+        .wix-modal-body-open .post-signup-modal .post-signup-modal-container .post-signup-modal-subtitle {
+            margin-bottom: 11px;
+            font-size: 16px;
+            font-family: Madefor;
+            font-weight: 400
+        }
+
+        .wix-modal-body-open .post-signup-modal .post-signup-modal-container .post-signup-modal-title {
+            margin-bottom: 30px;
+            font-family: Madefor;
+            font-size: 24px;
+            font-weight: 700
+        }
+
+        .wix-modal-body-open .post-signup-modal .post-signup-modal-container .select-source {
+            width: 178px;
+            height: 42px;
+            font-family: Madefor;
+            border-radius: 3px;
+            border: 1px solid #569eff;
+            background: #fff;
+            font-size: 14px;
+            font-weight: 500;
+            color: #116dff;
+            cursor: pointer
+        }
+
+            .wix-modal-body-open .post-signup-modal .post-signup-modal-container .select-source:hover {
+                background-color: #116dff !important;
+                box-shadow: inset 0 0 0 2px #116dff !important;
+                color: #fff !important
+            }
+
+        .wix-modal-body-open .post-signup-modal .post-signup-modal-container .sources-row {
+            margin-bottom: 12px;
+            display: -webkit-flex;
+            display: -ms-flexbox;
+            display: flex;
+            width: 368px;
+            -webkit-justify-content: space-between;
+            -ms-flex-pack: justify;
+            justify-content: space-between
+        }
+
+        .wix-modal-body-open .post-signup-modal .post-signup-modal-container .other-source-row {
+            display: -webkit-flex;
+            display: -ms-flexbox;
+            display: flex
+        }
+
+.password-strength-container {
+    font-size: 14px;
+    font-weight: 400;
+    font-stretch: normal;
+    font-style: normal;
+    line-height: 1.43;
+    letter-spacing: normal;
+    color: #4f4f4f;
+    margin-right: 2px;
+    margin-left: 2px
+}
+
+    .password-strength-container.mobile .password-strength-summary {
+        display: -webkit-flex;
+        display: -ms-flexbox;
+        display: flex;
+        -webkit-justify-content: space-between;
+        -ms-flex-pack: justify;
+        justify-content: space-between;
+        -webkit-align-items: center;
+        -ms-flex-align: center;
+        align-items: center;
+        margin-bottom: 6px
+    }
+
+    .password-strength-container.mobile .strength-bar-container .strength-bar {
+        width: 36px;
+        margin: 0 2px
+    }
+
+    .password-strength-container.mobile .repeating-characters-hint {
+        margin-top: 0;
+        margin-bottom: 12px
+    }
+
+    .password-strength-container:not(.mobile) {
+        padding: 8px 0 4px
+    }
+
+        .password-strength-container:not(.mobile) .strength-bar-container {
+            margin: 12px 0 18px
+        }
+
+            .password-strength-container:not(.mobile) .strength-bar-container .strength-bar {
+                width: 48px;
+                margin: 0 3px
+            }
+
+        .password-strength-container:not(.mobile) .repeating-characters-hint {
+            margin-top: 12px;
+            margin-bottom: 0
+        }
+
+    .password-strength-container .password-strength-title {
+        font-weight: 500;
+        line-height: 1.5;
+        color: #000;
+        margin-top: 1px
+    }
+
+    .password-strength-container .strength-bar-container {
+        display: -webkit-flex;
+        display: -ms-flexbox;
+        display: flex
+    }
+
+        .password-strength-container .strength-bar-container .strength-bar {
+            height: 2px;
+            border-radius: 2px;
+            background-color: #e1e2e6
+        }
+
+            .password-strength-container .strength-bar-container .strength-bar:first-of-type {
+                margin-left: 0
+            }
+
+            .password-strength-container .strength-bar-container .strength-bar:last-of-type {
+                margin-right: 0
+            }
+
+            .password-strength-container .strength-bar-container .strength-bar.is-on.level-1 {
+                background-color: #faad4d
+            }
+
+            .password-strength-container .strength-bar-container .strength-bar.is-on.level-2 {
+                background-color: #ffd527
+            }
+
+            .password-strength-container .strength-bar-container .strength-bar.is-on.level-3, .password-strength-container .strength-bar-container .strength-bar.is-on.level-4 {
+                background-color: #00a87e
+            }
+
+    .password-strength-container .hints-container {
+        margin-top: 7px
+    }
+
+        .password-strength-container .hints-container .hint:not(.disabled) .hint-icon::before {
+            content: url(../images/password-strength-dot.svg);
+            -webkit-transform: translateY(-4px);
+            -ms-transform: translateY(-4px);
+            transform: translateY(-4px)
+        }
+
+        .password-strength-container .hints-container .hint.disabled .hint-text {
+            color: #b9b9bd;
+            text-decoration: line-through
+        }
+
+        .password-strength-container .hints-container .hint.disabled .hint-icon::before {
+            content: url(../images/password-strength-check.svg);
+            -webkit-transform: translateY(1px);
+            -ms-transform: translateY(1px);
+            transform: translateY(1px)
+        }
+
+    .password-strength-container .hint {
+        display: -webkit-flex;
+        display: -ms-flexbox;
+        display: flex;
+        margin-bottom: 2px
+    }
+
+        .password-strength-container .hint .hint-text {
+            margin-left: 6px;
+            margin-top: -2px
+        }
+
+        .password-strength-container .hint .hint-icon {
+            width: 14px;
+            display: -webkit-flex;
+            display: -ms-flexbox;
+            display: flex;
+            -webkit-align-items: center;
+            -ms-flex-align: center;
+            align-items: center;
+            -webkit-justify-content: center;
+            -ms-flex-pack: center;
+            justify-content: center
+        }
+
+        .password-strength-container .hint.last-hint {
+            margin-bottom: 0
+        }
+
+    .password-strength-container .repeating-characters-hint-icon {
+        content: url(../images/password-strength-bulb.svg)
+    }
+
+        .password-strength-container .repeating-characters-hint-icon.mobile-hint {
+            margin-bottom: 3px
+        }
+
+.container.desktop {
+    height: 100%;
+    overflow: hidden
+}
+
+    .container.desktop .wix-button {
+        padding-bottom: 14px;
+        font-family: Madefor, HelveticaNeueW01-55Roma, HelveticaNeueW02-55Roma, HelveticaNeueW10-55Roma, sans-serif;
+        font-weight: 400
+    }
+
+        .container.desktop .wix-button.button-hover:hover, .container.desktop .wix-button.is-button-outline:hover {
+            background-color: #3483ff !important;
+            box-shadow: inset 0 0 0 1px #3483ff !important
+        }
+
+        .container.desktop .wix-button.is-button-outline:not(:hover):not(:focus) {
+            background-color: #fff !important;
+            box-shadow: inset 0 0 0 1px #116dff !important;
+            color: #116dff !important
+        }
+
+        .container.desktop .wix-button:focus:not(:active):not(.is-disabled) {
+            outline: 0;
+            background-color: #3483ff;
+            box-shadow: inset 0 0 0 1px #3483ff !important;
+            color: #fff !important
+        }
+
+        .container.desktop .wix-button:disabled {
+            pointer-events: none;
+            background-color: rgba(22, 45, 61, .3);
+            color: #fff
+        }
+
+    .container.desktop a.wix-button, .container.desktop button:not(.wix-button-redesign):not(.social-btn):not(.show-password):not(:disabled) {
+        background-color: #116dff
+    }
+
+        .container.desktop a.wix-button:focus:not(:hover), .container.desktop button:not(.wix-button-redesign):not(.social-btn):not(.show-password):not(:disabled):focus:not(:hover) {
+            outline: #daeffe solid 3px
+        }
+
+        .container.desktop a.wix-button:hover, .container.desktop button:not(.wix-button-redesign):not(.social-btn):not(.show-password):not(:disabled):hover, .container.desktop login .login-buttons .sozial-login:hover:focus, .container.desktop signup .login-buttons .sozial-login:hover:focus {
+            outline: 0
+        }
+
+    .container.desktop .header {
+        -webkit-justify-content: space-between;
+        -ms-flex-pack: justify;
+        justify-content: space-between;
+        z-index: 4
+    }
+
+        .container.desktop .header .wix-logo {
+            height: 29px;
+            margin-top: 20px;
+            margin-left: 48px;
+            margin-bottom: 70px
+        }
+
+        .container.desktop .header .editor-x-logo {
+            margin-top: 23px;
+            margin-left: 45px;
+            height: 50%;
+            content: url(../bower_components/wix-brand-resources/resources/EditorX/EditorX_logo_36x168_white.svg)
+        }
+
+        .container.desktop .header .x-close {
+            font-size: 22px;
+            line-height: 0;
+            height: 22px;
+            margin: 20px 60px 70px
+        }
+
+    .container.desktop desktop-input, .container.desktop desktop-input-new {
+        position: relative;
+        width: 100%
+    }
+
+        .container.desktop desktop-input md-input-container input, .container.desktop desktop-input md-input-container label, .container.desktop desktop-input-new md-input-container input, .container.desktop desktop-input-new md-input-container label {
+            font-size: 24px;
+            font-family: Madefor, HelveticaNeueW01-45Ligh, HelveticaNeueW02-45Ligh, HelveticaNeueW10-45Ligh, sans-serif;
+            font-weight: 400
+        }
+
+        .container.desktop desktop-input md-input-container input, .container.desktop desktop-input-new md-input-container input {
+            transition: border-bottom .3s, border-color .3s, border-width .3s, border .3s ease-in-out;
+            line-height: 1
+        }
+
+        .container.desktop desktop-input md-input-container.md-input-focused:not(.new-input.has-error) .md-input, .container.desktop desktop-input-new md-input-container.md-input-focused:not(.new-input.has-error) .md-input {
+            border-bottom: solid 1px #e1e1e1 !important
+        }
+
+        .container.desktop desktop-input md-input-container.md-input-focused:not(.new-input.has-error) .focus-line, .container.desktop desktop-input-new md-input-container.md-input-focused:not(.new-input.has-error) .focus-line {
+            border-bottom: solid 2px #116dff;
+            width: 99.6%;
+            height: 2px;
+            position: absolute;
+            top: 34px;
+            left: 1px
+        }
+
+        .container.desktop desktop-input md-input-container .focus-line, .container.desktop desktop-input-new md-input-container .focus-line {
+            transition: width .3s ease-in-out
+        }
+
+        .container.desktop desktop-input md-input-container:not(.md-input-focused) .focus-line, .container.desktop desktop-input-new md-input-container:not(.md-input-focused) .focus-line {
+            width: 0
+        }
+
+        .container.desktop desktop-input md-input-container.md-input-focused label, .container.desktop desktop-input md-input-container.md-input-has-value label, .container.desktop desktop-input-new md-input-container.md-input-focused label, .container.desktop desktop-input-new md-input-container.md-input-has-value label {
+            -webkit-transform: translate3d(0, 6px, 0) scale(.67);
+            transform: translate3d(0, 6px, 0) scale(.67)
+        }
+
+        .container.desktop desktop-input md-input-container .error, .container.desktop desktop-input-new md-input-container .error {
+            right: 12px;
+            bottom: 12px
+        }
+
+        .container.desktop desktop-input md-input-container .warning, .container.desktop desktop-input-new md-input-container .warning {
+            right: 12px
+        }
+
+    .container.desktop login .remember-me-and-forgot-password {
+        width: 100%;
+        display: -webkit-flex;
+        display: -ms-flexbox;
+        display: flex;
+        -webkit-flex-direction: row;
+        -ms-flex-direction: row;
+        flex-direction: row;
+        -webkit-justify-content: space-between;
+        -ms-flex-pack: justify;
+        justify-content: space-between;
+        padding-bottom: 25px;
+        margin-top: 6px
+    }
+
+        .container.desktop login .remember-me-and-forgot-password.smaller-font-size .forgot-password-link, .container.desktop login .remember-me-and-forgot-password.smaller-font-size .remember-me-section {
+            font-size: 14px
+        }
+
+    .container.desktop login, .container.desktop signup {
+        width: 100%;
+        display: -webkit-flex;
+        display: -ms-flexbox;
+        display: flex;
+        -webkit-align-items: center;
+        -ms-flex-align: center;
+        align-items: center;
+        -webkit-flex-direction: column;
+        -ms-flex-direction: column;
+        flex-direction: column;
+        font-family: Madefor, HelveticaNeueW01-Thin, HelveticaNeueW02-Thin, HelveticaNeueW10-35Thin, sans-serif;
+        font-weight: 400;
+        font-size: 16px;
+        height: 100%;
+        -webkit-justify-content: center;
+        -ms-flex-pack: center;
+        justify-content: center
+    }
+
+        .container.desktop login terms-of-use.small, .container.desktop signup terms-of-use.small {
+            font-size: 14px;
+            color: #858f96
+        }
+
+        .container.desktop login terms-of-use .terms-education, .container.desktop signup terms-of-use .terms-education {
+            width: 500px
+        }
+
+        .container.desktop login .recaptcha-widget, .container.desktop signup .recaptcha-widget {
+            -webkit-align-self: flex-start;
+            -ms-flex-item-align: start;
+            align-self: flex-start;
+            -webkit-transform: scale(.85);
+            -ms-transform: scale(.85);
+            transform: scale(.85);
+            margin-bottom: -9px;
+            margin-left: -28px
+        }
+
+        .container.desktop login .signin-section md-input-container, .container.desktop signup .signin-section md-input-container {
+            margin: 15px 0
+        }
+
+            .container.desktop login .signin-section md-input-container input, .container.desktop login .signin-section md-input-container label, .container.desktop signup .signin-section md-input-container input, .container.desktop signup .signin-section md-input-container label {
+                font-size: 18px;
+                font-family: Madefor, HelveticaNeueW01-45Ligh, HelveticaNeueW02-45Ligh, HelveticaNeueW10-45Ligh, sans-serif;
+                font-weight: 400
+            }
+
+        .container.desktop login .login, .container.desktop login .signup, .container.desktop signup .login, .container.desktop signup .signup {
+            display: -webkit-flex;
+            display: -ms-flexbox;
+            display: flex;
+            -webkit-justify-content: center;
+            -ms-flex-pack: center;
+            justify-content: center;
+            -webkit-align-items: center;
+            -ms-flex-align: center;
+            align-items: center;
+            -webkit-flex-direction: column;
+            -ms-flex-direction: column;
+            flex-direction: column
+        }
+
+            .container.desktop login .login .title, .container.desktop login .signup .title, .container.desktop signup .login .title, .container.desktop signup .signup .title {
+                text-align: center;
+                font-family: Madefor, HelveticaNeueW01-Thin, HelveticaNeueW02-Thin, HelveticaNeueW10-35Thin, sans-serif;
+                color: #20303c;
+                font-weight: 700
+            }
+
+            .container.desktop login .login .already-user, .container.desktop login .login .new-user, .container.desktop login .signup .already-user, .container.desktop login .signup .new-user, .container.desktop signup .login .already-user, .container.desktop signup .login .new-user, .container.desktop signup .signup .already-user, .container.desktop signup .signup .new-user {
+                color: #20303c;
+                margin-bottom: 34px;
+                text-align: center
+            }
+
+            .container.desktop login .login .divider, .container.desktop login .signup .divider, .container.desktop signup .login .divider, .container.desktop signup .signup .divider {
+                width: 1px;
+                opacity: .8;
+                background-color: #858f96;
+                margin: 0 71px
+            }
+
+            .container.desktop login .login .signin-section, .container.desktop login .signup .signin-section, .container.desktop signup .login .signin-section, .container.desktop signup .signup .signin-section {
+                display: -webkit-flex;
+                display: -ms-flexbox;
+                display: flex;
+                -webkit-flex-direction: row;
+                -ms-flex-direction: row;
+                flex-direction: row;
+                -webkit-justify-content: space-between;
+                -ms-flex-pack: justify;
+                justify-content: space-between
+            }
+
+                .container.desktop login .login .signin-section .signin-with-email, .container.desktop login .signup .signin-section .signin-with-email, .container.desktop signup .login .signin-section .signin-with-email, .container.desktop signup .signup .signin-section .signin-with-email {
+                    width: 360px
+                }
+
+                    .container.desktop login .login .signin-section .signin-with-email.wide, .container.desktop login .signup .signin-section .signin-with-email.wide, .container.desktop signup .login .signin-section .signin-with-email.wide, .container.desktop signup .signup .signin-section .signin-with-email.wide {
+                        width: 800px
+                    }
+
+                    .container.desktop login .login .signin-section .signin-with-email .button-spinner, .container.desktop login .signup .signin-section .signin-with-email .button-spinner, .container.desktop signup .login .signin-section .signin-with-email .button-spinner, .container.desktop signup .signup .signin-section .signin-with-email .button-spinner {
+                        width: 105px;
+                        height: 43px
+                    }
+
+            .container.desktop login .login .sub-title, .container.desktop login .signup .sub-title, .container.desktop signup .login .sub-title, .container.desktop signup .signup .sub-title {
+                margin-bottom: 60px
+            }
+
+        .container.desktop login .login-btn button, .container.desktop login .signup-btn button, .container.desktop signup .login-btn button, .container.desktop signup .signup-btn button {
+            height: 30px;
+            width: 123px
+        }
+
+        .container.desktop login .login-button, .container.desktop signup .login-button {
+            width: 100%;
+            height: 50px;
+            padding-top: 25px
+        }
+
+            .container.desktop login .login-button .spinner-container, .container.desktop login .login-button .wix-button, .container.desktop signup .login-button .spinner-container, .container.desktop signup .login-button .wix-button {
+                min-width: 168px
+            }
+
+        .container.desktop login .login-buttons, .container.desktop signup .login-buttons {
+            display: -webkit-flex;
+            display: -ms-flexbox;
+            display: flex;
+            -webkit-flex-direction: row;
+            -ms-flex-direction: row;
+            flex-direction: row;
+            -webkit-justify-content: space-between;
+            -ms-flex-pack: justify;
+            justify-content: space-between;
+            -webkit-align-items: center;
+            -ms-flex-align: center;
+            align-items: center;
+            width: 100%;
+            height: 50px;
+            padding-top: 25px
+        }
+
+            .container.desktop login .login-buttons .sozial-login-icons, .container.desktop signup .login-buttons .sozial-login-icons {
+                display: -webkit-flex;
+                display: -ms-flexbox;
+                display: flex;
+                -webkit-flex-direction: row;
+                -ms-flex-direction: row;
+                flex-direction: row;
+                -webkit-justify-content: space-between;
+                -ms-flex-pack: justify;
+                justify-content: space-between;
+                -webkit-align-items: center;
+                -ms-flex-align: center;
+                align-items: center
+            }
+
+                .container.desktop login .login-buttons .sozial-login-icons .space, .container.desktop signup .login-buttons .sozial-login-icons .space {
+                    width: 12px
+                }
+
+                .container.desktop login .login-buttons .sozial-login-icons .sozial-spinner, .container.desktop signup .login-buttons .sozial-login-icons .sozial-spinner {
+                    position: relative;
+                    height: 48px;
+                    width: 130px
+                }
+
+                    .container.desktop login .login-buttons .sozial-login-icons .sozial-spinner .spinner-container, .container.desktop signup .login-buttons .sozial-login-icons .sozial-spinner .spinner-container {
+                        position: absolute;
+                        width: 130px;
+                        height: 48px;
+                        top: 0;
+                        z-index: 1
+                    }
+
+                    .container.desktop login .login-buttons .sozial-login-icons .sozial-spinner .sozial-login, .container.desktop signup .login-buttons .sozial-login-icons .sozial-spinner .sozial-login {
+                        position: absolute;
+                        top: 0;
+                        z-index: 5
+                    }
+
+            .container.desktop login .login-buttons .text-or-with-sozial, .container.desktop signup .login-buttons .text-or-with-sozial {
+                color: #66737c;
+                margin-right: 13px;
+                font-family: Madefor, HelveticaNeueW01-55Roma, HelveticaNeueW02-55Roma, HelveticaNeueW10-55Roma, sans-serif;
+                font-weight: 400;
+                max-width: 144px
+            }
+
+            .container.desktop login .login-buttons .sozial-login, .container.desktop signup .login-buttons .sozial-login {
+                min-width: 130px;
+                box-sizing: border-box;
+                white-space: nowrap;
+                text-overflow: ellipsis;
+                overflow: hidden;
+                border-radius: 999px;
+                border: 0;
+                color: #fff;
+                font-size: 14px;
+                cursor: pointer;
+                outline: 0;
+                padding-right: 12px;
+                padding-top: 0;
+                font-family: Madefo, HelveticaNeueW01-55Roma, HelveticaNeueW02-55Roma, HelveticaNeueW10-55Roma, sans-serif;
+                font-weight: 400;
+                transition: opacity .3s
+            }
+
+                .container.desktop login .login-buttons .sozial-login:hover, .container.desktop signup .login-buttons .sozial-login:hover {
+                    opacity: .7
+                }
+
+                .container.desktop login .login-buttons .sozial-login:focus, .container.desktop signup .login-buttons .sozial-login:focus {
+                    outline: #daeffe solid 3px
+                }
+
+                .container.desktop login .login-buttons .sozial-login .text, .container.desktop signup .login-buttons .sozial-login .text {
+                    margin-top: 3px;
+                    display: inline-block
+                }
+
+                .container.desktop login .login-buttons .sozial-login.fazebook-login-icon, .container.desktop signup .login-buttons .sozial-login.fazebook-login-icon {
+                    background-color: #3b5998
+                }
+
+                    .container.desktop login .login-buttons .sozial-login.fazebook-login-icon .sozial-icon, .container.desktop signup .login-buttons .sozial-login.fazebook-login-icon .sozial-icon {
+                        margin-right: 10px
+                    }
+
+                .container.desktop login .login-buttons .sozial-login.zoogle-login-icon, .container.desktop signup .login-buttons .sozial-login.zoogle-login-icon {
+                    background-color: #d34836
+                }
+
+                    .container.desktop login .login-buttons .sozial-login.zoogle-login-icon .sozial-icon, .container.desktop signup .login-buttons .sozial-login.zoogle-login-icon .sozial-icon {
+                        margin-right: 7px
+                    }
+
+                .container.desktop login .login-buttons .sozial-login .sozial-icon, .container.desktop signup .login-buttons .sozial-login .sozial-icon {
+                    font-size: 19px;
+                    line-height: 0;
+                    margin-top: 3px;
+                    display: inline-block
+                }
+
+    .container.desktop .remember-me-section {
+        display: -webkit-flex;
+        display: -ms-flexbox;
+        display: flex;
+        -webkit-flex-direction: row-reverse;
+        -ms-flex-direction: row-reverse;
+        flex-direction: row-reverse;
+        cursor: pointer
+    }
+
+        .container.desktop .remember-me-section wix-checkbox {
+            margin-right: 5px
+        }
+
+            .container.desktop .remember-me-section wix-checkbox input:focus:not(:checked) + .wix-checkbox-inner {
+                color: #116dff !important;
+                border: 1px solid #116dff
+            }
+
+            .container.desktop .remember-me-section wix-checkbox input:focus:checked + .wix-checkbox-inner {
+                background-color: #116dff !important;
+                color: #fff !important;
+                border: 1px solid #116dff
+            }
+
+            .container.desktop .remember-me-section wix-checkbox input:checked + .wix-checkbox-inner {
+                background-color: #116dff !important;
+                border: 1px solid #116dff
+            }
+
+            .container.desktop .remember-me-section wix-checkbox input:not(:checked):not(:focus) + .wix-checkbox-inner {
+                border: 1px solid #000
+            }
+
+                .container.desktop .remember-me-section wix-checkbox input:not(:checked):not(:focus) + .wix-checkbox-inner:hover {
+                    border: 1px solid #116dff
+                }
+
+        .container.desktop .remember-me-section.is-disabled {
+            cursor: default
+        }
+
+            .container.desktop .remember-me-section.is-disabled wix-checkbox input + .wix-checkbox-inner {
+                background-color: rgba(22, 45, 61, .05) !important;
+                border: 1px solid rgba(22, 45, 61, .3) !important
+            }
+
+    .container.desktop .remember-me-text {
+        color: #20303c;
+        line-height: 1
+    }
+
+    .container.desktop .button-spinner {
+        position: relative;
+        height: 100%;
+        display: -webkit-flex;
+        display: -ms-flexbox;
+        display: flex;
+        -webkit-justify-content: center;
+        -ms-flex-pack: center;
+        justify-content: center;
+        min-width: 105px
+    }
+
+        .container.desktop .button-spinner > .wix-button {
+            transition: background-color .3s, color .3s, background .3s, box-shadow .1s ease-in-out;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 2
+        }
+
+        .container.desktop .button-spinner .spinner-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1
+        }
+
+        .container.desktop .button-spinner .spinner-container, .container.desktop .sozial-spinner .spinner-container {
+            width: 120px;
+            height: 48px;
+            display: -webkit-flex;
+            display: -ms-flexbox;
+            display: flex;
+            -webkit-justify-content: center;
+            -ms-flex-pack: center;
+            justify-content: center
+        }
+
+    .container.desktop .social-button .spinner-container, .container.desktop .sozial-button-and-spinner .spinner-container {
+        width: 100%;
+        height: 100%;
+        display: -webkit-flex;
+        display: -ms-flexbox;
+        display: flex;
+        -webkit-justify-content: center;
+        -ms-flex-pack: center;
+        justify-content: center
+    }
+
+    .container.desktop social-signin {
+        display: -webkit-flex;
+        display: -ms-flexbox;
+        display: flex;
+        -webkit-justify-content: center;
+        -ms-flex-pack: center;
+        justify-content: center;
+        -webkit-flex-direction: column;
+        -ms-flex-direction: column;
+        flex-direction: column
+    }
+
+        .container.desktop social-signin .signin-sozial-title {
+            font-family: Madefor, HelveticaNeueW01-45Ligh, HelveticaNeueW02-45Ligh, HelveticaNeueW10-45Ligh, sans-serif;
+            font-size: 16px;
+            font-weight: 300;
+            line-height: 1.5;
+            color: #20303c;
+            margin-bottom: 30px;
+            margin-top: -8px;
+            width: 100%
+        }
+
+        .container.desktop social-signin .sozial-login {
+            height: 48px;
+            cursor: pointer;
+            border: 0;
+            background-color: transparent;
+            padding: 0
+        }
+
+            .container.desktop social-signin .sozial-login .icon-and-text {
+                display: -webkit-flex;
+                display: -ms-flexbox;
+                display: flex
+            }
+
+            .container.desktop social-signin .sozial-login.ng-hide {
+                display: none !important
+            }
+
+            .container.desktop social-signin .sozial-login:hover:focus {
+                outline: 0
+            }
+
+            .container.desktop a:focus:not(:hover), .container.desktop social-signin .sozial-login:focus {
+                outline: #daeffe solid 3px
+            }
+
+        .container.desktop social-signin .icon {
+            width: 58px;
+            height: 48px;
+            color: #fff;
+            font-size: 23px;
+            display: -webkit-flex;
+            display: -ms-flexbox;
+            display: flex;
+            -webkit-justify-content: center;
+            -ms-flex-pack: center;
+            justify-content: center;
+            -webkit-align-items: center;
+            -ms-flex-align: center;
+            align-items: center
+        }
+
+        .container.desktop social-signin .signin-sozial-fazebook .icon {
+            background-color: #3b5998
+        }
+
+        .container.desktop social-signin .signin-sozial-fazebook .signin-button-text {
+            color: #3b5998;
+            border: 1px solid #3b5998
+        }
+
+        .container.desktop social-signin .signin-sozial-fazebook:hover {
+            background: rgba(59, 89, 152, .1)
+        }
+
+        .container.desktop social-signin .signin-sozial-zoogle .icon {
+            background-color: #d34836
+        }
+
+        .container.desktop social-signin .signin-sozial-zoogle .signin-button-text {
+            color: #d34836;
+            border: 1px solid #d34836
+        }
+
+        .container.desktop social-signin .signin-sozial-zoogle:hover {
+            background: rgba(211, 72, 54, .1)
+        }
+
+        .container.desktop social-signin .signin-button-text {
+            width: 239px;
+            height: 46px;
+            font-family: Madefor, HelveticaNeueW01-55Roma, HelveticaNeueW02-55Roma, HelveticaNeueW10-55Roma, sans-serif;
+            font-size: 16px;
+            font-weight: 400;
+            line-height: 1.5;
+            display: -webkit-flex;
+            display: -ms-flexbox;
+            display: flex;
+            -webkit-justify-content: center;
+            -ms-flex-pack: center;
+            justify-content: center;
+            -webkit-align-items: center;
+            -ms-flex-align: center;
+            align-items: center;
+            transition: background .3s
+        }
+
+        .container.desktop social-signin .fazebook-container {
+            margin-bottom: 24px
+        }
+
+        .container.desktop social-signin .sozial-button-and-spinner {
+            position: relative;
+            height: 48px;
+            width: 297px
+        }
+
+    .container.desktop enter-code .old form {
+        width: 424px !important
+    }
+
+        .container.desktop enter-code .old form desktop-input, .container.desktop enter-code .old form desktop-input-new {
+            width: 360px !important
+        }
+
+        .container.desktop enter-code .old form .lost-access-link {
+            text-decoration: underline;
+            color: #162d3d
+        }
+
+        .container.desktop enter-code .old form .check-spam {
+            margin-top: 100px;
+            color: #7a92a5;
+            width: 800px;
+            text-align: center;
+            position: absolute
+        }
+
+        .container.desktop enter-code .old form .header-container {
+            margin-top: 20px;
+            width: 100%;
+            display: -webkit-flex;
+            display: -ms-flexbox;
+            display: flex;
+            -webkit-flex-direction: column;
+            -ms-flex-direction: column;
+            flex-direction: column;
+            -webkit-align-items: center;
+            -ms-flex-align: center;
+            align-items: center
+        }
+
+            .container.desktop enter-code .old form .header-container .back-button-container {
+                width: 100%;
+                margin-bottom: 25px
+            }
+
+                .container.desktop enter-code .old form .header-container .back-button-container button.back {
+                    border: none;
+                    margin: 0;
+                    padding: 0 0 0 10px;
+                    width: auto;
+                    overflow: visible;
+                    background: url(../images/back.svg) left no-repeat;
+                    color: inherit;
+                    font: inherit;
+                    line-height: normal;
+                    -webkit-font-smoothing: inherit;
+                    -moz-osx-font-smoothing: inherit;
+                    -webkit-appearance: none;
+                    font-family: Madefor, HelveticaNeueW01-55Roma, HelveticaNeueW02-55Roma, HelveticaNeueW10-55Roma, sans-serif;
+                    cursor: pointer;
+                    font-weight: 400;
+                    background-color: transparent !important;
+                    border-bottom: solid 1px;
+                    font-size: 16px
+                }
+
+        .container.desktop enter-code .old form .button-container {
+            margin-bottom: 50px;
+            width: 100%
+        }
+
+            .container.desktop enter-code .old form .button-container.fallback-mode {
+                display: -webkit-flex;
+                display: -ms-flexbox;
+                display: flex;
+                -webkit-justify-content: center;
+                -ms-flex-pack: center;
+                justify-content: center
+            }
+
+                .container.desktop enter-code .old form .button-container.fallback-mode .bouncing-points-container, .container.desktop enter-code .old form .button-container.fallback-mode button {
+                    min-width: 156px;
+                    margin-left: 9px;
+                    margin-right: 9px
+                }
+
+            .container.desktop enter-code .old form .button-container button.verify-btn {
+                width: 100%;
+                box-shadow: none;
+                color: #fff
+            }
+
+            .container.desktop enter-code .old form .button-container .bouncing-points-container {
+                background: #116dff;
+                border-radius: 999px;
+                border: none
+            }
+
+                .container.desktop enter-code .old form .button-container .bouncing-points-container bouncing-points .points {
+                    width: 50px;
+                    padding-top: 4px;
+                    padding-left: 10px
+                }
+
+                    .container.desktop enter-code .old form .button-container .bouncing-points-container bouncing-points .points .point {
+                        width: 8px;
+                        height: 8px
+                    }
+
+@media only screen and (max-height:942px) {
+    .container.desktop enter-code .old form .button-container {
+        min-height: 43px
+    }
+}
+
+.container.desktop enter-code .old form md-input-container {
+    margin-bottom: 20px
+}
+
+    .container.desktop enter-code .old form md-input-container input, .container.desktop enter-code .old form md-input-container label {
+        font-size: 18px
+    }
+
+.container.desktop enter-code .old form .content {
+    font-size: 20px !important
+}
+
+.container.desktop enter-code .old form .remember-me-section {
+    margin-bottom: 50px;
+    width: 360px;
+    -webkit-justify-content: flex-end;
+    -ms-flex-pack: end;
+    justify-content: flex-end
+}
+
+.container.desktop enter-code .old form .links-container {
+    display: -webkit-flex;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-flex-direction: column;
+    -ms-flex-direction: column;
+    flex-direction: column;
+    -webkit-align-items: center;
+    -ms-flex-align: center;
+    align-items: center
+}
+
+    .container.desktop enter-code .old form .links-container a {
+        cursor: pointer
+    }
+
+    .container.desktop enter-code .old form .links-container .switch-methods-container {
+        display: -webkit-flex;
+        display: -ms-flexbox;
+        display: flex;
+        -webkit-flex-direction: column;
+        -ms-flex-direction: column;
+        flex-direction: column;
+        -webkit-align-items: center;
+        -ms-flex-align: center;
+        align-items: center;
+        margin-bottom: 40px
+    }
+
+        .container.desktop enter-code .old form .links-container .switch-methods-container .switch-method {
+            margin-top: 6px
+        }
+
+    .container.desktop enter-code .old form .links-container .resend-code-container {
+        margin-bottom: 8px;
+        display: grid;
+        grid-template-columns: 35px auto 35px;
+        width: 100%;
+        height: 20px
+    }
+
+        .container.desktop enter-code .old form .links-container .resend-code-container .spinner-container {
+            height: 30px
+        }
+
+            .container.desktop enter-code .old form .links-container .resend-code-container .spinner-container spinner .spinner {
+                width: 20px;
+                height: 20px
+            }
+
+.container.desktop enter-code .old form.fallback-mode {
+    width: 533px !important
+}
+
+.container.desktop login .wide-terms, .container.desktop signup .wide-terms {
+    width: 710px
+}
+
+.container.desktop login terms-of-use, .container.desktop signup terms-of-use {
+    text-align: center;
+    margin-top: 66px;
+    font-size: 14px;
+    width: 460px;
+    line-height: 24px;
+    color: #2F2F30;
+    display: -webkit-flex;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-justify-content: center;
+    -ms-flex-pack: center;
+    justify-content: center
+}
+
+    .container.desktop login terms-of-use hr, .container.desktop signup terms-of-use hr {
+        width: 90%;
+        border: 0;
+        border-top: 1px solid #DFE5EB
+    }
+
+.container.desktop login .login .title, .container.desktop login .signup .title, .container.desktop signup .login .title, .container.desktop signup .signup .title {
+    font-size: 56px;
+    margin-bottom: 17px
+}
+
+.container.desktop login .login .already-user, .container.desktop login .login .new-user, .container.desktop login .signup .already-user, .container.desktop login .signup .new-user, .container.desktop signup .login .already-user, .container.desktop signup .login .new-user, .container.desktop signup .signup .already-user, .container.desktop signup .signup .new-user {
+    font-family: Madefor, HelveticaNeueW01-45Ligh, HelveticaNeueW02-45Ligh, HelveticaNeueW10-45Ligh, sans-serif;
+    font-size: 18px;
+    font-weight: 400;
+    display: -webkit-flex;
+    display: -ms-flexbox;
+    display: flex
+}
+
+    .container.desktop login .login .already-user .login-link, .container.desktop login .login .already-user .signup-link, .container.desktop login .login .new-user .login-link, .container.desktop login .login .new-user .signup-link, .container.desktop login .signup .already-user .login-link, .container.desktop login .signup .already-user .signup-link, .container.desktop login .signup .new-user .login-link, .container.desktop login .signup .new-user .signup-link, .container.desktop signup .login .already-user .login-link, .container.desktop signup .login .already-user .signup-link, .container.desktop signup .login .new-user .login-link, .container.desktop signup .login .new-user .signup-link, .container.desktop signup .signup .already-user .login-link, .container.desktop signup .signup .already-user .signup-link, .container.desktop signup .signup .new-user .login-link, .container.desktop signup .signup .new-user .signup-link {
+        color: #116dff;
+        cursor: pointer;
+        margin-left: 3px
+    }
+
+.container.desktop login .login-buttons .text-or-with-sozial, .container.desktop signup .login-buttons .text-or-with-sozial {
+    font-size: 16px
+}
+
+.container.desktop login .login-buttons .sozial-login, .container.desktop signup .login-buttons .sozial-login {
+    height: 43px
+}
+
+.container.desktop .wix-button {
+    min-width: 105px;
+    font-size: 16px;
+    height: 43px;
+    padding-top: 8px
+}
+
+.container.desktop account-verification, .container.desktop email-verified-confirmation, .container.desktop enter-code .old, .container.desktop enter-email, .container.desktop forgot-password, .container.desktop forgot-password-confirmation, .container.desktop login, .container.desktop reset-password, .container.desktop reset-password-confirmation, .container.desktop signup {
+    margin-top: -156px
+}
+
+.container.desktop .content {
+    margin-bottom: 20px
+}
+
+.container.desktop .forgot-password-link {
+    color: #20303c;
+    height: 20px;
+    line-height: 1
+}
+
+    .container.desktop .forgot-password-link:hover {
+        color: #116dff
+    }
+
+.container.desktop a:hover {
+    outline: 0
+}
+
+.container.desktop account-verification, .container.desktop email-verified-confirmation, .container.desktop enter-code .old, .container.desktop enter-email, .container.desktop forgot-password, .container.desktop forgot-password-confirmation, .container.desktop reset-password, .container.desktop reset-password-confirmation {
+    color: #162d3d;
+    height: 100vh;
+    -webkit-justify-content: center;
+    -ms-flex-pack: center;
+    justify-content: center
+}
+
+    .container.desktop account-verification form, .container.desktop email-verified-confirmation form, .container.desktop enter-code .old form, .container.desktop enter-email form, .container.desktop forgot-password form, .container.desktop forgot-password-confirmation form, .container.desktop reset-password form, .container.desktop reset-password-confirmation form {
+        width: 100%;
+        display: -webkit-flex;
+        display: -ms-flexbox;
+        display: flex;
+        -webkit-justify-content: center;
+        -ms-flex-pack: center;
+        justify-content: center;
+        -webkit-align-items: center;
+        -ms-flex-align: center;
+        align-items: center;
+        -webkit-flex-direction: column;
+        -ms-flex-direction: column;
+        flex-direction: column
+    }
+
+        .container.desktop account-verification form .title, .container.desktop email-verified-confirmation form .title, .container.desktop enter-code .old form .title, .container.desktop enter-email form .title, .container.desktop forgot-password form .title, .container.desktop forgot-password-confirmation form .title, .container.desktop reset-password form .title, .container.desktop reset-password-confirmation form .title {
+            font-size: 56px;
+            margin-bottom: 17px;
+            font-family: Madefor, HelveticaNeueW01-Thin, HelveticaNeueW02-Thin, HelveticaNeueW10-35Thin, sans-serif;
+            line-height: 80px;
+            font-weight: 700
+        }
+
+        .container.desktop account-verification form .content, .container.desktop email-verified-confirmation form .content, .container.desktop enter-code .old form .content, .container.desktop enter-email form .content, .container.desktop forgot-password form .content, .container.desktop forgot-password-confirmation form .content, .container.desktop reset-password form .content, .container.desktop reset-password-confirmation form .content {
+            font-size: 18px;
+            font-family: Madefor, HelveticaNeueW01-Thin, HelveticaNeueW02-Thin, HelveticaNeueW10-35Thin, sans-serif;
+            margin-bottom: 73px;
+            font-weight: 400
+        }
+
+            .container.desktop account-verification form .content .main, .container.desktop email-verified-confirmation form .content .main, .container.desktop enter-code .old form .content .main, .container.desktop enter-email form .content .main, .container.desktop forgot-password form .content .main, .container.desktop forgot-password-confirmation form .content .main, .container.desktop reset-password form .content .main, .container.desktop reset-password-confirmation form .content .main {
+                margin-top: 10px;
+                max-width: 600px;
+                font-family: Madefor;
+                font-weight: 700
+            }
+
+    .container.desktop account-verification .forgot-password-link, .container.mobile {
+        font-family: Madefor, HelveticaNeueW01-Thin, HelveticaNeueW02-Thin, HelveticaNeueW10-35Thin, sans-serif
+    }
+
+    .container.desktop account-verification form .home-link, .container.desktop email-verified-confirmation form .home-link, .container.desktop enter-code .old form .home-link, .container.desktop enter-email form .home-link, .container.desktop forgot-password form .home-link, .container.desktop forgot-password-confirmation form .home-link, .container.desktop reset-password form .home-link, .container.desktop reset-password-confirmation form .home-link {
+        white-space: nowrap;
+        margin-top: 10px
+    }
+
+    .container.desktop account-verification form .md-input, .container.desktop email-verified-confirmation form .md-input, .container.desktop enter-code .old form .md-input, .container.desktop enter-email form .md-input, .container.desktop forgot-password form .md-input, .container.desktop forgot-password-confirmation form .md-input, .container.desktop reset-password form .md-input, .container.desktop reset-password-confirmation form .md-input {
+        padding-bottom: 5px !important
+    }
+
+    .container.desktop account-verification form md-input-container:not(.new), .container.desktop email-verified-confirmation form md-input-container:not(.new), .container.desktop enter-code .old form md-input-container:not(.new), .container.desktop enter-email form md-input-container:not(.new), .container.desktop forgot-password form md-input-container:not(.new), .container.desktop forgot-password-confirmation form md-input-container:not(.new), .container.desktop reset-password form md-input-container:not(.new), .container.desktop reset-password-confirmation form md-input-container:not(.new) {
+        font-size: 18px;
+        height: 31px
+    }
+
+        .container.desktop account-verification form md-input-container:not(.new) .md-placeholder, .container.desktop account-verification form md-input-container:not(.new) label:not(.md-no-float), .container.desktop email-verified-confirmation form md-input-container:not(.new) .md-placeholder, .container.desktop email-verified-confirmation form md-input-container:not(.new) label:not(.md-no-float), .container.desktop enter-code .old form md-input-container:not(.new) .md-placeholder, .container.desktop enter-code .old form md-input-container:not(.new) label:not(.md-no-float), .container.desktop enter-email form md-input-container:not(.new) .md-placeholder, .container.desktop enter-email form md-input-container:not(.new) label:not(.md-no-float), .container.desktop forgot-password form md-input-container:not(.new) .md-placeholder, .container.desktop forgot-password form md-input-container:not(.new) label:not(.md-no-float), .container.desktop forgot-password-confirmation form md-input-container:not(.new) .md-placeholder, .container.desktop forgot-password-confirmation form md-input-container:not(.new) label:not(.md-no-float), .container.desktop reset-password form md-input-container:not(.new) .md-placeholder, .container.desktop reset-password form md-input-container:not(.new) label:not(.md-no-float), .container.desktop reset-password-confirmation form md-input-container:not(.new) .md-placeholder, .container.desktop reset-password-confirmation form md-input-container:not(.new) label:not(.md-no-float) {
+            padding-left: 9px;
+            margin-bottom: 0
+        }
+
+        .container.desktop account-verification form md-input-container:not(.new) .md-input, .container.desktop account-verification form md-input-container:not(.new) .md-input.ng-invalid.ng-dirty, .container.desktop account-verification form md-input-container:not(.new).md-input-focused .md-input, .container.desktop email-verified-confirmation form md-input-container:not(.new) .md-input, .container.desktop email-verified-confirmation form md-input-container:not(.new) .md-input.ng-invalid.ng-dirty, .container.desktop email-verified-confirmation form md-input-container:not(.new).md-input-focused .md-input, .container.desktop enter-code .old form md-input-container:not(.new) .md-input, .container.desktop enter-code .old form md-input-container:not(.new) .md-input.ng-invalid.ng-dirty, .container.desktop enter-code .old form md-input-container:not(.new).md-input-focused .md-input, .container.desktop enter-email form md-input-container:not(.new) .md-input, .container.desktop enter-email form md-input-container:not(.new) .md-input.ng-invalid.ng-dirty, .container.desktop enter-email form md-input-container:not(.new).md-input-focused .md-input, .container.desktop forgot-password form md-input-container:not(.new) .md-input, .container.desktop forgot-password form md-input-container:not(.new) .md-input.ng-invalid.ng-dirty, .container.desktop forgot-password form md-input-container:not(.new).md-input-focused .md-input, .container.desktop forgot-password-confirmation form md-input-container:not(.new) .md-input, .container.desktop forgot-password-confirmation form md-input-container:not(.new) .md-input.ng-invalid.ng-dirty, .container.desktop forgot-password-confirmation form md-input-container:not(.new).md-input-focused .md-input, .container.desktop reset-password form md-input-container:not(.new) .md-input, .container.desktop reset-password form md-input-container:not(.new) .md-input.ng-invalid.ng-dirty, .container.desktop reset-password form md-input-container:not(.new).md-input-focused .md-input, .container.desktop reset-password-confirmation form md-input-container:not(.new) .md-input, .container.desktop reset-password-confirmation form md-input-container:not(.new) .md-input.ng-invalid.ng-dirty, .container.desktop reset-password-confirmation form md-input-container:not(.new).md-input-focused .md-input {
+            font-size: 18px;
+            padding-bottom: 6px;
+            padding-left: 5px
+        }
+
+    .container.desktop account-verification form desktop-input, .container.desktop account-verification form desktop-input-new, .container.desktop email-verified-confirmation form desktop-input, .container.desktop email-verified-confirmation form desktop-input-new, .container.desktop enter-code .old form desktop-input, .container.desktop enter-code .old form desktop-input-new, .container.desktop enter-email form desktop-input, .container.desktop enter-email form desktop-input-new, .container.desktop forgot-password form desktop-input, .container.desktop forgot-password form desktop-input-new, .container.desktop forgot-password-confirmation form desktop-input, .container.desktop forgot-password-confirmation form desktop-input-new, .container.desktop reset-password form desktop-input, .container.desktop reset-password form desktop-input-new, .container.desktop reset-password-confirmation form desktop-input, .container.desktop reset-password-confirmation form desktop-input-new {
+        width: 570px
+    }
+
+        .container.desktop account-verification form desktop-input md-input-container, .container.desktop account-verification form desktop-input-new md-input-container, .container.desktop email-verified-confirmation form desktop-input md-input-container, .container.desktop email-verified-confirmation form desktop-input-new md-input-container, .container.desktop enter-code .old form desktop-input md-input-container, .container.desktop enter-code .old form desktop-input-new md-input-container, .container.desktop enter-email form desktop-input md-input-container, .container.desktop enter-email form desktop-input-new md-input-container, .container.desktop forgot-password form desktop-input md-input-container, .container.desktop forgot-password form desktop-input-new md-input-container, .container.desktop forgot-password-confirmation form desktop-input md-input-container, .container.desktop forgot-password-confirmation form desktop-input-new md-input-container, .container.desktop reset-password form desktop-input md-input-container, .container.desktop reset-password form desktop-input-new md-input-container, .container.desktop reset-password-confirmation form desktop-input md-input-container, .container.desktop reset-password-confirmation form desktop-input-new md-input-container {
+            margin-bottom: 44px
+        }
+
+            .container.desktop account-verification form desktop-input md-input-container input, .container.desktop account-verification form desktop-input md-input-container label, .container.desktop account-verification form desktop-input-new md-input-container input, .container.desktop account-verification form desktop-input-new md-input-container label, .container.desktop email-verified-confirmation form desktop-input md-input-container input, .container.desktop email-verified-confirmation form desktop-input md-input-container label, .container.desktop email-verified-confirmation form desktop-input-new md-input-container input, .container.desktop email-verified-confirmation form desktop-input-new md-input-container label, .container.desktop enter-code .old form desktop-input md-input-container input, .container.desktop enter-code .old form desktop-input md-input-container label, .container.desktop enter-code .old form desktop-input-new md-input-container input, .container.desktop enter-code .old form desktop-input-new md-input-container label, .container.desktop enter-email form desktop-input md-input-container input, .container.desktop enter-email form desktop-input md-input-container label, .container.desktop enter-email form desktop-input-new md-input-container input, .container.desktop enter-email form desktop-input-new md-input-container label, .container.desktop forgot-password form desktop-input md-input-container input, .container.desktop forgot-password form desktop-input md-input-container label, .container.desktop forgot-password form desktop-input-new md-input-container input, .container.desktop forgot-password form desktop-input-new md-input-container label, .container.desktop forgot-password-confirmation form desktop-input md-input-container input, .container.desktop forgot-password-confirmation form desktop-input md-input-container label, .container.desktop forgot-password-confirmation form desktop-input-new md-input-container input, .container.desktop forgot-password-confirmation form desktop-input-new md-input-container label, .container.desktop reset-password form desktop-input md-input-container input, .container.desktop reset-password form desktop-input md-input-container label, .container.desktop reset-password form desktop-input-new md-input-container input, .container.desktop reset-password form desktop-input-new md-input-container label, .container.desktop reset-password-confirmation form desktop-input md-input-container input, .container.desktop reset-password-confirmation form desktop-input md-input-container label, .container.desktop reset-password-confirmation form desktop-input-new md-input-container input, .container.desktop reset-password-confirmation form desktop-input-new md-input-container label {
+                font-size: 18px
+            }
+
+            .container.desktop account-verification form desktop-input md-input-container.md-input-focused label, .container.desktop account-verification form desktop-input md-input-container.md-input-has-value label, .container.desktop account-verification form desktop-input-new md-input-container.md-input-focused label, .container.desktop account-verification form desktop-input-new md-input-container.md-input-has-value label, .container.desktop email-verified-confirmation form desktop-input md-input-container.md-input-focused label, .container.desktop email-verified-confirmation form desktop-input md-input-container.md-input-has-value label, .container.desktop email-verified-confirmation form desktop-input-new md-input-container.md-input-focused label, .container.desktop email-verified-confirmation form desktop-input-new md-input-container.md-input-has-value label, .container.desktop enter-code .old form desktop-input md-input-container.md-input-focused label, .container.desktop enter-code .old form desktop-input md-input-container.md-input-has-value label, .container.desktop enter-code .old form desktop-input-new md-input-container.md-input-focused label, .container.desktop enter-code .old form desktop-input-new md-input-container.md-input-has-value label, .container.desktop enter-email form desktop-input md-input-container.md-input-focused label, .container.desktop enter-email form desktop-input md-input-container.md-input-has-value label, .container.desktop enter-email form desktop-input-new md-input-container.md-input-focused label, .container.desktop enter-email form desktop-input-new md-input-container.md-input-has-value label, .container.desktop forgot-password form desktop-input md-input-container.md-input-focused label, .container.desktop forgot-password form desktop-input md-input-container.md-input-has-value label, .container.desktop forgot-password form desktop-input-new md-input-container.md-input-focused label, .container.desktop forgot-password form desktop-input-new md-input-container.md-input-has-value label, .container.desktop forgot-password-confirmation form desktop-input md-input-container.md-input-focused label, .container.desktop forgot-password-confirmation form desktop-input md-input-container.md-input-has-value label, .container.desktop forgot-password-confirmation form desktop-input-new md-input-container.md-input-focused label, .container.desktop forgot-password-confirmation form desktop-input-new md-input-container.md-input-has-value label, .container.desktop reset-password form desktop-input md-input-container.md-input-focused label, .container.desktop reset-password form desktop-input md-input-container.md-input-has-value label, .container.desktop reset-password form desktop-input-new md-input-container.md-input-focused label, .container.desktop reset-password form desktop-input-new md-input-container.md-input-has-value label, .container.desktop reset-password-confirmation form desktop-input md-input-container.md-input-focused label, .container.desktop reset-password-confirmation form desktop-input md-input-container.md-input-has-value label, .container.desktop reset-password-confirmation form desktop-input-new md-input-container.md-input-focused label, .container.desktop reset-password-confirmation form desktop-input-new md-input-container.md-input-has-value label {
+                -webkit-transform: translate3d(0, 4px, 0) scale(.67);
+                transform: translate3d(0, 4px, 0) scale(.67)
+            }
+
+    .container.desktop reset-password form md-input-container:not(.new) {
+        height: 36px;
+        margin-top: 15px
+    }
+
+    .container.desktop forgot-password .title-and-instructions {
+        width: 100%
+    }
+
+    .container.desktop forgot-password .back-next-buttons {
+        width: 570px;
+        -webkit-justify-content: flex-end;
+        -ms-flex-pack: end;
+        justify-content: flex-end
+    }
+
+    .container.desktop forgot-password .bottom-container {
+        display: -webkit-flex;
+        display: -ms-flexbox;
+        display: flex;
+        width: 570px;
+        -webkit-align-items: center;
+        -ms-flex-align: center;
+        align-items: center;
+        -webkit-justify-content: flex-end;
+        -ms-flex-pack: end;
+        justify-content: flex-end
+    }
+
+        .container.desktop forgot-password .bottom-container.with-link {
+            -webkit-justify-content: space-between;
+            -ms-flex-pack: justify;
+            justify-content: space-between
+        }
+
+        .container.desktop forgot-password .bottom-container .back-next-buttons {
+            width: 300px;
+            -webkit-justify-content: flex-end;
+            -ms-flex-pack: end;
+            justify-content: flex-end
+        }
+
+    .container.desktop forgot-password .recaptcha-widget {
+        margin-bottom: 50px;
+        -webkit-align-self: start;
+        -ms-flex-item-align: start;
+        align-self: start
+    }
+
+    .container.desktop account-verification .input-info {
+        width: 570px
+    }
+
+    .container.desktop account-verification .account-verification-content.content {
+        white-space: pre-line
+    }
+
+    .container.desktop account-verification .button-and-forgot-password {
+        display: -webkit-flex;
+        display: -ms-flexbox;
+        display: flex;
+        -webkit-align-items: center;
+        -ms-flex-align: center;
+        align-items: center;
+        height: 48px
+    }
+
+    .container.desktop account-verification .forgot-password-link {
+        font-size: 14px;
+        font-weight: 400
+    }
+
+.container.desktop .button-spinner .spinner-container {
+    margin-top: -3px;
+    width: 105px
+}
+
+.container.desktop reset-password {
+    margin-top: -250px
+}
+
+    .container.desktop reset-password .button-spinner {
+        right: 20px
+    }
+
+    .container.desktop reset-password form .title {
+        margin-bottom: 70px
+    }
+
+.container.desktop enter-code .old form .title {
+    width: -webkit-max-content;
+    width: max-content
+}
+
+.container.mobile {
+    width: 100%;
+    height: 100%;
+    top: 0;
+    bottom: 0;
+    display: -webkit-flex;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-justify-content: center;
+    -ms-flex-pack: center;
+    justify-content: center;
+    -webkit-align-items: center;
+    -ms-flex-align: center;
+    align-items: center;
+    -webkit-flex-direction: column;
+    -ms-flex-direction: column;
+    flex-direction: column;
+    padding: 25px;
+    font-size: 16px;
+    box-sizing: border-box;
+    font-weight: 400
+}
+
+    .container.mobile forgot-password {
+        margin-bottom: 6px
+    }
+
+        .container.mobile forgot-password .back-next-buttons {
+            margin-top: 15px
+        }
+
+@media only screen and (max-width:480px) {
+    .container.mobile forgot-password .back-next-buttons {
+        -webkit-justify-content: space-around;
+        -ms-flex-pack: distribute;
+        justify-content: space-around
+    }
+
+    .container.mobile .header .wix-logo {
+        height: 20px
+    }
+}
+
+@media only screen and (min-width:480px) {
+    .container.mobile forgot-password .back-next-buttons {
+        -webkit-justify-content: center;
+        -ms-flex-pack: center;
+        justify-content: center
+    }
+
+        .container.mobile forgot-password .back-next-buttons .back-btn {
+            margin-right: 24px
+        }
+}
+
+.container.mobile forgot-password-confirmation .button {
+    display: -webkit-flex;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-justify-content: center;
+    -ms-flex-pack: center;
+    justify-content: center
+}
+
+.container.mobile forgot-password-confirmation .content {
+    line-height: 24px;
+    margin-bottom: 33px
+}
+
+.container.mobile email-verified-confirmation .button {
+    display: -webkit-flex;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-justify-content: center;
+    -ms-flex-pack: center;
+    justify-content: center
+}
+
+    .container.mobile email-verified-confirmation .button .wix-button {
+        line-height: 2.5
+    }
+
+.container.mobile email-verified-confirmation .content {
+    line-height: 24px;
+    margin-bottom: 33px
+}
+
+.container.mobile enter-email .title {
+    font-size: 32px;
+    margin-bottom: 30px
+}
+
+.container.mobile enter-email .button-container {
+    display: -webkit-flex;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-justify-content: center;
+    -ms-flex-pack: center;
+    justify-content: center
+}
+
+.container.mobile enter-email .enter-email-send, .container.mobile enter-email .spinner-container {
+    margin-top: 12px
+}
+
+.container.mobile .header {
+    -webkit-justify-content: space-between;
+    -ms-flex-pack: justify;
+    justify-content: space-between;
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    padding: 25px;
+    box-sizing: border-box
+}
+
+    .container.mobile .header .x-close {
+        font-size: 14px
+    }
+
+@media only screen and (min-width:480px) {
+    .container.mobile enter-email .enter-email-send, .container.mobile enter-email .spinner-container {
+        margin-top: 22px
+    }
+
+    .container.mobile .header .wix-logo {
+        height: 29px
+    }
+}
+
+.container.mobile .header .editor-x-logo {
+    content: url(../bower_components/wix-brand-resources/resources/EditorX/EditorX_logo_19x86_white.svg)
+}
+
+.container.mobile mobile-input {
+    width: 100%;
+    margin-bottom: 13px
+}
+
+    .container.mobile mobile-input md-input-container {
+        font-family: Madefor, HelveticaNeueW01-45Ligh, HelveticaNeueW02-45Ligh, HelveticaNeueW10-45Ligh, sans-serif;
+        font-size: 16px;
+        height: auto;
+        font-weight: 400
+    }
+
+        .container.mobile mobile-input md-input-container .md-placeholder, .container.mobile mobile-input md-input-container label:not(.md-no-float):not(.md-container-ignore) {
+            padding-left: 12px
+        }
+
+        .container.mobile mobile-input md-input-container .md-input {
+            padding-bottom: 12px
+        }
+
+            .container.mobile mobile-input md-input-container .md-input, .container.mobile mobile-input md-input-container .md-input.ng-invalid.ng-dirty, .container.mobile mobile-input md-input-container.md-input-focused .md-input {
+                font-family: Madefor, HelveticaNeueW01-45Ligh, HelveticaNeueW02-45Ligh, HelveticaNeueW10-45Ligh, sans-serif;
+                font-size: 16px;
+                padding-left: 7px;
+                height: 26px;
+                font-weight: 400
+            }
+
+                .container.mobile mobile-input md-input-container .md-input.ng-invalid.ng-dirty, .container.mobile mobile-input md-input-container.md-input-focused .md-input {
+                    padding-bottom: 11px
+                }
+
+        .container.mobile mobile-input md-input-container i {
+            font-size: 20px;
+            right: 2px;
+            top: -3px
+        }
+
+.container.mobile login, .container.mobile signup {
+    display: -webkit-flex;
+    display: -ms-flexbox;
+    display: flex;
+    height: 100%;
+    width: 100%;
+    -webkit-justify-content: space-between;
+    -ms-flex-pack: justify;
+    justify-content: space-between;
+    -webkit-flex-direction: column;
+    -ms-flex-direction: column;
+    flex-direction: column;
+    max-width: 350px
+}
+
+@media only screen and (min-width:480px) {
+    .container.mobile login .login-btn, .container.mobile login .signup-btn, .container.mobile signup .login-btn, .container.mobile signup .signup-btn {
+        margin-bottom: 24px
+    }
+}
+
+@media only screen and (max-width:480px) {
+    .container.mobile login .login .new-user, .container.mobile login .signup .already-user, .container.mobile signup .login .new-user, .container.mobile signup .signup .already-user {
+        font-size: 15px;
+        margin-bottom: 33px;
+        display: -webkit-flex;
+        display: -ms-flexbox;
+        display: flex;
+        -webkit-justify-content: center;
+        -ms-flex-pack: center;
+        justify-content: center
+    }
+
+        .container.mobile login .login .new-user .login-link, .container.mobile login .login .new-user .signup-link, .container.mobile login .signup .already-user .login-link, .container.mobile login .signup .already-user .signup-link, .container.mobile signup .login .new-user .login-link, .container.mobile signup .login .new-user .signup-link, .container.mobile signup .signup .already-user .login-link, .container.mobile signup .signup .already-user .signup-link {
+            color: #116dff;
+            cursor: pointer;
+            margin-left: 3px
+        }
+
+        .container.mobile login .login .new-user.education, .container.mobile login .signup .already-user.education, .container.mobile signup .login .new-user.education, .container.mobile signup .signup .already-user.education {
+            margin-bottom: 80px
+        }
+}
+
+@media only screen and (min-width:480px) {
+    .container.mobile login .login .new-user, .container.mobile login .signup .already-user, .container.mobile signup .login .new-user, .container.mobile signup .signup .already-user {
+        font-size: 16px;
+        margin-bottom: 40px
+    }
+
+    .container.mobile login .email-section, .container.mobile signup .email-section {
+        margin-top: 48px
+    }
+
+    .container.mobile login terms-of-use, .container.mobile signup terms-of-use {
+        font-size: 13px;
+        line-height: 1.5
+    }
+
+    .container.mobile login .forgot-password-link, .container.mobile signup .forgot-password-link {
+        font-size: 16px
+    }
+}
+
+@media only screen and (max-width:480px) {
+    .container.mobile login .or-use-email, .container.mobile signup .or-use-email {
+        font-size: 13px;
+        font-family: Madefor, HelveticaNeueW01-Thin, HelveticaNeueW02-Thin, HelveticaNeueW10-35Thin, sans-serif;
+        font-weight: 400
+    }
+
+        .container.mobile login .or-use-email .text, .container.mobile signup .or-use-email .text {
+            margin: 20px 16px
+        }
+}
+
+.container.mobile .login .sozial-buttons .sozial-login, .container.mobile .signup .sozial-buttons .sozial-login, .container.mobile account-verification .button-and-forgot-password .forgot-password-link, .container.mobile login .forgot-password-link, .container.mobile login terms-of-use, .container.mobile signup terms-of-use, .container.mobile thank-you {
+    font-family: Madefor, HelveticaNeueW01-45Ligh, HelveticaNeueW02-45Ligh, HelveticaNeueW10-45Ligh, sans-serif
+}
+
+@media only screen and (min-width:480px) {
+    .container.mobile login .or-use-email, .container.mobile signup .or-use-email {
+        font-size: 14px;
+        font-family: Madefor, HelveticaNeueW01-45Ligh, HelveticaNeueW02-45Ligh, HelveticaNeueW10-45Ligh, sans-serif;
+        margin-top: 20px;
+        font-weight: 400
+    }
+
+        .container.mobile login .or-use-email .text, .container.mobile signup .or-use-email .text {
+            margin: 20px 24px;
+            line-height: 1
+        }
+
+    .container.mobile login .sozial-buttons .sozial-login, .container.mobile signup .sozial-buttons .sozial-login {
+        font-size: 20px;
+        height: 54px
+    }
+}
+
+@media only screen and (max-width:480px) {
+    .container.mobile login .sozial-buttons .sozial-login.zoogle-login-button, .container.mobile signup .sozial-buttons .sozial-login.zoogle-login-button {
+        margin-top: 12px;
+        margin-bottom: 10px
+    }
+}
+
+@media only screen and (min-width:480px) {
+    .container.mobile login .sozial-buttons .sozial-login.zoogle-login-button, .container.mobile signup .sozial-buttons .sozial-login.zoogle-login-button {
+        margin-top: 18px;
+        margin-bottom: 7px
+    }
+}
+
+.container.mobile login terms-of-use, .container.mobile signup terms-of-use {
+    text-align: center;
+    color: #2F2F30;
+    font-size: 11px;
+    display: inline-block;
+    -webkit-align-items: center;
+    -ms-flex-align: center;
+    align-items: center;
+    margin-bottom: 15px;
+    font-weight: 400
+}
+
+    .container.mobile login terms-of-use .terms-of-use, .container.mobile signup terms-of-use .terms-of-use {
+        width: 100%
+    }
+
+    .container.mobile login terms-of-use hr, .container.mobile signup terms-of-use hr {
+        width: 90%;
+        border: 0;
+        border-top: 1px solid #DFE5EB
+    }
+
+.container.mobile signup .signup-buttons {
+    width: 100%;
+    display: -webkit-flex;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-justify-content: space-between;
+    -ms-flex-pack: justify;
+    justify-content: space-between;
+    -webkit-align-items: center;
+    -ms-flex-align: center;
+    align-items: center;
+    margin-bottom: 30px;
+    margin-top: 8px
+}
+
+    .container.mobile signup .signup-buttons .text-or {
+        font-size: 12px;
+        margin-left: 1px
+    }
+
+    .container.mobile signup .signup-buttons .signup-btn {
+        margin-bottom: 0;
+        margin-top: 0
+    }
+
+        .container.mobile signup .signup-buttons .signup-btn + .spinner-container {
+            margin-bottom: 0
+        }
+
+.container.mobile login .forgot-password-link {
+    margin-bottom: 33px;
+    -webkit-align-self: flex-end;
+    -ms-flex-item-align: end;
+    align-self: flex-end;
+    font-size: 14px;
+    font-weight: 400
+}
+
+.container.mobile login .login-btn {
+    margin-bottom: 15px;
+    width: 100%
+}
+
+.container.mobile login .sozial-signin-icons {
+    width: 100%;
+    display: -webkit-flex;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-justify-content: space-between;
+    -ms-flex-pack: justify;
+    justify-content: space-between;
+    -webkit-align-items: center;
+    -ms-flex-align: center;
+    align-items: center;
+    margin-bottom: 20px
+}
+
+.container.mobile .login, .container.mobile .signup {
+    width: 100%;
+    height: 100%
+}
+
+    .container.mobile .login .form-header, .container.mobile .signup .form-header {
+        position: relative;
+        background-color: #fff;
+        z-index: 3;
+        text-align: center
+    }
+
+    .container.mobile .login .email-no-focus, .container.mobile .signup .email-no-focus {
+        width: 100%;
+        transition: opacity .3s, -webkit-transform .7s ease-in;
+        transition: opacity .3s, transform .7s ease-in;
+        overflow: hidden
+    }
+
+    .container.mobile .login .form-content, .container.mobile .signup .form-content {
+        transition: -webkit-transform .3s ease-in;
+        transition: transform .3s ease-in
+    }
+
+    .container.mobile .login.is-email-focus, .container.mobile .signup.is-email-focus {
+        height: 183px
+    }
+
+        .container.mobile .login.is-email-focus .form-content, .container.mobile .signup.is-email-focus .form-content {
+            -webkit-transform: translateY(-150px);
+            -ms-transform: translateY(-150px);
+            transform: translateY(-150px)
+        }
+
+        .container.mobile .login.is-email-focus .email-no-focus, .container.mobile .signup.is-email-focus .email-no-focus {
+            opacity: 0;
+            z-index: 1
+        }
+
+        .container.mobile .login.is-email-focus .or-use-email, .container.mobile .signup.is-email-focus .or-use-email {
+            display: none
+        }
+
+    .container.mobile .login .email-section, .container.mobile .signup .email-section {
+        margin-bottom: 48px;
+        outline: 0;
+        width: 100%
+    }
+
+    .container.mobile .login .email-focus, .container.mobile .signup .email-focus {
+        width: 100%;
+        display: -webkit-flex;
+        display: -ms-flexbox;
+        display: flex;
+        -webkit-flex-direction: column;
+        -ms-flex-direction: column;
+        flex-direction: column;
+        -webkit-align-items: center;
+        -ms-flex-align: center;
+        align-items: center
+    }
+
+    .container.mobile .login .or-use-email, .container.mobile .signup .or-use-email {
+        color: #20303c;
+        text-align: center;
+        display: -webkit-flex;
+        display: -ms-flexbox;
+        display: flex;
+        -webkit-flex-direction: row;
+        -ms-flex-direction: row;
+        flex-direction: row;
+        -webkit-align-items: center;
+        -ms-flex-align: center;
+        align-items: center;
+        margin-top: 10px;
+        font-size: 13px
+    }
+
+        .container.mobile .login .or-use-email .text, .container.mobile .signup .or-use-email .text {
+            margin: 20px 16px;
+            white-space: nowrap
+        }
+
+        .container.mobile .login .or-use-email .separator, .container.mobile .signup .or-use-email .separator {
+            border-top: 1px solid #e0e3e5;
+            height: 0;
+            -webkit-flex-grow: 1;
+            -ms-flex-positive: 1;
+            flex-grow: 1
+        }
+
+    .container.mobile .login .login-link, .container.mobile .login .signup-link, .container.mobile .signup .login-link, .container.mobile .signup .signup-link {
+        white-space: nowrap
+    }
+
+    .container.mobile .login .title, .container.mobile .signup .title {
+        font-size: 36px;
+        padding-bottom: 7px;
+        padding-top: 33px;
+        text-align: center
+    }
+
+@media only screen and (max-width:480px) {
+    .container.mobile .login .title, .container.mobile .signup .title {
+        padding-bottom: 0;
+        font-size: 36px
+    }
+}
+
+@media only screen and (min-width:480px) {
+    .container.mobile .login.is-email-focus .form-content, .container.mobile .signup.is-email-focus .form-content {
+        -webkit-transform: translateY(-190px);
+        -ms-transform: translateY(-190px);
+        transform: translateY(-190px)
+    }
+
+    .container.mobile .login .title, .container.mobile .signup .title {
+        margin-bottom: 13px;
+        font-size: 40px
+    }
+}
+
+@media only screen and (max-height:800px) {
+    .container.mobile .login .title, .container.mobile .signup .title {
+        margin-top: 33px
+    }
+}
+
+@media only screen and (min-height:800px) and (max-height:1100px) {
+    .container.mobile .login .title, .container.mobile .signup .title {
+        margin-top: 90px
+    }
+}
+
+@media only screen and (min-height:1100px) {
+    .container.mobile .login .title, .container.mobile .signup .title {
+        margin-top: 190px
+    }
+}
+
+.container.mobile .login .already-user, .container.mobile .login .new-user, .container.mobile .signup .already-user, .container.mobile .signup .new-user {
+    margin-bottom: 33px;
+    font-size: 14px;
+    font-family: Madefor, HelveticaNeueW01-45Ligh, HelveticaNeueW02-45Ligh, HelveticaNeueW10-45Ligh, sans-serif;
+    text-align: center;
+    font-weight: 400
+}
+
+.container.mobile .login .login-btn, .container.mobile .login .signup-btn, .container.mobile .signup .login-btn, .container.mobile .signup .signup-btn {
+    font-size: 16px;
+    margin-bottom: 19px
+}
+
+    .container.mobile .login .login-btn + .spinner-container, .container.mobile .login .signup-btn + .spinner-container, .container.mobile .signup .login-btn + .spinner-container, .container.mobile .signup .signup-btn + .spinner-container {
+        margin-bottom: 19px
+    }
+
+.container.mobile .login .sozial-icons, .container.mobile .signup .sozial-icons {
+    display: -webkit-flex;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-align-items: center;
+    -ms-flex-align: center;
+    align-items: center;
+    -webkit-flex-direction: row;
+    -ms-flex-direction: row;
+    flex-direction: row
+}
+
+    .container.mobile .login .sozial-icons .sozial-login, .container.mobile .signup .sozial-icons .sozial-login {
+        border-radius: 50%;
+        height: 100%;
+        width: 100%;
+        display: -webkit-flex;
+        display: -ms-flexbox;
+        display: flex;
+        -webkit-justify-content: center;
+        -ms-flex-pack: center;
+        justify-content: center;
+        -webkit-align-items: center;
+        -ms-flex-align: center;
+        align-items: center
+    }
+
+        .container.mobile .login .sozial-icons .sozial-login.fazebook-login-button, .container.mobile .signup .sozial-icons .sozial-login.fazebook-login-button {
+            color: #3b5998;
+            border: 1px solid #3b5998
+        }
+
+        .container.mobile .login .sozial-icons .sozial-login.zoogle-login-button.old, .container.mobile .signup .sozial-icons .sozial-login.zoogle-login-button.old {
+            color: #d34836;
+            border: 1px solid #d34836
+        }
+
+        .container.mobile .login .sozial-icons .sozial-login.zoogle-login-button.new, .container.mobile .signup .sozial-icons .sozial-login.zoogle-login-button.new {
+            border: 1px solid #4285f4
+        }
+
+.container.mobile .login .sozial-icon-container, .container.mobile .signup .sozial-icon-container {
+    display: -webkit-flex;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-justify-content: center;
+    -ms-flex-pack: center;
+    justify-content: center;
+    -webkit-align-items: center;
+    -ms-flex-align: center;
+    align-items: center;
+    height: 40px;
+    width: 42px
+}
+
+    .container.mobile .login .sozial-icon-container.fazebook-container, .container.mobile .signup .sozial-icon-container.fazebook-container {
+        margin-right: 9px
+    }
+
+.container.mobile .login .sozial-buttons, .container.mobile .signup .sozial-buttons {
+    display: -webkit-flex;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-align-items: center;
+    -ms-flex-align: center;
+    align-items: center;
+    -webkit-flex-direction: column;
+    -ms-flex-direction: column;
+    flex-direction: column
+}
+
+    .container.mobile .login .sozial-buttons .sozial-login, .container.mobile .signup .sozial-buttons .sozial-login {
+        width: 100%;
+        height: 48px;
+        box-sizing: border-box;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+        overflow: hidden;
+        border-radius: 999px;
+        border: 0;
+        color: #fff;
+        font-size: 16px;
+        padding: 4px 12px;
+        cursor: pointer;
+        outline: 0;
+        margin-bottom: 2px;
+        display: -webkit-flex;
+        display: -ms-flexbox;
+        display: flex;
+        -webkit-align-items: center;
+        -ms-flex-align: center;
+        align-items: center;
+        -webkit-justify-content: center;
+        -ms-flex-pack: center;
+        justify-content: center;
+        font-weight: 400
+    }
+
+        .container.mobile .login .sozial-buttons .sozial-login.fazebook-login-button, .container.mobile .signup .sozial-buttons .sozial-login.fazebook-login-button {
+            background-color: #3b5998
+        }
+
+        .container.mobile .login .sozial-buttons .sozial-login.zoogle-login-button, .container.mobile .signup .sozial-buttons .sozial-login.zoogle-login-button {
+            background-color: #d34836;
+            margin-top: 12px;
+            margin-bottom: 10px
+        }
+
+    .container.mobile .login .sozial-buttons .sozial-spinner-container, .container.mobile .signup .sozial-buttons .sozial-spinner-container {
+        height: 48px;
+        display: -webkit-flex;
+        display: -ms-flexbox;
+        display: flex;
+        -webkit-justify-content: center;
+        -ms-flex-pack: center;
+        justify-content: center
+    }
+
+    .container.mobile .login .sozial-buttons .fazebook + .sozial-spinner-container, .container.mobile .signup .sozial-buttons .fazebook + .sozial-spinner-container {
+        margin-bottom: 2px
+    }
+
+    .container.mobile .login .sozial-buttons .zoogle + .sozial-spinner-container, .container.mobile .signup .sozial-buttons .zoogle + .sozial-spinner-container {
+        margin-top: 12px;
+        margin-bottom: 10px
+    }
+
+.container.mobile .login .sub-title, .container.mobile .signup .sub-title {
+    margin-bottom: 80px
+}
+
+@media only screen and (max-width:446px) {
+    .container.mobile .recaptcha-widget {
+        margin-left: 3px;
+        -webkit-transform: scale(.9);
+        -ms-transform: scale(.9);
+        transform: scale(.9)
+    }
+}
+
+.container.mobile .recaptcha-widget > div {
+    margin-bottom: 10px
+}
+
+.container.mobile thank-you {
+    font-size: 16px;
+    margin-top: 102px;
+    margin-bottom: 50px;
+    font-weight: 400
+}
+
+    .container.mobile thank-you .title {
+        font-size: 32px;
+        margin-bottom: 26px
+    }
+
+    .container.mobile thank-you .sub-title {
+        margin-bottom: 12px
+    }
+
+    .container.mobile thank-you .user-email {
+        margin-bottom: 28px;
+        font-weight: 700
+    }
+
+    .container.mobile thank-you .content {
+        margin-bottom: 48px;
+        line-height: 24px
+    }
+
+.container.mobile account-verification .input-info {
+    width: 100%
+}
+
+.container.mobile account-verification .button-and-forgot-password {
+    display: -webkit-flex;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-flex-direction: column;
+    -ms-flex-direction: column;
+    flex-direction: column;
+    -webkit-align-items: center;
+    -ms-flex-align: center;
+    align-items: center
+}
+
+    .container.mobile account-verification .button-and-forgot-password .spinner-container, .container.mobile account-verification .button-and-forgot-password .verify-btn {
+        margin: 10px 0
+    }
+
+@media only screen and (min-width:480px) {
+    .container.mobile account-verification .button-and-forgot-password .spinner-container, .container.mobile account-verification .button-and-forgot-password .verify-btn {
+        margin: 20px 0 0
+    }
+}
+
+.container.mobile account-verification .button-and-forgot-password .forgot-password-link {
+    margin-bottom: 8px;
+    font-size: 13px;
+    font-weight: 400
+}
+
+@media only screen and (min-width:480px) {
+    .container.mobile account-verification .button-and-forgot-password .forgot-password-link {
+        margin-top: 24px;
+        font-size: 16px
+    }
+}
+
+.container.mobile reset-password form .title {
+    font-size: 32px;
+    margin-bottom: 30px
+}
+
+.container.mobile reset-password form md-input-container {
+    margin: 24px 0
+}
+
+.container.mobile reset-password form .button-spinner {
+    display: -webkit-flex;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-justify-content: center;
+    -ms-flex-pack: center;
+    justify-content: center
+}
+
+.container.mobile reset-password form .reset-btn, .container.mobile reset-password form .spinner-container {
+    margin-top: 12px
+}
+
+@media only screen and (min-width:480px) {
+    .container.mobile reset-password form .reset-btn, .container.mobile reset-password form .spinner-container {
+        margin-top: 22px
+    }
+}
+
+.container.mobile reset-password-confirmation .button {
+    display: -webkit-flex;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-justify-content: center;
+    -ms-flex-pack: center;
+    justify-content: center
+}
+
+    .container.mobile reset-password-confirmation .button .wix-button {
+        line-height: 2.5
+    }
+
+.container.mobile reset-password-confirmation .content {
+    line-height: 24px;
+    margin-bottom: 33px
+}
+
+.container.mobile enter-code {
+    height: 100%
+}
+
+    .container.mobile enter-code .old {
+        max-width: 350px;
+        height: 100%
+    }
+
+        .container.mobile enter-code .old form .header-container {
+            width: 100%
+        }
+
+            .container.mobile enter-code .old form .header-container .enter-code-title.title {
+                font-size: 30px;
+                width: 100%
+            }
+
+        .container.mobile enter-code .old form button.back {
+            border: none;
+            margin: 0 0 10px;
+            padding: 0 0 0 10px;
+            width: auto;
+            overflow: visible;
+            background: url(../images/back.svg) left no-repeat;
+            color: inherit;
+            font: inherit;
+            line-height: normal;
+            -webkit-font-smoothing: inherit;
+            -moz-osx-font-smoothing: inherit;
+            -webkit-appearance: none;
+            font-family: Madefor, HelveticaNeueW01-55Roma, HelveticaNeueW02-55Roma, HelveticaNeueW10-55Roma, sans-serif;
+            font-size: 14px;
+            cursor: pointer;
+            font-weight: 400
+        }
+
+body, md-input-container label {
+    -webkit-font-smoothing: antialiased
+}
+
+.container.mobile enter-code .old form .button-container {
+    margin-bottom: 50px;
+    width: 100%
+}
+
+    .container.mobile enter-code .old form .button-container button.verify-btn {
+        width: 100%;
+        box-shadow: none
+    }
+
+        .container.mobile enter-code .old form .button-container button.verify-btn:focus, .container.mobile enter-code .old form .button-container button.verify-btn:hover {
+            background: #3899ec
+        }
+
+    .container.mobile enter-code .old form .button-container .bouncing-points-container {
+        background: #3899ec;
+        border-radius: 999px;
+        border: none;
+        margin-top: 16px;
+        height: 54px
+    }
+
+        .container.mobile enter-code .old form .button-container .bouncing-points-container bouncing-points .points {
+            width: 50px;
+            padding-top: 10px;
+            padding-left: 10px
+        }
+
+            .container.mobile enter-code .old form .button-container .bouncing-points-container bouncing-points .points .point {
+                width: 8px;
+                height: 8px
+            }
+
+.container.mobile enter-code .old form mobile-input {
+    font-size: 18px;
+    max-height: 66px
+}
+
+.container.mobile enter-code .old form .remember-me-section {
+    margin-bottom: 50px;
+    width: 100%;
+    -webkit-justify-content: flex-end;
+    -ms-flex-pack: end;
+    justify-content: flex-end;
+    display: -webkit-flex;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-flex-direction: row-reverse;
+    -ms-flex-direction: row-reverse;
+    flex-direction: row-reverse
+}
+
+    .container.mobile enter-code .old form .remember-me-section wix-checkbox {
+        margin-right: 5px
+    }
+
+.container.mobile enter-code .old form .links-container {
+    display: -webkit-flex;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-flex-direction: column;
+    -ms-flex-direction: column;
+    flex-direction: column;
+    -webkit-align-items: center;
+    -ms-flex-align: center;
+    align-items: center
+}
+
+    .container.mobile enter-code .old form .links-container a {
+        cursor: pointer
+    }
+
+    .container.mobile enter-code .old form .links-container .resend-code-container {
+        margin-bottom: 8px;
+        display: grid;
+        grid-template-columns: 35px 116px 35px;
+        overflow: hidden;
+        height: 20px
+    }
+
+    .container.mobile enter-code .old form .links-container .switch-methods-container {
+        display: -webkit-flex;
+        display: -ms-flexbox;
+        display: flex;
+        -webkit-flex-direction: column;
+        -ms-flex-direction: column;
+        flex-direction: column;
+        -webkit-align-items: center;
+        -ms-flex-align: center;
+        align-items: center;
+        margin-bottom: 10px
+    }
+
+        .container.mobile enter-code .old form .links-container .switch-methods-container .switch-method {
+            margin-top: 6px
+        }
+
+.container.mobile .title {
+    font-size: 32px;
+    margin-bottom: 26px
+}
+
+.container.mobile .content {
+    font-size: 16px;
+    margin-bottom: 38px
+}
+
+.container.mobile .wix-button {
+    font-size: 16px;
+    min-width: 106px;
+    height: 42px
+}
+
+@media only screen and (min-width:480px) {
+    .container.mobile .content {
+        font-family: Madefor, HelveticaNeueW01-45Ligh, HelveticaNeueW02-45Ligh, HelveticaNeueW10-45Ligh, sans-serif;
+        margin-bottom: 50px;
+        font-weight: 400
+    }
+
+    .container.mobile .wix-button {
+        font-size: 20px;
+        min-width: 118px;
+        height: 54px;
+        margin-top: 16px
+    }
+}
+
+.container.mobile .spinner-container {
+    min-width: 106px;
+    height: 42px;
+    display: -webkit-flex;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-justify-content: center;
+    -ms-flex-pack: center;
+    justify-content: center
+}
+
+.container.mobile account-verification, .container.mobile email-verified-confirmation, .container.mobile enter-code .old, .container.mobile enter-email, .container.mobile forgot-password, .container.mobile forgot-password-confirmation, .container.mobile reset-password, .container.mobile reset-password-confirmation, .container.mobile thank-you {
+    padding: 0 20px
+}
+
+    .container.mobile account-verification form, .container.mobile email-verified-confirmation form, .container.mobile enter-code .old form, .container.mobile enter-email form, .container.mobile forgot-password form, .container.mobile forgot-password-confirmation form, .container.mobile reset-password form, .container.mobile reset-password-confirmation form, .container.mobile thank-you form {
+        display: -webkit-flex;
+        display: -ms-flexbox;
+        display: flex;
+        -webkit-align-items: center;
+        -ms-flex-align: center;
+        align-items: center;
+        -webkit-flex-direction: column;
+        -ms-flex-direction: column;
+        flex-direction: column;
+        margin-bottom: 50px
+    }
+
+@media only screen and (max-height:800px) {
+    .container.mobile account-verification form, .container.mobile email-verified-confirmation form, .container.mobile enter-code .old form, .container.mobile enter-email form, .container.mobile forgot-password form, .container.mobile forgot-password-confirmation form, .container.mobile reset-password form, .container.mobile reset-password-confirmation form, .container.mobile thank-you form {
+        margin-top: 102px
+    }
+}
+
+@media only screen and (min-height:800px) and (max-height:1100px) {
+    .container.mobile account-verification form, .container.mobile email-verified-confirmation form, .container.mobile enter-code .old form, .container.mobile enter-email form, .container.mobile forgot-password form, .container.mobile forgot-password-confirmation form, .container.mobile reset-password form, .container.mobile reset-password-confirmation form, .container.mobile thank-you form {
+        margin-top: 123px
+    }
+}
+
+@media only screen and (min-height:1100px) {
+    .container.mobile account-verification form, .container.mobile email-verified-confirmation form, .container.mobile enter-code .old form, .container.mobile enter-email form, .container.mobile forgot-password form, .container.mobile forgot-password-confirmation form, .container.mobile reset-password form, .container.mobile reset-password-confirmation form, .container.mobile thank-you form {
+        margin-top: 223px
+    }
+}
+
+.container.mobile account-verification form .title, .container.mobile email-verified-confirmation form .title, .container.mobile enter-code .old form .title, .container.mobile enter-email form .title, .container.mobile forgot-password form .title, .container.mobile forgot-password-confirmation form .title, .container.mobile reset-password form .title, .container.mobile reset-password-confirmation form .title, .container.mobile thank-you form .title {
+    margin-bottom: 30px
+}
+
+@media only screen and (max-width:480px) {
+    .container.mobile account-verification form .title, .container.mobile email-verified-confirmation form .title, .container.mobile enter-code .old form .title, .container.mobile enter-email form .title, .container.mobile forgot-password form .title, .container.mobile forgot-password-confirmation form .title, .container.mobile reset-password form .title, .container.mobile reset-password-confirmation form .title, .container.mobile thank-you form .title {
+        font-size: 32px;
+        width: 234px
+    }
+}
+
+@media only screen and (min-width:480px) {
+    .container.mobile account-verification form .title, .container.mobile email-verified-confirmation form .title, .container.mobile enter-code .old form .title, .container.mobile enter-email form .title, .container.mobile forgot-password form .title, .container.mobile forgot-password-confirmation form .title, .container.mobile reset-password form .title, .container.mobile reset-password-confirmation form .title, .container.mobile thank-you form .title {
+        font-size: 40px
+    }
+}
+
+.container.mobile enter-code .old .spinner-container {
+    min-width: inherit;
+    height: 30px
+}
+
+    .container.mobile enter-code .old .spinner-container spinner {
+        -webkit-align-items: end;
+        -ms-flex-align: end;
+        align-items: end
+    }
+
+        .container.mobile enter-code .old .spinner-container spinner .spinner {
+            width: 20px;
+            height: 20px
+        }
+
+.container.mobile enter-code .old form .title {
+    width: -webkit-max-content;
+    width: max-content
+}
+
+@media only screen and (max-width:480px) {
+    .container.mobile reset-password form .title {
+        width: 280px
+    }
+}
+
+body.marketing-design {
+    background-color: #1f77ff
+}
+
+    body.marketing-design .container.mobile {
+        color: #fff
+    }
+
+        body.marketing-design .container.mobile .wix-logo {
+            -webkit-filter: brightness(100);
+            filter: brightness(100)
+        }
+
+        body.marketing-design .container.mobile .form-header {
+            font-family: Madefor, HelveticaNeueW01-65Medi, HelveticaNeueW02-65Medi, HelveticaNeueW10-65Medi, sans-serif;
+            background-color: #1f77ff;
+            font-weight: 400
+        }
+
+        body.marketing-design .container.mobile .or-use-email {
+            color: unset
+        }
+
+        body.marketing-design .container.mobile md-input-container .md-input {
+            color: #fff;
+            box-shadow: unset !important
+        }
+
+        body.marketing-design .container.mobile md-input-container input:-webkit-autofill {
+            -webkit-text-fill-color: #fff;
+            -webkit-box-shadow: 0 0 0 1000px #1f77ff inset !important
+        }
+
+        body.marketing-design .container.mobile md-input-container .label {
+            color: unset !important
+        }
+
+        body.marketing-design .container.mobile md-input-container.has-error .error-label, body.marketing-design .container.mobile md-input-container.has-error i.error {
+            color: #11418c !important
+        }
+
+        body.marketing-design .container.mobile .ng-submitted md-input-container.has-error input, body.marketing-design .container.mobile md-input-container.has-error input.md-input.ng-invalid.ng-dirty {
+            border-bottom-color: #11418c
+        }
+
+        body.marketing-design .container.mobile a {
+            color: #fff;
+            text-decoration: underline
+        }
+
+        body.marketing-design .container.mobile .wix-button {
+            color: #fff;
+            background-color: #f96132;
+            font-weight: 600
+        }
+
+            body.marketing-design .container.mobile .wix-button.is-button-outline {
+                color: #f96132 !important;
+                background-color: #1f77ff;
+                box-shadow: inset 0 0 0 1px #f96132 !important
+            }
+
+        body.marketing-design .container.mobile social-signin .sozial-icons .sozial-login.fazebook-login-button, body.marketing-design .container.mobile social-signin .sozial-icons .sozial-login.zoogle-login-button {
+            background-color: #fff;
+            border: none
+        }
+
+        body.marketing-design .container.mobile terms-of-use {
+            color: #fff
+        }
+
+        body.marketing-design .container.mobile forgot-password {
+            background-color: unset
+        }
+
+body {
+    margin: 0;
+    -moz-osx-font-smoothing: grayscale
+}
+
+a {
+    color: #116dff;
+    text-decoration: none
+}
+
+.wix-tooltip-container {
+    font-family: Madefor, HelveticaNeueW01-45Ligh, HelveticaNeueW02-45Ligh, HelveticaNeueW10-45Ligh, sans-serif !important;
+    background-color: #fff !important;
+    color: #000 !important;
+    font-weight: 400
+}
+
+.container, body, html {
+    width: 100%;
+    height: 100%;
+    display: block;
+    color: #162d3d
+}
+
+md-progress-circular .md-inner .md-left .md-half-circle, md-progress-circular .md-inner .md-right .md-half-circle {
+    border-color: #116dff
+}
+
+.header {
+    width: 100%;
+    display: -webkit-flex;
+    display: -ms-flexbox;
+    display: flex
+}
+
+    .header .x-close {
+        color: #20303c;
+        font-size: 25px;
+        cursor: pointer;
+        outline: 0
+    }
+
+.wix-button {
+    line-height: 1.5
+}
+
+.login-svg-font-icons-fazebook:before {
+    margin-bottom: 2px
+}
+
+.login-svg-font-icons-zoogle:before {
+    margin-bottom: 2px;
+    margin-left: 1px
+}
+
+social-signin .facebook-button, social-signin .google-button {
+    margin-bottom: 9px
+}
+
+account-verification, email-verified-confirmation, enter-code .old, enter-email, forgot-password, forgot-password-confirmation, reset-password, reset-password-confirmation, thank-you {
+    height: 100%;
+    display: -webkit-flex;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-align-items: center;
+    -ms-flex-align: center;
+    align-items: center;
+    -webkit-flex-direction: column;
+    -ms-flex-direction: column;
+    flex-direction: column;
+    font-family: Madefor, HelveticaNeueW01-45Ligh, HelveticaNeueW02-45Ligh, HelveticaNeueW10-45Ligh, sans-serif;
+    font-weight: 400
+}
+
+    account-verification form, email-verified-confirmation form, enter-code .old form, enter-email form, forgot-password form, forgot-password-confirmation form, reset-password form, reset-password-confirmation form, thank-you form {
+        width: 100%
+    }
+
+    account-verification .content, account-verification .title, email-verified-confirmation .content, email-verified-confirmation .title, enter-code .old .content, enter-code .old .title, enter-email .content, enter-email .title, forgot-password .content, forgot-password .title, forgot-password-confirmation .content, forgot-password-confirmation .title, reset-password .content, reset-password .title, reset-password-confirmation .content, reset-password-confirmation .title, thank-you .content, thank-you .title {
+        text-align: center
+    }
+
+    account-verification h1.normal, email-verified-confirmation h1.normal, enter-code .old h1.normal, enter-email h1.normal, forgot-password h1.normal, forgot-password-confirmation h1.normal, reset-password h1.normal, reset-password-confirmation h1.normal, thank-you h1.normal {
+        font-weight: 400
+    }
+
+    account-verification .button-and-forgot-password {
+        display: -webkit-flex;
+        display: -ms-flexbox;
+        display: flex;
+        -webkit-justify-content: space-between;
+        -ms-flex-pack: justify;
+        justify-content: space-between
+    }
+
+    account-verification .title-and-content {
+        display: -webkit-flex;
+        display: -ms-flexbox;
+        display: flex;
+        -webkit-justify-content: center;
+        -ms-flex-pack: center;
+        justify-content: center;
+        -webkit-flex-direction: column;
+        -ms-flex-direction: column;
+        flex-direction: column;
+        -webkit-align-items: center;
+        -ms-flex-align: center;
+        align-items: center
+    }
+
+    account-verification .forgot-password-link {
+        height: 20px
+    }
+
+    forgot-password .title-and-instructions {
+        display: -webkit-flex;
+        display: -ms-flexbox;
+        display: flex;
+        -webkit-align-items: center;
+        -ms-flex-align: center;
+        align-items: center;
+        -webkit-flex-direction: column;
+        -ms-flex-direction: column;
+        flex-direction: column
+    }
+
+    forgot-password .back-next-buttons {
+        display: -webkit-flex;
+        display: -ms-flexbox;
+        display: flex;
+        -webkit-flex-direction: row;
+        -ms-flex-direction: row;
+        flex-direction: row;
+        width: 100%
+    }
+
+        forgot-password .back-next-buttons .back-btn {
+            margin-right: 10px
+        }
+
+social-signin .social-button {
+    height: 56px;
+    width: 308px;
+    padding: 4px;
+    border-radius: 1px;
+    box-sizing: border-box;
+    background-color: #fff;
+    background-image: none;
+    color: #262626;
+    cursor: pointer;
+    overflow: hidden;
+    position: relative;
+    text-align: center;
+    vertical-align: middle;
+    white-space: nowrap
+}
+
+    social-signin .social-button .buttonContentWrapper {
+        display: block;
+        cursor: pointer;
+        padding: 0;
+        height: 100%;
+        width: 100%
+    }
+
+        social-signin .social-button .buttonContentWrapper:focus {
+            outline: #daeffe solid 3px
+        }
+
+        social-signin .social-button .buttonContentWrapper .buttonIcon {
+            padding: 13px;
+            float: left
+        }
+
+            social-signin .social-button .buttonContentWrapper .buttonIcon .buttonSvgImage {
+                width: 18px;
+                height: 18px;
+                background-size: contain;
+                background-repeat: no-repeat;
+                background-position: center
+            }
+
+        social-signin .social-button .buttonContentWrapper .buttonContents {
+            font-family: Madefor, HelveticaNeueW01-55Roma, HelveticaNeueW02-55Roma, HelveticaNeueW10-55Roma, sans-serif;
+            font-size: 14px;
+            letter-spacing: .21px;
+            margin-left: 6px;
+            margin-right: 6px;
+            vertical-align: top;
+            line-height: 48px;
+            font-weight: 400
+        }
+
+social-signin .facebook-button .buttonContentWrapper {
+    display: block;
+    cursor: pointer;
+    padding: 0;
+    background-color: #3b5998;
+    border: 1px solid transparent;
+    color: #fff
+}
+
+    social-signin .facebook-button .buttonContentWrapper .buttonIcon {
+        background-color: #fff;
+        border-radius: 1px;
+        padding: 12px 15px 11px 16px
+    }
+
+        social-signin .facebook-button .buttonContentWrapper .buttonIcon .buttonSvgImage {
+            width: 15px;
+            height: 23px;
+            background-image: url(../images/facebook-logo.svg)
+        }
+
+social-signin .google-button .buttonContentWrapper {
+    display: block;
+    cursor: pointer;
+    padding: 0;
+    background-color: #4285f4;
+    color: #fff;
+    border: 1px solid transparent
+}
+
+    social-signin .google-button .buttonContentWrapper .buttonIcon {
+        background-color: #fff;
+        border-radius: 1px
+    }
+
+        social-signin .google-button .buttonContentWrapper .buttonIcon .buttonSvgImage {
+            width: 20px;
+            height: 20px;
+            background-image: url(../images/google-logo.svg)
+        }
+
+social-signin .apple-button .buttonContentWrapper {
+    display: block;
+    cursor: pointer;
+    padding: 0;
+    background-color: #fff;
+    color: #000;
+    border: 1px solid #000
+}
+
+    social-signin .apple-button .buttonContentWrapper .buttonIcon {
+        background-color: #fff;
+        border-radius: 1px;
+        border-right: 1px solid #000
+    }
+
+        social-signin .apple-button .buttonContentWrapper .buttonIcon .buttonSvgImage {
+            width: 20px;
+            height: 20px;
+            background-image: url(../images/apple-logo.svg)
+        }
+
+social-signin .error-message {
+    width: 300px;
+    margin-top: 15px;
+    font-size: 15px;
+    color: red
+}
+
+social-signin .google-error {
+    background: #FFEBEB;
+    border: 1px solid #FFD7D7;
+    box-sizing: border-box;
+    border-radius: 6px;
+    display: -webkit-flex;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-flex-direction: row;
+    -ms-flex-direction: row;
+    flex-direction: row;
+    -webkit-align-items: center;
+    -ms-flex-align: center;
+    align-items: center;
+    padding: 6px 12px;
+    width: 300px;
+    margin-top: 15px;
+    font-size: 14px;
+    margin-left: 4px
+}
+
+    social-signin .google-error .error-msg {
+        padding-left: 5px
+    }
+
+    social-signin .google-error .svg-icon {
+        width: 70px;
+        height: 27px;
+        background-image: url(../images/svg-font-icons/error-updated.svg)
+    }
+
+social-signin .sso-link-container {
+    display: -webkit-flex;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-flex-direction: column;
+    -ms-flex-direction: column;
+    flex-direction: column;
+    -webkit-align-items: center;
+    -ms-flex-align: center;
+    align-items: center;
+    margin-top: 15px
+}
+
+    social-signin .sso-link-container a {
+        font-size: 14px;
+        cursor: pointer
+    }
+
+.google-icon-small-button {
+    height: 19px;
+    width: 19px;
+    background: url(../images/google-logo.svg) no-repeat
+}
+
+social-signin.mobile .social-button {
+    width: 100%;
+    height: unset
+}
+
+    social-signin.mobile .social-button.facebook-button .buttonIcon {
+        padding: 13px 16px 12px 17px
+    }
+
+    social-signin.mobile .social-button .buttonIcon {
+        padding: 14px
+    }
+
+social-signin.mobile .error-message {
+    width: unset;
+    font-size: 13px
+}
+
+.grecaptcha-badge {
+    visibility: hidden
+}
+
+md-input-container {
+    display: inline-block;
+    position: relative;
+    padding: 2px;
+    margin: 18px 0;
+    vertical-align: middle
+}
+
+    md-input-container input {
+        -moz-appearance: none;
+        -webkit-appearance: none
+    }
+
+    md-input-container .show-password {
+        left: auto;
+        right: 0;
+        -webkit-transform-origin: right top;
+        -ms-transform-origin: right top;
+        transform-origin: right top;
+        position: absolute;
+        font-size: 12px;
+        line-height: 15px;
+        white-space: nowrap;
+        background-color: transparent;
+        text-decoration: none;
+        border: 0 transparent;
+        border-radius: 2px;
+        transition-duration: .1s;
+        transition-timing-function: linear;
+        transition-property: background-color, color, border-color;
+        outline: 0;
+        padding: 0;
+        -webkit-user-select: none;
+        -ms-user-select: none;
+        user-select: none;
+        display: -webkit-inline-flex;
+        display: -ms-inline-flexbox;
+        display: inline-flex;
+        -webkit-align-items: center;
+        -ms-flex-align: center;
+        align-items: center;
+        cursor: pointer;
+        font-family: Madefo, HelveticaNeueW01-45Ligh, HelveticaNeueW02-45Ligh, HelveticaNeueW10-45Ligh, sans-serif;
+        margin-right: 10px;
+        top: 8px;
+        font-weight: 400;
+        height: 16px
+    }
+
+[dir=rtl] md-input-container .show-password {
+    left: 0;
+    right: auto;
+    -webkit-transform-origin: left top;
+    -ms-transform-origin: left top;
+    transform-origin: left top
+}
+
+md-input-container .show-password.mobile {
+    top: 5px
+}
+
+md-input-container .show-password .password-icon {
+    content: url(../images/password-show.svg);
+    margin-right: 6px;
+    margin-left: 6px;
+    margin-top: 2px
+}
+
+    md-input-container .show-password .password-icon.active {
+        content: url(../images/password-hide.svg)
+    }
+
+    md-input-container .show-password .password-icon:not(.active) {
+        margin-top: 2px
+    }
+
+md-input-container .show-password.on-input-mobile {
+    top: 15px
+}
+
+md-input-container .show-password.with-error {
+    right: 35px
+}
+
+md-input-container .show-password .strength-score-title {
+    cursor: default;
+    margin-right: 10px
+}
+
+md-input-container .label-container {
+    display: -webkit-flex;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-justify-content: space-between;
+    -ms-flex-pack: justify;
+    justify-content: space-between;
+    -webkit-align-items: flex-end;
+    -ms-flex-align: end;
+    align-items: flex-end;
+    position: absolute;
+    width: 100%
+}
+
+md-input-container label {
+    left: 0;
+    right: auto;
+    -webkit-transform-origin: left top;
+    -ms-transform-origin: left top;
+    transform-origin: left top;
+    position: absolute;
+    bottom: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    width: 100%;
+    -webkit-order: 1;
+    -ms-flex-order: 1;
+    order: 1;
+    pointer-events: none;
+    z-index: 1;
+    -webkit-transform: translate3d(0, 28px, 0) scale(1);
+    transform: translate3d(0, 28px, 0) scale(1);
+    transition: -webkit-transform .4s cubic-bezier(.25, .8, .25, 1);
+    transition: transform .4s cubic-bezier(.25, .8, .25, 1);
+    max-width: 100%
+}
+
+[dir=rtl] md-input-container label {
+    left: auto;
+    right: 0;
+    -webkit-transform-origin: right top;
+    -ms-transform-origin: right top;
+    transform-origin: right top
+}
+
+md-input-container .md-input {
+    float: left;
+    -webkit-order: 2;
+    -ms-flex-order: 2;
+    order: 2;
+    display: block;
+    margin-top: 0;
+    background: 0 0;
+    border-width: 0 0 1px;
+    line-height: 26px;
+    -ms-flex-preferred-size: 26px;
+    border-radius: 0;
+    border-style: solid;
+    width: 100%;
+    box-sizing: border-box
+}
+
+[dir=rtl] md-input-container .md-input {
+    float: right
+}
+
+md-input-container .md-input:focus {
+    outline: 0
+}
+
+md-input-container .md-input:invalid {
+    outline: 0;
+    box-shadow: none
+}
+
+md-input-container.md-input-focused label, md-input-container.md-input-has-placeholder label, md-input-container.md-input-has-value label {
+    -webkit-transform: translate3d(0, 6px, 0) scale(.75);
+    transform: translate3d(0, 6px, 0) scale(.75);
+    transition: -webkit-transform cubic-bezier(.25, .8, .25, 1) .4s, width cubic-bezier(.25, .8, .25, 1) .4s;
+    transition: transform cubic-bezier(.25, .8, .25, 1) .4s, width cubic-bezier(.25, .8, .25, 1) .4s
+}
+
+md-input-container.md-input-has-value label {
+    transition: none
+}
+
+md-input-container.has-warning {
+    height: 150px
+}
+
+spinner {
+    display: -webkit-flex;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-align-items: center;
+    -ms-flex-align: center;
+    align-items: center
+}
+
+    spinner .spinner {
+        -webkit-animation: rotator 1.9s linear infinite;
+        animation: rotator 1.9s linear infinite
+    }
+
+@-webkit-keyframes rotator {
+    0% {
+        -webkit-transform: rotate(0);
+        transform: rotate(0)
+    }
+
+    100% {
+        -webkit-transform: rotate(270deg);
+        transform: rotate(270deg)
+    }
+}
+
+@keyframes rotator {
+    0% {
+        -webkit-transform: rotate(0);
+        transform: rotate(0)
+    }
+
+    100% {
+        -webkit-transform: rotate(270deg);
+        transform: rotate(270deg)
+    }
+}
+
+spinner .path {
+    stroke-dasharray: 188;
+    stroke-dashoffset: 0;
+    -webkit-transform-origin: center;
+    -ms-transform-origin: center;
+    transform-origin: center;
+    stroke: #116dff;
+    -webkit-animation: dash 1.9s ease-in-out infinite;
+    animation: dash 1.9s ease-in-out infinite
+}
+
+@-webkit-keyframes dash {
+    0% {
+        stroke-dashoffset: 188
+    }
+
+    50% {
+        stroke-dashoffset: 47;
+        -webkit-transform: rotate(135deg);
+        transform: rotate(135deg)
+    }
+
+    100% {
+        stroke-dashoffset: 188;
+        -webkit-transform: rotate(450deg);
+        transform: rotate(450deg)
+    }
+}
+
+@keyframes dash {
+    0% {
+        stroke-dashoffset: 188
+    }
+
+    50% {
+        stroke-dashoffset: 47;
+        -webkit-transform: rotate(135deg);
+        transform: rotate(135deg)
+    }
+
+    100% {
+        stroke-dashoffset: 188;
+        -webkit-transform: rotate(450deg);
+        transform: rotate(450deg)
+    }
+}
+
+.loader-container {
+    display: -webkit-flex;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-align-items: center;
+    -ms-flex-align: center;
+    align-items: center;
+    -webkit-justify-content: center;
+    -ms-flex-pack: center;
+    justify-content: center;
+    margin-top: 50px
+}
+
+.loader, .wheel {
+    display: inline-block
+}
+
+.loader {
+    text-align: center;
+    min-width: 136px;
+    color: #3899ec
+}
+
+    .loader .wheel {
+        width: 68px;
+        height: 136px;
+        margin-left: -68px
+    }
+
+.wheel {
+    position: relative;
+    -webkit-animation: wheel-rotate-semi 1s linear infinite;
+    animation: wheel-rotate-semi 1s linear infinite;
+    overflow: hidden;
+    -webkit-transform-origin: 100% 50%;
+    -ms-transform-origin: 100% 50%;
+    transform-origin: 100% 50%
+}
+
+    .wheel::after, .wheel::before {
+        position: absolute;
+        top: 0;
+        right: -100%;
+        bottom: 0;
+        left: 0;
+        border-radius: 50%;
+        -webkit-transform: rotate(-45deg);
+        -ms-transform: rotate(-45deg);
+        transform: rotate(-45deg);
+        -webkit-animation: wheel-rotate-inner .5s linear infinite alternate;
+        animation: wheel-rotate-inner .5s linear infinite alternate;
+        content: '';
+        color: currentColor;
+        border: 1px solid currentColor;
+        border-color: currentColor transparent transparent currentColor
+    }
+
+    .wheel::after {
+        opacity: 0
+    }
+
+@-webkit-keyframes wheel-rotate-inner {
+    100% {
+        opacity: 1;
+        -webkit-transform: rotate(115deg);
+        transform: rotate(115deg)
+    }
+}
+
+@keyframes wheel-rotate-inner {
+    100% {
+        opacity: 1;
+        -webkit-transform: rotate(115deg);
+        transform: rotate(115deg)
+    }
+}
+
+@-webkit-keyframes wheel-rotate-semi {
+    0% {
+        -webkit-transform: rotate(180deg);
+        transform: rotate(180deg)
+    }
+
+    45% {
+        -webkit-transform: rotate(198deg);
+        transform: rotate(198deg)
+    }
+
+    55% {
+        -webkit-transform: rotate(234deg);
+        transform: rotate(234deg)
+    }
+
+    100% {
+        -webkit-transform: rotate(540deg);
+        transform: rotate(540deg)
+    }
+}
+
+@keyframes wheel-rotate-semi {
+    0% {
+        -webkit-transform: rotate(180deg);
+        transform: rotate(180deg)
+    }
+
+    45% {
+        -webkit-transform: rotate(198deg);
+        transform: rotate(198deg)
+    }
+
+    55% {
+        -webkit-transform: rotate(234deg);
+        transform: rotate(234deg)
+    }
+
+    100% {
+        -webkit-transform: rotate(540deg);
+        transform: rotate(540deg)
+    }
+}
+
+enter-code .redesign, login-email, login-password, signup-email, signup-password {
+    width: 100%;
+    height: 100%;
+    overflow: scroll;
+    display: -webkit-flex;
+    display: -ms-flexbox;
+    display: flex;
+    font-family: Madefor, HelveticaNeueW01-Thin, HelveticaNeueW02-Thin, HelveticaNeueW10-35Thin, sans-serif;
+    font-size: 16px;
+    -webkit-justify-content: center;
+    -ms-flex-pack: center;
+    justify-content: center;
+    font-weight: 400
+}
+
+@media only screen and (min-width:810px) {
+    enter-code .redesign, login-email, login-password, signup-email, signup-password {
+        margin-top: -149px
+    }
+}
+
+enter-code .redesign md-input-container {
+    margin-bottom: 18px;
+    margin-top: 30px;
+    max-height: 49px
+}
+
+.header.new .wix-logo {
+    -webkit-filter: grayscale(100%) brightness(0);
+    filter: grayscale(100%) brightness(0)
+}
+
+.header.new .x-close {
+    z-index: 100
+}
+
+@media only screen and (max-width:809px) {
+    enter-code .redesign > div, login-email > div, login-password > div, signup-email > div, signup-password > div {
+        width: 100%;
+        height: 100%;
+        display: -webkit-flex;
+        display: -ms-flexbox;
+        display: flex;
+        -webkit-justify-content: center;
+        -ms-flex-pack: center;
+        justify-content: center
+    }
+
+    .container.mobile .header.new {
+        padding: 14px 20px;
+        box-shadow: -3px 3px 9px 0 rgba(0, 0, 0, .08)
+    }
+
+    .container.mobile .redesign .title {
+        margin-bottom: 12px;
+        margin-top: 14px;
+        padding-top: 10px
+    }
+
+        .container.mobile .redesign .title.enter-code-title {
+            padding-top: 40px;
+            font-size: 32px
+        }
+
+    .container.mobile.new {
+        padding: 48px 40px 0
+    }
+
+        .container.mobile.new form {
+            height: 100%
+        }
+
+            .container.mobile.new form .remember-me-section {
+                -webkit-flex-direction: row-reverse;
+                -ms-flex-direction: row-reverse;
+                flex-direction: row-reverse
+            }
+}
+
+@media only screen and (max-width:809px) and (max-width:340px) {
+    .container.mobile.new {
+        padding: 44px 30px 0
+    }
+}
+
+.redesign {
+    height: 100%;
+    display: -webkit-flex;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-flex-direction: column;
+    -ms-flex-direction: column;
+    flex-direction: column;
+    -webkit-align-items: center;
+    -ms-flex-align: center;
+    align-items: center;
+    -webkit-justify-content: center;
+    -ms-flex-pack: center;
+    justify-content: center;
+    position: relative
+}
+
+@media only screen and (max-width:809px) {
+    .redesign {
+        width: 100%;
+        max-width: 448px;
+        min-height: 535px
+    }
+}
+
+@media only screen and (min-width:810px) {
+    .redesign {
+        width: 448px;
+        min-height: 860px
+    }
+
+        .redesign .main-box {
+            box-sizing: border-box;
+            min-height: 558px;
+            width: 448px;
+            box-shadow: 2px 12px 28px 0 rgba(170, 170, 170, .35);
+            border: 1px solid rgba(151, 151, 151, .11);
+            background-color: #fff;
+            padding: 72px 72px 52px
+        }
+}
+
+.redesign .button-container .bouncing-points-container:focus, .redesign .button-container .wix-button-redesign.login-btn:focus, .redesign .button-container .wix-button-redesign.signup-btn:focus, .redesign .button-container .wix-button-redesign.verify-btn:focus, .redesign .continue-button .bouncing-points-container:focus, .redesign .continue-button .wix-button-redesign.login-btn:focus, .redesign .continue-button .wix-button-redesign.signup-btn:focus, .redesign .continue-button .wix-button-redesign.verify-btn:focus, .redesign .social-button .buttonContentWrapper:focus {
+    outline: 0;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .9), 0 0 1px 2px #3899ec !important
+}
+
+@media only screen and (max-width:809px) {
+    .redesign .main-box {
+        padding: 0 4px;
+        box-sizing: border-box
+    }
+
+        .redesign .main-box .back {
+            position: absolute;
+            top: 16px;
+            left: 0
+        }
+}
+
+.redesign .main-box a {
+    color: #1f77ff
+}
+
+.redesign .main-box .back {
+    border: none;
+    margin: 0;
+    padding: 0 0 0 10px;
+    width: auto;
+    overflow: visible;
+    background: url(../images/back.svg) left no-repeat;
+    color: inherit;
+    font: inherit;
+    line-height: normal;
+    -webkit-font-smoothing: inherit;
+    -moz-osx-font-smoothing: inherit;
+    -webkit-appearance: none;
+    font-family: Madefor, HelveticaNeueW01-55Roma, HelveticaNeueW02-55Roma, HelveticaNeueW10-55Roma, sans-serif;
+    font-size: 14px;
+    cursor: pointer;
+    font-weight: 400
+}
+
+.redesign .main-box .forgot-email, .redesign .main-box .links-container a, .redesign .main-box .remember-me-section {
+    font-family: Madefor, HelveticaNeueW01-55Roma, HelveticaNeueW02-55Roma, HelveticaNeueW10-55Roma, sans-serif;
+    font-size: 14px
+}
+
+@media only screen and (min-width:810px) {
+    .redesign .main-box .back {
+        position: relative;
+        top: -52px;
+        left: -48px;
+        font-size: 14px
+    }
+
+        .redesign .main-box .back + .title {
+            margin-top: -30px
+        }
+
+    .redesign .main-box .continue-button {
+        margin-top: 9px;
+        margin-bottom: 13px
+    }
+
+        .redesign .main-box .continue-button.continue-signup {
+            margin-bottom: 58px
+        }
+}
+
+@media only screen and (max-width:809px) {
+    .redesign .main-box .continue-button {
+        margin-top: 17px;
+        margin-bottom: 14px
+    }
+
+        .redesign .main-box .continue-button.continue-signup {
+            margin-bottom: 62px
+        }
+}
+
+.redesign .main-box social-signin {
+    -webkit-align-items: center;
+    -ms-flex-align: center;
+    align-items: center;
+    margin-top: 34px
+}
+
+.redesign .main-box .login-svg-font-icons-error {
+    display: none
+}
+
+.redesign .main-box .forgot-email {
+    display: block;
+    margin-bottom: 29px;
+    height: 16px
+}
+
+@media only screen and (max-width:809px) {
+    .redesign .main-box .forgot-email {
+        margin-bottom: 32px
+    }
+}
+
+.redesign .main-box .remember-me-section {
+    margin-bottom: 50px;
+    width: 100%;
+    -webkit-justify-content: flex-end;
+    -ms-flex-pack: end;
+    justify-content: flex-end;
+    display: -webkit-flex;
+    display: -ms-flexbox;
+    display: flex
+}
+
+    .redesign .main-box .remember-me-section .remember-me-text {
+        margin-left: 10px
+    }
+
+.redesign .main-box .links-container {
+    margin-top: 100px;
+    display: -webkit-flex;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-flex-direction: column;
+    -ms-flex-direction: column;
+    flex-direction: column;
+    -webkit-align-items: center;
+    -ms-flex-align: center;
+    align-items: center
+}
+
+    .redesign .main-box .links-container a {
+        font-weight: 400
+    }
+
+    .redesign .main-box .links-container .resend-code-container {
+        margin-bottom: 8px;
+        display: grid;
+        grid-template-columns: 35px 116px 35px;
+        overflow: hidden;
+        height: 20px
+    }
+
+        .redesign .main-box .links-container .resend-code-container .spinner-container {
+            height: 30px;
+            min-width: 30px;
+            display: block
+        }
+
+            .redesign .main-box .links-container .resend-code-container .spinner-container spinner .spinner {
+                width: 20px;
+                height: 20px
+            }
+
+.redesign .main-box #recaptcha-widget {
+    margin-top: 30px
+}
+
+.redesign .title {
+    text-align: center;
+    margin-top: -12px;
+    font-size: 40px;
+    font-family: Madefor, HelveticaNeueW01-75Bold, HelveticaNeueW02-75Bold, HelveticaNeueW10-75Bold, sans-serif;
+    color: #000;
+    font-weight: 700
+}
+
+@media only screen and (max-width:809px) {
+    .redesign .main-box #recaptcha-widget {
+        -webkit-transform: scale(.8);
+        -ms-transform: scale(.8);
+        transform: scale(.8);
+        display: -webkit-flex;
+        display: -ms-flexbox;
+        display: flex;
+        -webkit-align-content: center;
+        -ms-flex-line-pack: center;
+        align-content: center;
+        -webkit-justify-content: center;
+        -ms-flex-pack: center;
+        justify-content: center
+    }
+
+    .redesign .title {
+        margin-bottom: 0
+    }
+}
+
+@media only screen and (min-width:810px) {
+    .redesign .title {
+        margin-bottom: 12px
+    }
+}
+
+.redesign .title.enter-code-title {
+    font-size: 34px
+}
+
+.redesign .subtitle {
+    color: #000;
+    font-family: Madefor, HelveticaNeueW01-55Roma, HelveticaNeueW02-55Roma, HelveticaNeueW10-55Roma, sans-serif;
+    font-size: 16px;
+    font-weight: 55;
+    margin-bottom: 10px;
+    text-align: center;
+    display: block
+}
+
+.redesign .divider {
+    height: 1px;
+    opacity: .8;
+    background-color: #C2C2C2;
+    margin: 10px 0;
+    text-align: center
+}
+
+    .redesign .divider span {
+        font-family: TimesNewRoman, "Times New Roman", Times, serif;
+        background-color: #fff;
+        color: #979797;
+        padding: 0 10px;
+        position: relative;
+        top: -10px;
+        font-style: italic
+    }
+
+.redesign md-input-container {
+    margin-bottom: 0;
+    margin-top: 34px
+}
+
+    .redesign md-input-container, .redesign md-input-container * {
+        box-sizing: border-box
+    }
+
+.redesign mobile-input md-input-container.new {
+    height: auto;
+    min-height: 49px;
+    padding-left: 0;
+    padding-right: 0
+}
+
+    .redesign mobile-input md-input-container.new input {
+        transition: border-bottom .3s, border-color .3s, border-width .3s, border .3s ease-in-out;
+        line-height: 1;
+        border-bottom: solid 2px #e1e1e1;
+        font-family: Madefor, HelveticaNeueW01-45Ligh, HelveticaNeueW02-45Ligh, HelveticaNeueW10-45Ligh, sans-serif;
+        font-size: 16px;
+        height: 24px;
+        font-weight: 400;
+        padding-bottom: 7px !important;
+        padding-left: 5px !important
+    }
+
+        .redesign mobile-input md-input-container.new input:hover {
+            border-bottom: solid 2px #1f77ff
+        }
+
+    .redesign mobile-input md-input-container.new .md-input {
+        letter-spacing: inherit
+    }
+
+        .redesign mobile-input md-input-container.new .md-input.ng-dirty:not(:focus) {
+            border-bottom-width: 2px
+        }
+
+    .redesign mobile-input md-input-container.new.md-input-focused .md-input {
+        border-bottom: solid 2px #1f77ff
+    }
+
+    .redesign mobile-input md-input-container.new.md-input-focused .focus-line {
+        border-bottom: solid 2px #1f77ff;
+        width: 99.6%;
+        height: 2px;
+        position: absolute;
+        left: 1px
+    }
+
+@media only screen and (max-width:809px) {
+    .redesign .divider {
+        display: none
+    }
+
+    .redesign md-input-container {
+        margin-top: 29px
+    }
+
+    .redesign mobile-input md-input-container.new.md-input-focused .focus-line {
+        top: 26px
+    }
+
+    .redesign mobile-input md-input-container.new {
+        height: 45px
+    }
+}
+
+@media only screen and (min-width:810px) {
+    .redesign mobile-input md-input-container.new.md-input-focused .focus-line {
+        top: 24px;
+        display: none
+    }
+}
+
+.redesign mobile-input md-input-container.new .focus-line {
+    transition: width .3s ease-in-out
+}
+
+.redesign mobile-input md-input-container.new:not(.md-input-focused) .focus-line {
+    width: 0
+}
+
+.redesign .hidden-email, .redesign .hidden-password {
+    display: none
+}
+
+.redesign mobile-input.password-confirm md-input-container.new {
+    margin-top: 17px;
+    min-height: auto
+}
+
+.redesign .ng-submitted md-input-container.new.has-error:not(.md-input-focused) .error-label, .redesign md-input-container.new.has-error:not(.md-input-focused) .md-input.ng-touched:not(.ng-invalid-required) ~ .error-label {
+    font-size: 13px;
+    font-family: Madefor, HelveticaNeueW01-55Roma, HelveticaNeueW02-55Roma, HelveticaNeueW10-55Roma, sans-serif;
+    letter-spacing: .2px;
+    color: red;
+    margin-top: 30px;
+    margin-left: 4px;
+    font-weight: 400
+}
+
+.redesign .button-container .bouncing-points-container, .redesign .button-container .wix-button-redesign.login-btn, .redesign .button-container .wix-button-redesign.signup-btn, .redesign .button-container .wix-button-redesign.verify-btn, .redesign .continue-button .bouncing-points-container, .redesign .continue-button .wix-button-redesign.login-btn, .redesign .continue-button .wix-button-redesign.signup-btn, .redesign .continue-button .wix-button-redesign.verify-btn {
+    height: 44px;
+    border-radius: 28px;
+    border-width: 0;
+    background-color: #1f77ff;
+    font-family: Madefor, HelveticaNeueW01-65Medi, HelveticaNeueW02-65Medi, HelveticaNeueW10-65Medi, sans-serif;
+    font-size: 16px;
+    color: #fff;
+    cursor: pointer;
+    display: -webkit-flex;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-justify-content: center;
+    -ms-flex-pack: center;
+    justify-content: center;
+    -webkit-align-items: center;
+    -ms-flex-align: center;
+    align-items: center;
+    font-weight: 400
+}
+
+.redesign .social-button .buttonContentWrapper .buttonContents, .redesign terms-of-use.small {
+    font-family: Madefor, HelveticaNeueW01-45Ligh, HelveticaNeueW02-45Ligh, HelveticaNeueW10-45Ligh, sans-serif
+}
+
+@media only screen and (max-width:809px) {
+    .redesign .button-container .bouncing-points-container, .redesign .button-container .wix-button-redesign.login-btn, .redesign .button-container .wix-button-redesign.signup-btn, .redesign .button-container .wix-button-redesign.verify-btn, .redesign .continue-button .bouncing-points-container, .redesign .continue-button .wix-button-redesign.login-btn, .redesign .continue-button .wix-button-redesign.signup-btn, .redesign .continue-button .wix-button-redesign.verify-btn {
+        width: 100%;
+        margin-bottom: 0
+    }
+}
+
+.redesign .button-container .bouncing-points-container:hover, .redesign .button-container .wix-button-redesign.login-btn:hover, .redesign .button-container .wix-button-redesign.signup-btn:hover, .redesign .button-container .wix-button-redesign.verify-btn:hover, .redesign .continue-button .bouncing-points-container:hover, .redesign .continue-button .wix-button-redesign.login-btn:hover, .redesign .continue-button .wix-button-redesign.signup-btn:hover, .redesign .continue-button .wix-button-redesign.verify-btn:hover {
+    background-color: #4b92ff
+}
+
+.redesign .button-container .bouncing-points-container span, .redesign .button-container .wix-button-redesign.login-btn span, .redesign .button-container .wix-button-redesign.signup-btn span, .redesign .button-container .wix-button-redesign.verify-btn span, .redesign .continue-button .bouncing-points-container span, .redesign .continue-button .wix-button-redesign.login-btn span, .redesign .continue-button .wix-button-redesign.signup-btn span, .redesign .continue-button .wix-button-redesign.verify-btn span {
+    display: -webkit-inline-flex;
+    display: -ms-inline-flexbox;
+    display: inline-flex;
+    -webkit-align-items: center;
+    -ms-flex-align: center;
+    align-items: center
+}
+
+.redesign .button-container .bouncing-points-container .spinner-container, .redesign .button-container .wix-button-redesign.login-btn .spinner-container, .redesign .button-container .wix-button-redesign.signup-btn .spinner-container, .redesign .button-container .wix-button-redesign.verify-btn .spinner-container, .redesign .continue-button .bouncing-points-container .spinner-container, .redesign .continue-button .wix-button-redesign.login-btn .spinner-container, .redesign .continue-button .wix-button-redesign.signup-btn .spinner-container, .redesign .continue-button .wix-button-redesign.verify-btn .spinner-container {
+    position: relative;
+    top: initial;
+    left: initial
+}
+
+    .redesign .button-container .bouncing-points-container .spinner-container spinner .path, .redesign .button-container .wix-button-redesign.login-btn .spinner-container spinner .path, .redesign .button-container .wix-button-redesign.signup-btn .spinner-container spinner .path, .redesign .button-container .wix-button-redesign.verify-btn .spinner-container spinner .path, .redesign .continue-button .bouncing-points-container .spinner-container spinner .path, .redesign .continue-button .wix-button-redesign.login-btn .spinner-container spinner .path, .redesign .continue-button .wix-button-redesign.signup-btn .spinner-container spinner .path, .redesign .continue-button .wix-button-redesign.verify-btn .spinner-container spinner .path {
+        stroke: #fff
+    }
+
+.redesign .social-button {
+    height: 44px;
+    border: none;
+    padding: 4px;
+    box-sizing: content-box
+}
+
+@media only screen and (min-width:810px) {
+    .redesign .button-container .bouncing-points-container, .redesign .button-container .wix-button-redesign.login-btn, .redesign .button-container .wix-button-redesign.signup-btn, .redesign .button-container .wix-button-redesign.verify-btn, .redesign .continue-button .bouncing-points-container, .redesign .continue-button .wix-button-redesign.login-btn, .redesign .continue-button .wix-button-redesign.signup-btn, .redesign .continue-button .wix-button-redesign.verify-btn {
+        width: 100%
+    }
+
+    .redesign .social-button {
+        width: 302px
+    }
+
+    .redesign terms-of-use {
+        bottom: 44px
+    }
+}
+
+@media only screen and (max-width:809px) {
+    .redesign .social-button {
+        width: 100%
+    }
+
+        .redesign .social-button.facebook-button {
+            margin-bottom: 28px
+        }
+
+        .redesign .social-button.apple-button {
+            margin-top: 28px
+        }
+}
+
+.redesign .social-button .buttonContentWrapper {
+    height: 100%;
+    width: 100%;
+    background-color: #fff;
+    color: #000;
+    border: 1px solid #C2C2C2;
+    border-radius: 999px
+}
+
+    .redesign .social-button .buttonContentWrapper:hover {
+        border: 1px solid #4b92ff
+    }
+
+        .redesign .social-button .buttonContentWrapper:hover .buttonContents {
+            color: #4b92ff
+        }
+
+    .redesign .social-button .buttonContentWrapper:focus {
+        border: none
+    }
+
+    .redesign .social-button .buttonContentWrapper .buttonIcon {
+        padding: 8px 8px 8px 17px;
+        float: left;
+        position: absolute;
+        background-color: transparent
+    }
+
+        .redesign .social-button .buttonContentWrapper .buttonIcon .buttonSvgImage {
+            width: 18px;
+            height: 18px;
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center
+        }
+
+    .redesign .social-button .buttonContentWrapper .buttonContents {
+        font-size: 16px;
+        font-weight: 500;
+        letter-spacing: .21px;
+        margin-left: 6px;
+        margin-right: 6px;
+        vertical-align: top;
+        line-height: 35px
+    }
+
+.redesign .social-button.facebook-button .buttonContentWrapper .buttonIcon .buttonSvgImage {
+    background-image: url(../images/facebook-logo-new.svg)
+}
+
+.redesign .social-button.google-button .buttonContentWrapper .buttonIcon .buttonSvgImage {
+    background-image: url(../images/google-logo-new.svg)
+}
+
+.redesign .social-button.apple-button .buttonContentWrapper .buttonIcon {
+    border-right: none
+}
+
+.redesign terms-of-use {
+    text-align: center;
+    position: absolute;
+    line-height: 1.5
+}
+
+    .redesign terms-of-use.small {
+        color: #858f96;
+        font-weight: 400
+    }
+
+@media only screen and (min-width:810px) {
+    .redesign terms-of-use.small {
+        font-size: 14px
+    }
+}
+
+@media only screen and (max-width:809px) {
+    .redesign terms-of-use {
+        bottom: 16px
+    }
+
+        .redesign terms-of-use.small {
+            font-size: 11px;
+            line-height: initial
+        }
+}
+
+.redesign terms-of-use a {
+    color: inherit;
+    text-decoration: underline
+}
+
+@-webkit-keyframes scale {
+    0% {
+        -webkit-transform: scale(.6);
+        transform: scale(.6);
+        opacity: 0
+    }
+
+    40% {
+        opacity: 0
+    }
+
+    60% {
+        opacity: 1
+    }
+
+    100% {
+        -webkit-transform: scale(1);
+        transform: scale(1)
+    }
+}
+
+@keyframes scale {
+    0% {
+        -webkit-transform: scale(.6);
+        transform: scale(.6);
+        opacity: 0
+    }
+
+    40% {
+        opacity: 0
+    }
+
+    60% {
+        opacity: 1
+    }
+
+    100% {
+        -webkit-transform: scale(1);
+        transform: scale(1)
+    }
+}
+
+@-webkit-keyframes fadeIn {
+    0% {
+        -webkit-transform: translatey(20px);
+        transform: translatey(20px);
+        opacity: 0
+    }
+
+    30% {
+        opacity: 0
+    }
+
+    70% {
+        opacity: 1
+    }
+
+    100% {
+        -webkit-transform: translatey(0);
+        transform: translatey(0);
+        opacity: 1
+    }
+}
+
+@keyframes fadeIn {
+    0% {
+        -webkit-transform: translatey(20px);
+        transform: translatey(20px);
+        opacity: 0
+    }
+
+    30% {
+        opacity: 0
+    }
+
+    70% {
+        opacity: 1
+    }
+
+    100% {
+        -webkit-transform: translatey(0);
+        transform: translatey(0);
+        opacity: 1
+    }
+}
+
+.redesign .card-animation {
+    -webkit-animation: scale .8s cubic-bezier(.165, .84, .44, 1);
+    animation: scale .8s cubic-bezier(.165, .84, .44, 1)
+}
+
+    .redesign .card-animation .card-section-0 {
+        -webkit-animation: fadeIn .6s cubic-bezier(.165, .84, .44, 1) .3s forwards;
+        animation: fadeIn .6s cubic-bezier(.165, .84, .44, 1) .3s forwards;
+        opacity: 0
+    }
+
+    .redesign .card-animation .card-section-1 {
+        -webkit-animation: fadeIn .6s cubic-bezier(.165, .84, .44, 1) .38s forwards;
+        animation: fadeIn .6s cubic-bezier(.165, .84, .44, 1) .38s forwards;
+        opacity: 0
+    }
+
+    .redesign .card-animation .card-section-2 {
+        -webkit-animation: fadeIn .6s cubic-bezier(.165, .84, .44, 1) .46s forwards;
+        animation: fadeIn .6s cubic-bezier(.165, .84, .44, 1) .46s forwards;
+        opacity: 0
+    }
+
+    .redesign .card-animation .card-section-3 {
+        -webkit-animation: fadeIn .6s cubic-bezier(.165, .84, .44, 1) .54s forwards;
+        animation: fadeIn .6s cubic-bezier(.165, .84, .44, 1) .54s forwards;
+        opacity: 0
+    }
+
+    .redesign .card-animation .card-section-4 {
+        -webkit-animation: fadeIn .6s cubic-bezier(.165, .84, .44, 1) .62s forwards;
+        animation: fadeIn .6s cubic-bezier(.165, .84, .44, 1) .62s forwards;
+        opacity: 0
+    }
+
+    .redesign .card-animation .card-section-5 {
+        -webkit-animation: fadeIn .6s cubic-bezier(.165, .84, .44, 1) .7s forwards;
+        animation: fadeIn .6s cubic-bezier(.165, .84, .44, 1) .7s forwards;
+        opacity: 0
+    }
+
+    .redesign .card-animation .card-section-6 {
+        -webkit-animation: fadeIn .6s cubic-bezier(.165, .84, .44, 1) .78s forwards;
+        animation: fadeIn .6s cubic-bezier(.165, .84, .44, 1) .78s forwards;
+        opacity: 0
+    }
+
+    .redesign .card-animation .card-section-7 {
+        -webkit-animation: fadeIn .6s cubic-bezier(.165, .84, .44, 1) .86s forwards;
+        animation: fadeIn .6s cubic-bezier(.165, .84, .44, 1) .86s forwards;
+        opacity: 0
+    }
+
+    .redesign .card-animation .card-section-8 {
+        -webkit-animation: fadeIn .6s cubic-bezier(.165, .84, .44, 1) .94s forwards;
+        animation: fadeIn .6s cubic-bezier(.165, .84, .44, 1) .94s forwards;
+        opacity: 0
+    }
+
+bouncing-points .points {
+    width: 30px;
+    box-sizing: border-box;
+    margin: auto;
+    line-height: 44px
+}
+
+bouncing-points .point {
+    background: #fff;
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    display: inline-block;
+    position: relative;
+    bottom: 0;
+    margin-left: 0
+}
+
+bouncing-points .bounce.point1 {
+    -webkit-animation: bounce 1.5s infinite;
+    animation: bounce 1.5s infinite
+}
+
+bouncing-points .bounce.point2 {
+    -webkit-animation: bounce 1.5s infinite;
+    animation: bounce 1.5s infinite;
+    -webkit-animation-delay: .15s;
+    animation-delay: .15s
+}
+
+bouncing-points .bounce.point3 {
+    -webkit-animation: bounce 1.5s infinite;
+    animation: bounce 1.5s infinite;
+    -webkit-animation-delay: .3s;
+    animation-delay: .3s
+}
+
+bouncing-points.color .point {
+    background-color: #1f77ff
+}
+
+@media only screen and (max-height:942px) {
+    bouncing-points .points {
+        line-height: 39px
+    }
+}
+
+@-webkit-keyframes bounce {
+    0%, 100%, 20%, 80% {
+        -webkit-transform: translateY(-5px);
+        transform: translateY(-5px)
+    }
+
+    40% {
+        -webkit-transform: translateY(-11px);
+        transform: translateY(-11px)
+    }
+
+    60% {
+        -webkit-transform: translateY(-2px);
+        transform: translateY(-2px)
+    }
+
+    80% {
+        -webkit-transform: translateY(-6px);
+        transform: translateY(-6px)
+    }
+}
+
+@keyframes bounce {
+    0%, 100%, 20%, 80% {
+        -webkit-transform: translateY(-5px);
+        transform: translateY(-5px)
+    }
+
+    40% {
+        -webkit-transform: translateY(-11px);
+        transform: translateY(-11px)
+    }
+
+    60% {
+        -webkit-transform: translateY(-2px);
+        transform: translateY(-2px)
+    }
+
+    80% {
+        -webkit-transform: translateY(-6px);
+        transform: translateY(-6px)
+    }
+}
+
+body.editor-x-design {
+    background-color: #0f0f0f
+}
+
+    body.editor-x-design .wix-tooltip-container {
+        background-color: #fff
+    }
+
+        body.editor-x-design .wix-tooltip-container a {
+            color: #003DFF;
+            border-bottom: 1px solid #003DFF
+        }
+
+    body.editor-x-design .container.mobile .title, body.editor-x-design .container.mobile enter-code .old .title {
+        font-size: 40px
+    }
+
+    body.editor-x-design .container.desktop .login .already-user .login-link, body.editor-x-design .container.desktop .login .already-user .signup-link, body.editor-x-design .container.desktop .login .new-user .login-link, body.editor-x-design .container.desktop .login .new-user .signup-link, body.editor-x-design .container.desktop .signup .already-user .login-link, body.editor-x-design .container.desktop .signup .already-user .signup-link, body.editor-x-design .container.desktop .signup .new-user .login-link, body.editor-x-design .container.desktop .signup .new-user .signup-link, body.editor-x-design .container.desktop a {
+        color: #668cfd
+    }
+
+    body.editor-x-design .container.desktop .title {
+        font-size: 72px
+    }
+
+    body.editor-x-design .container.desktop .wix-button {
+        width: 215px;
+        height: 48px;
+        font-size: 20px
+    }
+
+    body.editor-x-design .container.desktop .terms-of-use {
+        color: #858f96
+    }
+
+    body.editor-x-design .container.desktop .or-use-email, body.editor-x-design .container.desktop account-verification form .content, body.editor-x-design .container.desktop email-verified-confirmation form .content, body.editor-x-design .container.desktop enter-code .old .subtitle, body.editor-x-design .container.desktop enter-email form .content, body.editor-x-design .container.desktop forgot-password form .content, body.editor-x-design .container.desktop forgot-password-confirmation form .content, body.editor-x-design .container.desktop md-input-container .show-password .strength-score-title, body.editor-x-design .container.desktop reset-password form .content, body.editor-x-design .container.desktop reset-password-confirmation form .content, body.editor-x-design .container.desktop thank-you form .content, body.editor-x-design .container.mobile .or-use-email, body.editor-x-design .container.mobile account-verification form .content, body.editor-x-design .container.mobile email-verified-confirmation form .content, body.editor-x-design .container.mobile enter-code .old .subtitle, body.editor-x-design .container.mobile enter-email form .content, body.editor-x-design .container.mobile forgot-password form .content, body.editor-x-design .container.mobile forgot-password-confirmation form .content, body.editor-x-design .container.mobile reset-password form .content, body.editor-x-design .container.mobile reset-password-confirmation form .content, body.editor-x-design .container.mobile thank-you form .content {
+        color: #b9b9bd
+    }
+
+    body.editor-x-design .container.desktop md-input-container input, body.editor-x-design .container.desktop md-input-container label {
+        font-size: 18px !important
+    }
+
+        body.editor-x-design .container.desktop md-input-container input:-webkit-autofill {
+            font-size: 18px !important
+        }
+
+    body.editor-x-design .container.desktop md-input-container .error {
+        font-size: 24px
+    }
+
+    body.editor-x-design .container.desktop md-input-container:not(.md-input-focused) .md-input:hover {
+        border-bottom: solid 1px #fff
+    }
+
+    body.editor-x-design .container.desktop md-input-container .show-password .password-icon {
+        content: url(../images/password-show-editorx.svg)
+    }
+
+        body.editor-x-design .container.desktop md-input-container .show-password .password-icon.active {
+            content: url(../images/password-hide-editorx.svg)
+        }
+
+    body.editor-x-design .container.desktop enter-code .old form .bouncing-points-container {
+        background: #003DFF
+    }
+
+    body.editor-x-design .container.desktop account-verification, body.editor-x-design .container.desktop email-verified-confirmation, body.editor-x-design .container.desktop enter-email, body.editor-x-design .container.desktop forgot-password, body.editor-x-design .container.desktop forgot-password-confirmation, body.editor-x-design .container.desktop reset-password, body.editor-x-design .container.desktop reset-password-confirmation, body.editor-x-design .container.desktop thank-you, body.editor-x-design .container.mobile account-verification, body.editor-x-design .container.mobile email-verified-confirmation, body.editor-x-design .container.mobile enter-email, body.editor-x-design .container.mobile forgot-password, body.editor-x-design .container.mobile forgot-password-confirmation, body.editor-x-design .container.mobile reset-password, body.editor-x-design .container.mobile reset-password-confirmation, body.editor-x-design .container.mobile thank-you {
+        background-color: #0f0f0f
+    }
+
+        body.editor-x-design .container.desktop account-verification form button.reset-btn, body.editor-x-design .container.desktop email-verified-confirmation form button.reset-btn, body.editor-x-design .container.desktop enter-email form button.reset-btn, body.editor-x-design .container.desktop forgot-password form button.reset-btn, body.editor-x-design .container.desktop forgot-password-confirmation form button.reset-btn, body.editor-x-design .container.desktop reset-password form button.reset-btn, body.editor-x-design .container.desktop reset-password-confirmation form button.reset-btn, body.editor-x-design .container.desktop thank-you form button.reset-btn, body.editor-x-design .container.mobile account-verification form button.reset-btn, body.editor-x-design .container.mobile email-verified-confirmation form button.reset-btn, body.editor-x-design .container.mobile enter-email form button.reset-btn, body.editor-x-design .container.mobile forgot-password form button.reset-btn, body.editor-x-design .container.mobile forgot-password-confirmation form button.reset-btn, body.editor-x-design .container.mobile reset-password form button.reset-btn, body.editor-x-design .container.mobile reset-password-confirmation form button.reset-btn, body.editor-x-design .container.mobile thank-you form button.reset-btn {
+            width: 240px
+        }
+
+    body.editor-x-design .container.desktop .form-header, body.editor-x-design .container.desktop enter-code .old, body.editor-x-design .container.mobile .form-header, body.editor-x-design .container.mobile enter-code .old {
+        background-color: transparent
+    }
+
+        body.editor-x-design .container.desktop enter-code .old .back, body.editor-x-design .container.mobile enter-code .old .back {
+            color: #b9b9bd;
+            background-image: url(../images/back-editor-x.svg)
+        }
+
+    body.editor-x-design .container.desktop .title, body.editor-x-design .container.mobile .title {
+        color: #fff
+    }
+
+    body.editor-x-design .container.desktop .already-user, body.editor-x-design .container.desktop .new-user, body.editor-x-design .container.mobile .already-user, body.editor-x-design .container.mobile .new-user {
+        color: #b9b9bd;
+        font-size: 16px
+    }
+
+    body.editor-x-design .container.desktop .redesign form .facebook-button .buttonContentWrapper .buttonContents, body.editor-x-design .container.desktop .redesign form .google-button .buttonContentWrapper .buttonContents, body.editor-x-design .container.desktop social-signin .apple-button .buttonContentWrapper .buttonContents, body.editor-x-design .container.desktop social-signin .facebook-button .buttonContentWrapper .buttonContents, body.editor-x-design .container.desktop social-signin .google-button .buttonContentWrapper .buttonContents, body.editor-x-design .container.mobile .redesign form .facebook-button .buttonContentWrapper .buttonContents, body.editor-x-design .container.mobile .redesign form .google-button .buttonContentWrapper .buttonContents, body.editor-x-design .container.mobile social-signin .apple-button .buttonContentWrapper .buttonContents, body.editor-x-design .container.mobile social-signin .facebook-button .buttonContentWrapper .buttonContents, body.editor-x-design .container.mobile social-signin .google-button .buttonContentWrapper .buttonContents {
+        font-size: 14px
+    }
+
+    body.editor-x-design .container.desktop a, body.editor-x-design .container.mobile a {
+        color: #668cfd
+    }
+
+        body.editor-x-design .container.desktop a.forgot-password-link, body.editor-x-design .container.mobile a.forgot-password-link {
+            color: #b9b9bd
+        }
+
+            body.editor-x-design .container.desktop a.forgot-password-link:hover, body.editor-x-design .container.mobile a.forgot-password-link:hover {
+                color: #668cfd
+            }
+
+        body.editor-x-design .container.desktop a.x-close, body.editor-x-design .container.mobile a.x-close {
+            color: #fff
+        }
+
+    body.editor-x-design .container.desktop .remember-me-section .remember-me-text, body.editor-x-design .container.mobile .remember-me-section .remember-me-text {
+        color: #b9b9bd
+    }
+
+    body.editor-x-design .container.desktop .remember-me-section wix-checkbox input:not(:checked) + .wix-checkbox-inner, body.editor-x-design .container.mobile .remember-me-section wix-checkbox input:not(:checked) + .wix-checkbox-inner {
+        border: 1px solid #A4A8C0;
+        background-color: #0f0f0f !important
+    }
+
+    body.editor-x-design .container.desktop .remember-me-section wix-checkbox input:hover:not(:checked) + .wix-checkbox-inner, body.editor-x-design .container.mobile .remember-me-section wix-checkbox input:hover:not(:checked) + .wix-checkbox-inner {
+        border: 1px solid #003DFF;
+        background-color: #3F4560 !important
+    }
+
+    body.editor-x-design .container.desktop .remember-me-section wix-checkbox input:checked + .wix-checkbox-inner, body.editor-x-design .container.mobile .remember-me-section wix-checkbox input:checked + .wix-checkbox-inner {
+        border: 1px solid #003DFF;
+        background-color: #003DFF !important
+    }
+
+    body.editor-x-design .container.desktop .wix-button, body.editor-x-design .container.mobile .wix-button {
+        background-color: #fff;
+        color: #000 !important;
+        box-shadow: none !important
+    }
+
+        body.editor-x-design .container.desktop .wix-button.is-button-outline, body.editor-x-design .container.mobile .wix-button.is-button-outline {
+            box-shadow: none !important
+        }
+
+            body.editor-x-design .container.desktop .wix-button.is-button-outline:focus, body.editor-x-design .container.mobile .wix-button.is-button-outline:focus {
+                box-shadow: inset 0 0 0 1px #c1e4fe !important
+            }
+
+            body.editor-x-design .container.desktop .wix-button.is-button-outline:not(:hover):not(:focus), body.editor-x-design .container.mobile .wix-button.is-button-outline:not(:hover):not(:focus) {
+                background-color: #fff;
+                box-shadow: inset 0 0 0 1px #003DFF !important;
+                color: #003DFF !important
+            }
+
+        body.editor-x-design .container.desktop .wix-button:focus:active, body.editor-x-design .container.mobile .wix-button:focus:active {
+            background: #003DFF;
+            color: #fff !important;
+            box-shadow: none
+        }
+
+        body.editor-x-design .container.desktop .wix-button:focus, body.editor-x-design .container.desktop .wix-button:hover, body.editor-x-design .container.mobile .wix-button:focus, body.editor-x-design .container.mobile .wix-button:hover {
+            outline: 0 !important;
+            background-color: #003DFF !important;
+            color: #fff !important
+        }
+
+        body.editor-x-design .container.desktop .wix-button.back-btn, body.editor-x-design .container.mobile .wix-button.back-btn {
+            background-color: #0f0f0f !important;
+            color: #fff !important;
+            border: 1px solid #fff
+        }
+
+    body.editor-x-design .container.desktop .sozial-signin-icons, body.editor-x-design .container.mobile .sozial-signin-icons {
+        color: #b9b9bd
+    }
+
+    body.editor-x-design .container.desktop md-input-container input, body.editor-x-design .container.desktop md-input-container label, body.editor-x-design .container.mobile md-input-container input, body.editor-x-design .container.mobile md-input-container label {
+        color: #b9b9bd !important
+    }
+
+    body.editor-x-design .container.desktop md-input-container input, body.editor-x-design .container.mobile md-input-container input {
+        box-shadow: 0 0 0 1000px #0f0f0f inset !important
+    }
+
+        body.editor-x-design .container.desktop md-input-container input:-webkit-autofill, body.editor-x-design .container.mobile md-input-container input:-webkit-autofill {
+            -webkit-text-fill-color: #b9b9bd !important
+        }
+
+    body.editor-x-design .container.desktop md-input-container.md-input-focused .focus-line, body.editor-x-design .container.mobile md-input-container.md-input-focused .focus-line {
+        border-bottom: solid 2px #003DFF
+    }
+
+    body.editor-x-design .container.desktop social-signin .social-button, body.editor-x-design .container.mobile social-signin .social-button {
+        padding: 0;
+        height: 46px;
+        background-color: transparent
+    }
+
+    body.editor-x-design .container.desktop social-signin .apple-button .buttonContentWrapper, body.editor-x-design .container.desktop social-signin .facebook-button .buttonContentWrapper, body.editor-x-design .container.desktop social-signin .google-button .buttonContentWrapper, body.editor-x-design .container.mobile social-signin .apple-button .buttonContentWrapper, body.editor-x-design .container.mobile social-signin .facebook-button .buttonContentWrapper, body.editor-x-design .container.mobile social-signin .google-button .buttonContentWrapper {
+        border: none
+    }
+
+    body.editor-x-design .container.desktop .redesign form, body.editor-x-design .container.mobile .redesign form {
+        background-color: transparent
+    }
+
+        body.editor-x-design .container.desktop .redesign form .subtitle, body.editor-x-design .container.mobile .redesign form .subtitle {
+            color: #b9b9bd
+        }
+
+        body.editor-x-design .container.desktop .redesign form .divider span, body.editor-x-design .container.mobile .redesign form .divider span {
+            background-color: #0f0f0f
+        }
+
+        body.editor-x-design .container.desktop .redesign form .facebook-button .buttonContentWrapper, body.editor-x-design .container.desktop .redesign form .google-button .buttonContentWrapper, body.editor-x-design .container.mobile .redesign form .facebook-button .buttonContentWrapper, body.editor-x-design .container.mobile .redesign form .google-button .buttonContentWrapper {
+            border: 1px solid #C2C2C2
+        }
+
+        body.editor-x-design .container.desktop .redesign form .back, body.editor-x-design .container.mobile .redesign form .back {
+            color: #b9b9bd;
+            background-image: url(../images/back-editor-x.svg)
+        }
+
+    body.editor-x-design .container.desktop .email-verified-confirmation .wix-button, body.editor-x-design .container.mobile .email-verified-confirmation .wix-button {
+        width: -webkit-max-content;
+        width: max-content
+    }
+
+    body.editor-x-design .spinner .path {
+        stroke: #003DFF
+    }
+
+    body.editor-x-design md-progress-circular .md-inner .md-left .md-half-circle, body.editor-x-design md-progress-circular .md-inner .md-right .md-half-circle {
+        border-color: #003DFF
+    }
