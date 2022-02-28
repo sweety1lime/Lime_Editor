@@ -38,6 +38,11 @@ namespace Lime_Editor.Controllers
             return View();
         }
 
+        public IActionResult Templates()
+        {
+            return View();
+        }
+
         [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
         public IActionResult Error()
         {
