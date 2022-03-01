@@ -10,55 +10,55 @@
     <link href="https://fonts.googleapis.com/css?family=Roboto:300,400&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="~/fonts/icomoon/style.css">
     <link href="~/css/signin/owl.carousel.min.css" rel="stylesheet" />
-    <link href="~/css/signin/bootstrap.min.css" rel="stylesheet" />
+    <link href="~/css/main/bootstrap.css" rel="stylesheet" />
+    <link href="~/css/main/bootstrap.min.css" rel="stylesheet" />
     <link href="~/css/signin/style.css" rel="stylesheet" />
     <link href="~/css/sign.css" rel="stylesheet" />
+    <link href="~/css/main/font-awesome.min.css" rel="stylesheet" />
+    <link href="~/css/main/prettyPhoto.css" rel="stylesheet" />
+    <link href="~/css/main/animate.css" rel="stylesheet" />
+    <link href="~/css/main/mainMeow.css" rel="stylesheet" />
+    <link href="~/css/main/responsive.css" rel="stylesheet" />
+    <link href="~/css/main/Themes.css" rel="stylesheet" />
     <title>Вход</title>
 </head>
 <body>
-    <div class="page">
-        <div class="contents order-2 order-md-1">
+    <div class="">
+        <div class="">
             <div class="container">
-                <div style="text-align: center">
-                    <h1>Вход</h1>
-                    <p class="">У вас еще нет аккаунта? <a href="#">Создайте его!</a></p>
+                <div class="row">
+                    <div class="col-12 cd-lg-10" style="text-align: center;">
+                        <h1 style="margin-left: 0px;">Вход</h1>
+                        <p>У вас еще нет аккаута? <a href="#">Создайте его</a></p>
+                    </div>
                 </div>
-                <div class="row justify-content-md-center">
-
-                    <div class="col">
-                        <form action="#" method="post">
-                            <div class="form-group first">
-                                <label for="username">Email</label>
-                                <input type="text" class="form-control" id="username">
-
-                            </div>
-                            <div class="form-group last mb-3">
-                                <label for="password">Пароль</label>
-                                <input type="password" class="form-control" id="password">
-
-                            </div>
-
-                            <div class="d-flex mb-5 align-items-center">
-                                <label class="control control--checkbox mb-0">
-                                    <span class="caption">Запомнить меня</span>
-                                    <input type="checkbox" checked="checked" />
-                                    <div class="control__indicator"></div>
-                                </label>
-                                <span class="ml-auto"><a href="#" class="forgot-pass">Забыли пароль?</a></span>
-                            </div>
-
-                            <input type="submit" value="Войти"  class="btn-lg btn btn-outline-primary">
+                <div class="row justify-content-center">
+                    <div class="col-10">
+                        <form class="row" style="margin-bottom: 5px;">
+                            <fieldset>   
+                                <div class="form-group col-10 cd-2">
+                                    <label for="exampleInputEmail1" class="form-label mt-4">Эл.Почта</label>
+                                    <input type="email" class="form-control" id="exampleInputEmail1" aria-describedby="emailHelp" placeholder="Введите почту">
+                                    <small id="emailHelp" class="form-text text-muted">Никому не сообщайте почту для авторизации!</small>
+                                </div>
+                                <div class="form-group col-10 cd-2">
+                                    <label for="exampleInputPassword1" class="form-label mt-4">Пароль</label>
+                                    <input type="password" class="form-control" id="exampleInputPassword1" placeholder="************">
+                                </div>
+                            
+                                <button type="submit" class="btn btn-outline-info" style="outline: none; box-shadow: none; width: auto; height: auto;">Войти</button>
+                            </fieldset>
                         </form>
                     </div>
-                    <div class="vl"></div>
-                    <div class="col align-self-center social-login">
-                        <a href="#" class="facebook btn d-flex justify-content-center align-items-center">
+
+                    <div class="col-10 align-self-center social-login">
+                        <a href="#" style="outline: none; box-shadow: none; width: auto; height: auto;" class="facebook btn d-flex justify-content-center align-items-center">
                             <span class="icon-facebook mr-3"></span> Login with Facebook
                         </a>
-                        <a href="#" class="twitter btn d-flex justify-content-center align-items-center">
+                        <a href="#" style="outline: none; box-shadow: none; width: auto; height: auto;" class="twitter btn d-flex justify-content-center align-items-center">
                             <span class="icon-twitter mr-3"></span> Login with  Twitter
                         </a>
-                        <a href="#" class="google btn d-flex justify-content-center align-items-center">
+                        <a href="#" style="outline: none; box-shadow: none; width: auto; height: auto;" class="google btn d-flex justify-content-center align-items-center">
                             <span class="icon-google mr-3"></span> Login with  Google
                         </a>
                     </div>
@@ -66,15 +66,13 @@
 
             </div>
         </div>
-
-
     </div>
 
-
-
-    <script src="~/js/jquery-3.3.1.min.js"></script>
-    <script src="~/js/popper.min.js"></script>
-    <script src="~/js/bootstrap.min.js"></script>
-    <script src="~/js/main.js"></script>
+    <script src="~/js/main/jquery.js"></script>
+    <script src="~/js/main/jquery.scrollUp.min.js"></script>
+    <script src="~/js/main/bootstrap.min.js"></script>
+    <script src="~/js/main/jquery.prettyPhoto.js"></script>
+    <script src="~/js/main/main.js"></script>
+    <script src="~/js/main/Themes.js"></script>
 </body>
 </html>
