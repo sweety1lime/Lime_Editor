@@ -281,6 +281,11 @@ ul.sub-menu{
 /* XS Portrait */
 @media (max-width: 480px) {
 
+
+	.svg {
+		height: 80px;
+		width: 80px;
+	}
 	h1 {
 		margin-top: 20px;
 		margin-bottom: 10px;
@@ -535,5 +540,9 @@ ul.sub-menu{
 		margin-top: 20px;
 		margin-bottom: 10px;
 		margin-left: 80px;
+	}
+	.svg {
+		height:80px;
+		width:80px;
 	}
 }
