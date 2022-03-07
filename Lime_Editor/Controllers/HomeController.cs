@@ -43,6 +43,11 @@ namespace Lime_Editor.Controllers
             return View();
         }
 
+        public IActionResult EditTemplates()
+        {
+            return View();
+        }
+
         public IActionResult Profile()
         {
             return View();

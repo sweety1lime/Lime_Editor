@@ -281,6 +281,9 @@ ul.sub-menu{
 /* XS Portrait */
 @media (max-width: 480px) {
 
+	.unvisible {
+		display: none;
+	}
 
 	.svg {
 		height: 80px;
@@ -544,5 +547,9 @@ ul.sub-menu{
 	.svg {
 		height:80px;
 		width:80px;
+	}
+
+	.unvisible{
+		display:none;
 	}
 }
