@@ -207,7 +207,7 @@
     </header>
     <hr class="solid" style="margin-top:0px;" />
     <section>
-        <div class="container">
+        <div class="container" style="max-width: 100%;padding-right: 0px; padding-left: 0px;">
             <div class="row">
                 <input type="checkbox" id="navv-toggle" hidden>
                 <nav class="navv ">
@@ -225,12 +225,14 @@
                         <li><a href="#7">Семь</a>
                     </ul>
                 </nav>
-                <div class="row justify-content-center">
-                    <h2 class="text-center">Начните работу с добавление одного из блоков</h2>
+        
+                <div class="row test justify-content-center" id="test">
+                    <h2 class="text-center" id="collapsed">Начните работу с добавление одного из блоков</h2>
                     <label for="navv-toggle" class="btn col-1 mb-1 navv-toggle" style="width: auto;" onclick>Блоки</label>
-                    <a class="btn col-1 mb-1 unvisible" style="width: auto;">Обложка</a>
+                    <a class="btn col-1 mb-1 unvisible" onclick="genCover()" style="width: auto;">Обложка</a>
                     <a class="btn col-1 mb-1 unvisible" style="width: auto;">Заголовки</a>
                     <a class="btn col-1 mb-1 unvisible" style="width: auto;">Текст</a>
+                    <a class="btn col-1 mb-1 unvisible" onclick="genTitle()" style="width: auto;">Заголовок</a>
                 </div>
             </div>
         </div>
@@ -242,5 +244,6 @@
     <script src="~/js/main/jquery.prettyPhoto.js"></script>
     <script src="~/js/main/main.js"></script>
     <script src="~/js/main/Themes.js"></script>
+    <script src="~/js/DemoGenerator.js"></script>
 </body>
 </html>
