@@ -4,12 +4,11 @@
 }
 
 .cover {
-	padding: 30px;
-	background-image: url("/images/cover-1.jpg");
-	background-repeat: no-repeat;
-	background-position: center;
-	background-size: cover;
-	height: 100vh;
+    padding: 30px;
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: cover;
+    height: 100vh;
 }
 
 .cover__title {

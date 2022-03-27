@@ -1,0 +1,40 @@
+.input .btn-tertiary {
+    color: #555;
+    padding: 0;
+    line-height: 40px;
+    width: 300px;
+    margin: auto;
+    display: block;
+    border: 2px solid #555
+}
+
+    .input .btn-tertiary:hover, .input .btn-tertiary:focus {
+        color: #888;
+        border-color: #888
+    }
+
+.input .input-file {
+    width: .1px;
+    height: .1px;
+    opacity: 0;
+    overflow: hidden;
+    position: absolute;
+    z-index: -1
+}
+
+    .input .input-file + .js-labelFile {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        padding: 0 10px;
+        cursor: pointer
+    }
+
+        .input .input-file + .js-labelFile .icon:before {
+            content: "\f093"
+        }
+
+        .input .input-file + .js-labelFile.has-file .icon:before {
+            content: "\f00c";
+            color: #5AAC7B
+        }

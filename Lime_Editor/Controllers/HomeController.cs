@@ -1,21 +1,22 @@
 ﻿using Lime_Editor.Models;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
-using System.Threading.Tasks;
+using System.Net.Http.Headers;
 
 namespace Lime_Editor.Controllers
 {
     public class HomeController : Controller
     {
-        private readonly ILogger<HomeController> _logger;
-
-        public HomeController(ILogger<HomeController> logger)
+        private readonly IWebHostEnvironment _environment;
+        public HomeController(IWebHostEnvironment IHostingEnvironment)
         {
-            _logger = logger;
+            _environment = IHostingEnvironment;
         }
 
         public IActionResult Index()
@@ -45,7 +46,35 @@ namespace Lime_Editor.Controllers
 
         public IActionResult EditTemplates()
         {
-            return View();
+            var imageModel = new ImageModel { UrlImage = "/images/cover-1.jpg" };
+            return View(imageModel);
+        }
+
+        [HttpPost]
+        public IActionResult EditTemplates(string name)
+        {
+            var imageModel = new ImageModel { UrlImage = "/images/cover-1.jpg" };
+            if (HttpContext.Request.Form.Files != null)
+            {
+                var file = HttpContext.Request.Form.Files.First();
+                if (file.Length > 0)
+                {
+                    string fileName = ContentDispositionHeaderValue.Parse(file.ContentDisposition).FileName.Trim('"');
+
+                    var myUniqueFileName = Convert.ToString(Guid.NewGuid());
+                    var FileExtension = Path.GetExtension(fileName);
+                    string newFileName = myUniqueFileName + FileExtension;
+                    fileName = Path.Combine(_environment.WebRootPath, "demoimages") + $@"\{newFileName}";
+
+                    using (FileStream fs = System.IO.File.Create(fileName))
+                    {
+                        file.CopyTo(fs);
+                        fs.Flush();
+                    }
+                    imageModel.UrlImage = $"/demoimages/{newFileName}";
+                }
+            }
+            return View(imageModel);
         }
 
         public IActionResult Profile()
