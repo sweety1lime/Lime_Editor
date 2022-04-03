@@ -44,6 +44,16 @@ namespace Lime_Editor.Controllers
             return View();
         }
 
+        [HttpPost]
+        public IActionResult EditTemplatesPost(string html)
+        {
+            System.IO.File.WriteAllText("test.txt", html);
+
+            Debug.WriteLine(html);
+
+            return Ok();
+        }
+
         public IActionResult EditTemplates()
         {
             var imageModel = new ImageModel { UrlImage = "/images/cover-1.jpg" };

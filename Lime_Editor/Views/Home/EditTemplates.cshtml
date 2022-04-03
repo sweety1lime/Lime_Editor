@@ -23,6 +23,8 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-modal/0.9.1/jquery.modal.min.js"></script>
     <link href="~/css/bootstrap/jquery-modal.css" rel="stylesheet" />
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
+
+   
 </head><!--/head-->
 
 <body>
@@ -50,7 +52,7 @@
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="#">Сохранить</a>
+                            <a class="nav-link" href="#" onclick="savePage()">Сохранить</a>
                         </li>
                         <li class="nav-item">
                             <a class="nav-link" href="#">Настройки</a>
@@ -230,7 +232,7 @@
                     </ul>
                 </nav>
 
-                <div>
+                <div id="userSpace">
 
 
                     <article class="cover" style="background-image: url(@Model.UrlImage) !important;">
@@ -251,15 +253,12 @@
                                     <input type="file" accept=".jpg, .jpeg, .png" name="files" id="files" class="input-file">
                                     <label for="files" class="btn btn-tertiary js-labelFile">
                                         <i class="icon fa fa-check"></i>
-                                        <input type="submit" value="Загрузить" >
+                                        <input type="submit" value="Загрузить">
                                     </label>
                                 </form>
                             </div>
                         </div>
                     </div>
-
-                    <div>+</div>
-                    <input type="file" onchange="previewFile()">
                 </div>
                 <div class="row test justify-content-center" id="test">
                     <h2 class="text-center" id="collapsed">Начните работу с добавление одного из блоков</h2>
@@ -282,6 +281,8 @@
     <script src="~/js/nunjucks.js"></script>
     <script src="~/js/input.js"></script>
     <script src="~/js/DemoInput.js"></script>
+    <script src="~/js/demoSver.js"></script>
 
+    
 </body>
 </html>
