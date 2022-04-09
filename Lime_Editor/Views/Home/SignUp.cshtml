@@ -1,6 +1,7 @@
 ﻿@{
     Layout = null;
 }
+@model Lime_Editor.Models.User
 <!doctype html>
 <html lang="en">
 <head>
@@ -35,24 +36,28 @@
                 <div class="row justify-content-center">
 
                     <div class="col-10">
-                        <form class="row" style="margin-bottom: 5px;">
+                        <form class="row" style="margin-bottom: 5px;" asp-antiforgery="true" asp-action="SignUp" asp-controller="Home">
                             <fieldset>
                                 <div class="form-group col-10 cd-2">
                                     <label for="exampleInputEmail1" class="form-label mt-4">Эл.Почта</label>
-                                    <input type="email" class="form-control" id="exampleInputEmail1" aria-describedby="emailHelp" placeholder="example.mail.ru">
+                                    <input asp-for="@Model.Email" name="email" value="" type="email" class="form-control" id="exampleInputEmail1" required autocomplete="off" aria-describedby="emailHelp" placeholder="example.mail.ru">
                                     <small id="emailHelp" class="form-text text-muted">Никому не сообщайте свою почту для авторизации</small>
+                                    <span asp-validation-for="Email"></span>
                                 </div>
                                 <div class="form-group col-10 cd-2">
-                                    <label for="exampleInputEmail1" class="form-label mt-4">Повторите Эл.почту</label>
-                                    <input type="email" class="form-control" id="exampleInputEmail1" aria-describedby="emailHelp" placeholder="example.mail.ru">
+                                    <label for="exampleInputLogin" class="form-label mt-4">Логин</label>
+                                    <input placeholder="Логин" asp-for="@Model.Login" name="login" type="text" pattern="[A-z0-9.]{2,50}" minlength="2" autocomplete="off" maxlength="50" autofocus="" class="form-control" required>
+                                    <span asp-validation-for="Login"></span>
                                 </div>
                                 <div class="form-group col-10 cd-2">
                                     <label for="exampleInputPassword1" class="form-label mt-4">Придумайте пароль</label>
-                                    <input type="password" class="form-control" id="exampleInputPassword1" placeholder="***********">
+                                    <input asp-for="@Model.Password" name="password" type="password" value="" class="form-control" id="password" placeholder="***********" onkeyup='check();'>
+                                    <span asp-validation-for="Password"></span>
                                 </div>
                                 <div class="form-group col-10 cd-2">
                                     <label for="exampleInputPassword1" class="form-label mt-4">Павторите пароль</label>
-                                    <input type="password" class="form-control" id="exampleInputPassword1" placeholder="************">
+                                    <input type="password" class="form-control" id="confirm_password" onkeyup='check();' placeholder="************">
+                                    <span id='message'></span>
                                 </div>
 
                                 <button type="submit" class="btn btn-outline-info" style="outline: none; box-shadow: none; width: auto; height: auto;">Зарегистрироваться</button>
@@ -61,15 +66,24 @@
                     </div>
 
                     <div class="col-10 align-self-center social-login">
-                        <a href="#" style="outline: none; box-shadow: none; width: auto; height: auto;" class="facebook btn d-flex justify-content-center align-items-center">
-                            <span style="margin-right: 10px;" class="icon-facebook mr-3"></span> Login with Facebook
-                        </a>
-                        <a href="#" style="outline: none; box-shadow: none; width: auto; height: auto;" class="twitter btn d-flex justify-content-center align-items-center">
-                            <span style="margin-right: 10px;" class="icon-twitter mr-3"></span> Login with  Twitter
-                        </a>
-                        <a href="#" style="outline: none; box-shadow: none; width: auto; height: auto;" class="google btn d-flex justify-content-center align-items-center">
-                            <span style="margin-right: 10px;" class="icon-google mr-3"></span> Login with  Google
-                        </a>
+
+                        <!-- VK Widget -->
+                        @*<div id="vk_auth"></div>
+                            <script type="text/javascript">
+                                VK.Widgets.Auth("vk_auth", { "onAuth": function (data) { alert('user ' + data['uid'] + ' authorized'); } });
+                            </script>*@
+                        <div>
+
+                            @*<a href="#" style="outline: none; box-shadow: none; width: auto; height: auto;" class="facebook btn d-flex justify-content-center align-items-center">
+                                    <span style="margin-right: 10px;" class="icon-facebook mr-3"></span> Login with Facebook
+                                </a>
+                                <a href="#" style="outline: none; box-shadow: none; width: auto; height: auto;" class="twitter btn d-flex justify-content-center align-items-center">
+                                    <span style="margin-right: 10px;" class="icon-twitter mr-3"></span>      Login with  Twitter
+                                </a>*@
+                        </div>
+                        @*<a href="https://connect.mail.ru/oauth/authorize?client_id=785537&response_type=code&redirect_uri=http://www.limeinc.xyz/Home/MySites" style="outline: none; box-shadow: none; width: auto; height: auto;" class="google btn d-flex justify-content-center align-items-center">
+                                <span style="margin-right: 10px;" class="icon-mail_outline mr-3"></span> Login with  Mail
+                            </a>*@
                     </div>
                 </div>
 
@@ -87,5 +101,6 @@
     <script src="~/js/main/jquery.prettyPhoto.js"></script>
     <script src="~/js/main/main.js"></script>
     <script src="~/js/main/Themes.js"></script>
+    <script src="~/js/checkPassword.js"></script>
 </body>
 </html>

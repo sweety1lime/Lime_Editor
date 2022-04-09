@@ -67,6 +67,12 @@
                         <input class="form-control me-sm-2" type="text" placeholder="Search">
                         <button class="btn btn-secondary my-2 my-sm-0" type="submit">Search</button>
                     </form>
+                    <li class="nav-item dropdown" style="margin-bottom:20px;">
+                        <a class="nav-link dropdown-toggle" data-bs-toggle="dropdown" href="#" role="button" aria-haspopup="true" aria-expanded="true">@User.Identity.Name</a>
+                        <div class="dropdown-menu " data-popper-placement="bottom-start">
+                            <a class="dropdown-item" href="@Url.Action("Logout")">Выход</a>
+                        </div>
+                    </li>
                 </div>
             </div>
         </nav>
@@ -218,7 +224,7 @@
                     <div class="row cd-4 justify-content-md-center  ">
 
                         <div class="col-8 mb-2">
-                            <a href="" class="btn btn-outline-info" style="outline: none; box-shadow: none; width: auto; height: auto;"><i class=""></i>Создать сайт</a>
+                            <a href="@Url.Action("EditTemplates")" class="btn btn-outline-info" style="outline: none; box-shadow: none; width: auto; height: auto;"><i class=""></i>Создать сайт</a>
                         </div>
                         <div class="col-8 mb-2">
                             <a href="" style="outline: none; box-shadow: none;  width: auto; height: auto; " class="btn btn-outline-warning"><i class=""></i>Создать папку</a>

@@ -1,22 +1,29 @@
 ﻿using Lime_Editor.Models;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net.Http.Headers;
+using System.Security.Claims;
+using System.Threading.Tasks;
 
 namespace Lime_Editor.Controllers
 {
     public class HomeController : Controller
     {
         private readonly IWebHostEnvironment _environment;
-        public HomeController(IWebHostEnvironment IHostingEnvironment)
+        private LimeEditorContext db;
+        public HomeController(IWebHostEnvironment IHostingEnvironment, LimeEditorContext context)
         {
             _environment = IHostingEnvironment;
+            this.db = context;
         }
 
         public IActionResult Index()
@@ -28,10 +35,64 @@ namespace Lime_Editor.Controllers
         {
             return View();
         }
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> SignIn(LoginModel model)
+        {
 
+            if (ModelState.IsValid)
+            {
+                User user = await db.Users.FirstOrDefaultAsync(u => u.Login == model.Login && u.Password == model.Password);
+                if (user != null)
+                {
+                    HttpContext.Session.SetString("AuthUser", model.Login);
+                    await Authenticate(model.Login); // аутентификация
+
+                    return RedirectToAction("MySites", "Home");
+                }
+                ModelState.AddModelError("", "Некорректные логин и(или) пароль");
+            }
+            return RedirectToAction("SignIn", "Home");
+
+        }
+        private async Task Authenticate(string userName)
+        {
+            // создаем один claim
+            var claims = new List<Claim>
+            {
+                new Claim(ClaimsIdentity.DefaultNameClaimType, userName)
+            };
+            // создаем объект ClaimsIdentity
+            ClaimsIdentity id = new ClaimsIdentity(claims, "ApplicationCookie", ClaimsIdentity.DefaultNameClaimType, ClaimsIdentity.DefaultRoleClaimType);
+            // установка аутентификационных куки
+            await HttpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, new ClaimsPrincipal(id));
+        }
+        public async Task<IActionResult> Logout()
+        {
+            await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+            return RedirectToAction("Index");
+        }
         public IActionResult SignUp()
         {
             return View();
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> SignUp(User person)
+        {
+            if (ModelState.IsValid)
+            {
+                db.Users.Add(person);
+                await db.SaveChangesAsync();
+                return RedirectToAction("Index");
+            }
+
+            else
+            {
+                return View(person);
+            }
+
         }
 
         public IActionResult MySites()
@@ -47,7 +108,7 @@ namespace Lime_Editor.Controllers
         [HttpPost]
         public IActionResult EditTemplatesPost(string html)
         {
-
+            string user = "";
             var currentHtml = "<!DOCTYPE html> \n " +
                 "<html lang=\"ru_RU\"> " +
                 "\n <head> \n " +
@@ -66,10 +127,14 @@ namespace Lime_Editor.Controllers
                 "</html>";
             currentHtml = currentHtml.Replace("/images", "images");
             currentHtml = currentHtml.Replace("contenteditable=\"true\"", "contenteditable=\"false\"");
-            string directory = System.Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments) + @"\Тестовые проекты";
+
+            if (HttpContext.Session.Keys.Contains("AuthUser")) // Проверяем есть ли сохранённая корзина у пользователя
+                user = HttpContext.Session.GetString("AuthUser"); // десериализируем корзину из сессии
+
+            string directory = System.Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments) + $@"\{user}-проекты";
             if (!System.IO.Directory.Exists(directory))
                 System.IO.Directory.CreateDirectory(directory);
-            System.IO.File.WriteAllText(directory + @"\test.html", currentHtml);
+            System.IO.File.WriteAllText(directory + @"\index.html", currentHtml);
             Directory.CreateDirectory(directory + "\\css");
             Directory.CreateDirectory(directory + "\\images");
             string[] reqiredCss = new[] { "bootstrap.min.css", "bootstrap.css", "mainMeow.css", "responsive.css" , "Themes.css" };
