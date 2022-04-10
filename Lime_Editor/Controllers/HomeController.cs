@@ -70,7 +70,7 @@ namespace Lime_Editor.Controllers
         public async Task<IActionResult> Logout()
         {
             await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
-            return RedirectToAction("Index");
+            return RedirectToAction("SignIn");
         }
         public IActionResult SignUp()
         {
@@ -85,7 +85,7 @@ namespace Lime_Editor.Controllers
             {
                 db.Users.Add(person);
                 await db.SaveChangesAsync();
-                return RedirectToAction("Index");
+                return RedirectToAction("SignIn");
             }
 
             else

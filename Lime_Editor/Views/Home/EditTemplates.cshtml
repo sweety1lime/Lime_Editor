@@ -19,15 +19,16 @@
     <link href="~/css/main/Themes.css" rel="stylesheet" />
     <link href="~/css/main/left-nav-style.css" rel="stylesheet" />
     <link href="~/css/input.css" rel="stylesheet" />
+    <link href="~/css/EditText.css" rel="stylesheet" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.0.0/jquery.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-modal/0.9.1/jquery.modal.min.js"></script>
     <link href="~/css/bootstrap/jquery-modal.css" rel="stylesheet" />
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
 
-   
+
 </head><!--/head-->
 
-<body>
+<body onload="initDoc();">
     <!-- Optional JavaScript; choose one of the two! -->
     <!-- Option 1: Bootstrap Bundle with Popper -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta3/dist/js/bootstrap.bundle.min.js" integrity="sha384-JEW9xMcG8R+pH31jmWH6WWP0WintQrMb4s7ZOdauHnUtxwoG2vI5DkLtS3qm9Ekf" crossorigin="anonymous"></script>
@@ -222,50 +223,25 @@
                     <h2 class="logo">
                     </h2>
                     <ul>
-                        <li><a href="#1">Один</a>
-                        <li><a href="#2">Два</a>
-                        <li><a href="#3">Три</a>
-                        <li><a href="#4">Четыре</a>
-                        <li><a href="#5">Пять</a>
-                        <li><a href="#6">Шесть</a>
-                        <li><a href="#7">Семь</a>
+                        <li><a onclick="genCover()" href="#1">Обложка</a>
+                        <li><a href="#2">Текст</a>
+                        <li><a href="#3">Медиа-файлы</a>
+                        <li><a onclick="genTitle()" href="#4">Заголовки</a>
+                        <li><a href="#5">Header</a>
+                        <li><a href="#6">Footer</a>
                     </ul>
                 </nav>
 
                 <div id="userSpace">
+                    
 
-
-                    <article class="cover" style="background-image: url(@Model.UrlImage) !important;">
-                        <a href="#ex1" rel="modal:open">
-                            <span class="material-icons" style="color:white">
-                                build
-                            </span>
-                        </a>
-                        <h4 contenteditable="true" class="cover__uptitle">your company</h4>
-                        <h1 contenteditable="true" class="cover__title">Title/TagLine</h1>
-                        <p contenteditable="true" class="cover__description">Lorem ipsum dolor sit amet, consectetur adipiscing elit. Maecenas lobortis odio vel varius sollicitudin.</p>
-                    </article>
-
-                    <div id="ex1" class="modal" style="height:100px;">
-                        <div class="input">
-                            <div class="form-group">
-                                <form method="post" enctype="multipart/form-data">
-                                    <input type="file" accept=".jpg, .jpeg, .png" name="files" id="files" class="input-file">
-                                    <label for="files" class="btn btn-tertiary js-labelFile">
-                                        <i class="icon fa fa-check"></i>
-                                        <input type="submit" value="Загрузить">
-                                    </label>
-                                </form>
-                            </div>
-                        </div>
-                    </div>
                 </div>
                 <div class="row test justify-content-center" id="test">
                     <h2 class="text-center" id="collapsed">Начните работу с добавление одного из блоков</h2>
                     <label for="navv-toggle" class="btn col-1 mb-1 navv-toggle" style="width: auto;" onclick>Блоки</label>
                     <a class="btn col-1 mb-1 unvisible" onclick="genCover()" style="width: auto;">Обложка</a>
                     <a class="btn col-1 mb-1 unvisible " href="#ex1" rel="modal:open" style="width: auto;">Файлы</a>
-                    <a class="btn col-1 mb-1 unvisible" style="width: auto;">Текст</a>
+                    <a class="btn col-1 mb-1 unvisible" onclick="genText()" style="width: auto;">Текст</a>
                     <a class="btn col-1 mb-1 unvisible" onclick="genTitle()" style="width: auto;">Заголовок</a>
                 </div>
             </div>
@@ -282,7 +258,7 @@
     <script src="~/js/input.js"></script>
     <script src="~/js/DemoInput.js"></script>
     <script src="~/js/demoSver.js"></script>
+    <script src="~/js/EditText.js"></script>
 
-    
 </body>
 </html>
