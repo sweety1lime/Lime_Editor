@@ -24,15 +24,19 @@
     <link href="~/css/TypeHeader_1.css" rel="stylesheet" />
     <link href="~/css/TypeHeader_2.css" rel="stylesheet" />
     <link href="~/css/TypeFooter_1.css" rel="stylesheet" />
+
+    <link href="~/css/NewTextEdit.css" rel="stylesheet" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.0.0/jquery.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-modal/0.9.1/jquery.modal.min.js"></script>
     <link href="~/css/bootstrap/jquery-modal.css" rel="stylesheet" />
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
 
 
+    <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+
 </head><!--/head-->
 
-<body onload="initDoc();" style="padding-left:0px; padding-right:0px;">
+<body onload="initDoc();" style="padding-left:0px; padding-right:0px;" id="container2">
     <!-- Optional JavaScript; choose one of the two! -->
     <!-- Option 1: Bootstrap Bundle with Popper -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta3/dist/js/bootstrap.bundle.min.js" integrity="sha384-JEW9xMcG8R+pH31jmWH6WWP0WintQrMb4s7ZOdauHnUtxwoG2vI5DkLtS3qm9Ekf" crossorigin="anonymous"></script>
@@ -80,144 +84,9 @@
                 </div>
             </div>
         </nav>
-        <div>
-
-
-            @*<div class="header-bottom">
-
-                <div class="container" style="margin-left: 0px; margin-right:0px;">
-                    <div class="row">
-                        <div class="col-sm-6">
-                            <div class=" pull-left">
-
-                                <nav class="navbar navbar-default navbar-static">
-                                    <div class="navbar-header">
-                                        <button class="navbar-toggle" type="button" data-toggle="collapse" data-target=".js-navbar-collapse">
-                                            <span class="sr-only">Toggle navigation</span>
-                                            <span class="icon-bar"></span>
-                                            <span class="icon-bar"></span>
-                                            <span class="icon-bar"></span>
-                                        </button>
-
-                                    </div>
-
-                                    <div class="collapse navbar-collapse js-navbar-collapse">
-                                        <ul class="nav navbar-nav">
-                                            <li class="dropdown dropdown-large">
-                                                <a href="#">Some link</a>
-                                            </li>
-                                            <li class="dropdown dropdown-large">
-                                                <a href="#" class="dropdown-toggle" data-toggle="dropdown">Dropdown <b class="caret"></b></a>
-
-                                                <ul class="dropdown-menu dropdown-menu-large row">
-                                                    <li class="col-sm-6">
-                                                        <ul>
-                                                            <li class="dropdown-header">Sword of Truth</li>
-                                                            <li><a href="#">Example</a></li>
-                                                            <li><a href="#">Example</a></li>
-                                                            <li><a href="#">Example</a></li>
-                                                            <li><a href="#">Example</a></li>
-                                                            <li><a href="#">Example</a></li>
-                                                            <li><a href="#">Example</a></li>
-                                                            <li class="divider"></li>
-                                                            <li><img class"img-responsive" src="http://placehold.it/200x150" /></li>
-                                                        </ul>
-                                                    </li>
-                                                    <li class="col-sm-6">
-                                                        <ul>
-                                                            <li class="dropdown-header">Panda</li>
-                                                            <li><a href="#">Example</a></li>
-                                                            <li><a href="#">Example</a></li>
-                                                            <li><a href="#">Example</a></li>
-                                                            <li><a href="#">Example</a></li>
-                                                            <li><a href="#">Example</a></li>
-                                                            <li class="divider"></li>
-                                                            <li class="dropdown-header">Button dropdowns</li>
-                                                            <li><a href="#">Example</a></li>
-                                                            <li><a href="#">Example</a></li>
-                                                            <li><a href="#">Example</a></li>
-                                                        </ul>
-                                                    </li>
-
-
-                                                </ul>
-
-                                            </li>
-                                            <li class="dropdown dropdown-large">
-                                                <a href="#" class="dropdown-toggle" data-toggle="dropdown">Dropdown <b class="caret"></b></a>
-
-                                                <ul class="dropdown-menu dropdown-menu-large row">
-                                                    <li class="col-sm-6">
-                                                        <ul>
-                                                            <li class="dropdown-header">Sword of Truths</li>
-                                                            <li><a href="#">Example</a></li>
-                                                            <li><a href="#">Example</a></li>
-                                                            <li><a href="#">Example</a></li>
-                                                            <li><a href="#">Example</a></li>
-                                                            <li><a href="#">Example</a></li>
-                                                            <li><a href="#">Example</a></li>
-                                                            <li class="divider"></li>
-                                                            <li class="dropdown-header">Theme/Character</li>
-                                                            <li><a href="#">Example</a></li>
-                                                            <li><a href="#">Example</a></li>
-                                                            <li><a href="#">Example</a></li>
-                                                            <li><a href="#">Example</a></li>
-
-                                                        </ul>
-                                                    </li>
-                                                    <li class="col-sm-6">
-                                                        <ul>
-                                                            <li class="dropdown-header">by brand</li>
-                                                            <li><a href="#">Example</a></li>
-                                                            <li><a href="#">Example</a></li>
-                                                            <li><a href="#">Example</a></li>
-                                                            <li><a href="#">Example</a></li>
-                                                            <li><a href="#">Example</a></li>
-                                                            <li><a href="#">Example</a></li>
-                                                            <li class="divider"></li>
-                                                            <li><img class"img-responsive" src="http://placehold.it/200x150" /></li>
-                                                        </ul>
-                                                    </li>
-
-
-                                                </ul>
-
-                                            </li>
-
-                                        </ul>
-
-                                    </div>
-                                </nav>
-
-                            </div>
-                        </div>
-                        <div class="col-sm-6">
-                            <div class="w3-sidebar w3-bar-block w3-card w3-animate-right" style="display:none;right:0;" id="rightMenu">
-                                <button onclick="closeRightMenu()" class="w3-bar-item w3-button w3-large">Close &times;</button>
-                                <a href="#" class="w3-bar-item w3-button">Link 1</a>
-                                <a href="#" class="w3-bar-item w3-button">Link 2</a>
-                                <a href="#" class="w3-bar-item w3-button">Link 3</a>
-                                <script>
-                                    function openRightMenu() {
-                                        document.getElementById("rightMenu").style.display = "block";
-                                    }
-
-                                    function closeRightMenu() {
-                                        document.getElementById("rightMenu").style.display = "none";
-                                    }
-                                </script>
-                            </div>
-
-                        </div>
-                    </div>
-                </div>*@
-
-
-
-        </div>
     </header>
     <hr class="solid" style="margin-top:0px;" />
-    <section>
+    <section id="container1">
         <div class="container" style="max-width: 100%;padding-right: 0px; padding-left: 0px;">
             <div class="row">
                 <input type="checkbox" id="navv-toggle" hidden>
@@ -231,19 +100,40 @@
                         <li><a href="#2">Текст</a>
                         <li><a href="#3">Медиа-файлы</a>
                         <li><a onclick="genTitle()" href="#4">Заголовки</a>
-                        <li><a onclick="genHeader_type1()" href="#5">Header</a>
+                        <li><a href="#ex2" rel="modal:open">Header</a>
                         <li><a href="#ex1" rel="modal:open">Footer</a>
                     </ul>
                 </nav>
+                <div id="ex1" class="modal" style="height:auto;">
 
-                <div id="userSpace">
-                    <div id="ex1" class="modal" style="height:auto;">
+                    <a class="btn col-1 mb-1 unvisible" onclick="genFooter_type1()" style="width: auto;">Анимированный Footer</a>
+                    <a href="#" rel="modal:close">Close</a>
 
-                        <a class="btn col-1 mb-1 unvisible" onclick="genFooter_type1()" style="width: auto;">Анимированный Footer</a>
-                        <a href="#" rel="modal:close">Close</a>
-
-                    </div>
                 </div>
+                <div id="ex2" class="modal" style="height:auto;">
+
+                    <a class="btn col-1 mb-1 unvisible" onclick="genHeader_type1()" style="width: auto;">Header-"Геометрия" </a>
+                    <a class="btn col-1 mb-1 unvisible" onclick="genHeader_type2()" style="width: auto;">Header-"Как в редакторе"</a>
+                    <a href="#" rel="modal:close">Close</a>
+
+                </div>
+
+
+                <div id="userSpace" name="draggable">
+                    <div id="justHtml"> </div>
+                    <div id="collapsedbox">
+                        <div id="editor"></div>
+                    </div>
+
+                    <button type="button" class="btn" data-element="" id="collapsedbtn" onclick="closeEditor()">
+                        <i class="fa fa-save"></i>
+                    </button>
+
+                </div>
+                <div id="userSpaceContinue">
+
+                </div>
+
                 <div class="row test justify-content-center" style="margin:50px;" id="test">
                     <h2 class="text-center" id="collapsed">Начните работу с добавление одного из блоков</h2>
                     <label for="navv-toggle" class="btn col-1 mb-1 navv-toggle" style="width: auto;" onclick>Блоки</label>
@@ -255,6 +145,9 @@
             </div>
         </div>
     </section>
+
+    <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
+
     <script src="~/js/main/jquery.js"></script>
     <script src="~/js/main/jquery.scrollUp.min.js"></script>
     <script src="~/js/main/bootstrap.min.js"></script>
@@ -264,12 +157,11 @@
     <script src="~/js/DemoGenerator.js"></script>
     <script src="~/js/nunjucks.js"></script>
     <script src="~/js/input.js"></script>
+    <script src="https://kit.fontawesome.com/158ace7cc9.js" crossorigin="anonymous"></script>
+    <script src="~/js/NewTextEdit.js"></script>
     <script src="~/js/DemoInput.js"></script>
     <script src="~/js/demoSver.js"></script>
     <script src="~/js/EditText.js"></script>
-    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
-
-    <script src="~/js/animation.js"></script>
 
 
 </body>

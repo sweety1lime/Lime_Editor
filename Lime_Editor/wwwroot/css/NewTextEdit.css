@@ -1,0 +1,36 @@
+﻿/* Base */
+* {
+    padding: 0;
+    margin: 0;
+}
+
+/* Main Content */
+.main-content {
+    width: 500px;
+    position:relative;
+    top: 210px;
+    left: 50%;
+    transform: translateX(-50%) translateY(-50%);
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.19);
+}
+
+/* Text Editor Header */
+.text-editor-header {
+    background-color: #ecf0f1;
+    padding: 5px;
+}
+
+    .text-editor-header .btn {
+        border: none;
+        outline: none;
+        background-color: transparent;
+        margin-right: 5px;
+    }
+
+/* Content */
+.content {
+    min-height: 200px;
+    border: 1px solid #ecf0f1;
+    border-top: 0px;
+    padding: 20px;
+}

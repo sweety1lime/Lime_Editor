@@ -1,9 +1,21 @@
-@charset "UTF-8";
+﻿@charset "UTF-8";
 
 /**
  * Переключаемая боковая панель навигации
  * выдвигающаяся по клику слева
  */
+
+#container1 {
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+}
+
+#container2 {
+    width: 100%;
+    height: 100%;
+    overflow: initial;
+}
 
 .navv {
     /*  ширна произвольная, не стесняйтесь экспериментировать */
@@ -166,6 +178,7 @@ body {
     body {
       margin: 0;
       overflow-x: hidden;
+     
     }
 }
 
