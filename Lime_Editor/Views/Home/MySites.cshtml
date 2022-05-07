@@ -2,7 +2,7 @@
 @{
     Layout = null;
 }
-
+@model List<Lime_Editor.Models.Site>
 <!DOCTYPE html>
 <html lang="ru_RU">
 <head>
@@ -236,12 +236,14 @@
                 <div class="project-cards row mb-5">
                     <!--features_items-->
                     <h2 style="text-align:center">Ваши сайты</h2>
+                @foreach(var site in Model)
+                {
                     <div class="col-sm-3">
                         <div class="product-image-wrapper">
                             <div class="single-products">
                                 <div class="productinfo text-center">
-                                    <img src="~/images/aecbed38-d792-4db6-85af-fd3b33c8a947.jpg" />"
-                                    <p>Лендинг какой то</p>
+                                    <img src="@site.TemplateInfo.FolderPreview" />"
+                                    <p>@site.Name</p>
                                 </div>
                                 <div class="product-overlay">
                                     <div class="overlay-content">
@@ -263,6 +265,7 @@
                             </div>
                         </div>
                     </div>
+                }
                 </div><!--features_items-->
             </div>
         </div>

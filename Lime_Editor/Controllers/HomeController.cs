@@ -97,7 +97,15 @@ namespace Lime_Editor.Controllers
 
         public IActionResult MySites()
         {
-            return View();
+            var sites = new List<Models.Site>();
+            if (HttpContext.Session.Keys.Contains("AuthUser"))
+            {
+                var user = HttpContext.Session.GetString("AuthUser");
+                sites = db.Sites.Where(x => x.UserId == db.Users.First(u => u.Login == user).IdUser).ToList();
+                foreach (var site in sites)
+                    sites.First(s => s == site).TemplateInfo = db.Templates.First(t => t.IdTemplate == site.TemplateId);
+            }
+            return View(sites);
         }
 
         public IActionResult Templates()
@@ -226,6 +234,7 @@ namespace Lime_Editor.Controllers
                 user = HttpContext.Session.GetString("AuthUser");
             sites.UserId = db.Users.First(x => x.Login == user).IdUser.Value;
             sites.Folder = currentHtml;
+            sites.TemplateId = Convert.ToInt32(html.Substring(html.IndexOf("id=\"templateId ") + 15, 1));
             db.Sites.Add(sites);
             db.SaveChanges();
             return RedirectToAction("MySites", "Home");

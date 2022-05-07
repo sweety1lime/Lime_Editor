@@ -22,8 +22,6 @@ namespace Lime_Editor.Models
         public virtual DbSet<TypeTemplate> TypeTemplates { get; set; }
         public virtual DbSet<User> Users { get; set; }
 
-    
-
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.HasAnnotation("Relational:Collation", "Cyrillic_General_CI_AS");
@@ -46,7 +44,8 @@ namespace Lime_Editor.Models
 
                 entity.Property(e => e.UserId).HasColumnName("User_Id");
 
-            
+                entity.Property(e => e.TemplateId).HasColumnName("Template_Id");
+
             });
 
             modelBuilder.Entity<Template>(entity =>
@@ -68,7 +67,6 @@ namespace Lime_Editor.Models
 
                 entity.Property(e => e.TypeId).HasColumnName("Type_Id");
 
-               
             });
 
             modelBuilder.Entity<TypeTemplate>(entity =>

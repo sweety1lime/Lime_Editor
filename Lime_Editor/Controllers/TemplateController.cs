@@ -12,18 +12,15 @@ namespace Lime_Editor.Controllers
     public class TemplateController : Controller
     {
         private readonly IWebHostEnvironment _environment;
-       
 
         public TemplateController(IWebHostEnvironment IHostingEnvironment)
         {
             _environment = IHostingEnvironment;
-          
         }
        
         
         public ActionResult Template_1()
         {
-           
             return View();
         }
 

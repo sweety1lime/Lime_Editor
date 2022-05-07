@@ -11,7 +11,5 @@ namespace Lime_Editor.Models
         public string Name { get; set; }
         public string FolderPreview { get; set; }
         public int TypeId { get; set; }
-
-       
     }
 }

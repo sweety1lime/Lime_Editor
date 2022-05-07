@@ -1,5 +1,5 @@
 ﻿function savPage() {
-    var userSource = document.getElementsByTagName("html")
+    var userSource = document.getElementById("userSpace")
     var xmlHttpRequest = new XMLHttpRequest()
     var form = new FormData()
     var source = ""
