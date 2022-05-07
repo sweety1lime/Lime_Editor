@@ -212,6 +212,25 @@ namespace Lime_Editor.Controllers
             return View();
         }
 
+       
+        public IActionResult SavetoUser(string html)
+        {
+            var currentHtml = "<!DOCTYPE html> \n " +
+                "<html lang=\"ru_RU\"> " +               
+                html + "\n" +
+                "</html>";
+            var sites = new Site();
+            var user = "";
+            sites.Name = "NewSite";
+            if (HttpContext.Session.Keys.Contains("AuthUser"))
+                user = HttpContext.Session.GetString("AuthUser");
+            sites.UserId = db.Users.First(x => x.Login == user).IdUser.Value;
+            sites.Folder = currentHtml;
+            db.Sites.Add(sites);
+            db.SaveChanges();
+            return RedirectToAction("MySites", "Home");
+        }
+
         [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
         public IActionResult Error()
         {

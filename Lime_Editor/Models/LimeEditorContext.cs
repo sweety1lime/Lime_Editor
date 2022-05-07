@@ -22,7 +22,7 @@ namespace Lime_Editor.Models
         public virtual DbSet<TypeTemplate> TypeTemplates { get; set; }
         public virtual DbSet<User> Users { get; set; }
 
-      
+    
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -31,7 +31,7 @@ namespace Lime_Editor.Models
             modelBuilder.Entity<Site>(entity =>
             {
                 entity.HasKey(e => e.IdSite)
-                    .HasName("PK__Sites__A2DC903CF456388F");
+                    .HasName("PK__Sites__A2DC903C1CED58AB");
 
                 entity.Property(e => e.IdSite).HasColumnName("Id_Site");
 
@@ -44,27 +44,15 @@ namespace Lime_Editor.Models
                     .HasMaxLength(100)
                     .IsUnicode(false);
 
-                entity.Property(e => e.TypeId).HasColumnName("Type_Id");
-
                 entity.Property(e => e.UserId).HasColumnName("User_Id");
 
-                entity.HasOne(d => d.Type)
-                    .WithMany(p => p.Sites)
-                    .HasForeignKey(d => d.TypeId)
-                    .OnDelete(DeleteBehavior.ClientSetNull)
-                    .HasConstraintName("FK__Sites__Type_Id__571DF1D5");
-
-                entity.HasOne(d => d.User)
-                    .WithMany(p => p.Sites)
-                    .HasForeignKey(d => d.UserId)
-                    .OnDelete(DeleteBehavior.ClientSetNull)
-                    .HasConstraintName("FK__Sites__User_Id__5629CD9C");
+            
             });
 
             modelBuilder.Entity<Template>(entity =>
             {
                 entity.HasKey(e => e.IdTemplate)
-                    .HasName("PK__Template__8F91BE5EAA169E15");
+                    .HasName("PK__Template__8F91BE5EDFE8DD90");
 
                 entity.Property(e => e.IdTemplate).HasColumnName("Id_Template");
 
@@ -73,8 +61,6 @@ namespace Lime_Editor.Models
                     .IsUnicode(false)
                     .HasColumnName("Folder_Preview");
 
-             
-
                 entity.Property(e => e.Name)
                     .IsRequired()
                     .HasMaxLength(100)
@@ -82,17 +68,13 @@ namespace Lime_Editor.Models
 
                 entity.Property(e => e.TypeId).HasColumnName("Type_Id");
 
-                entity.HasOne(d => d.Type)
-                    .WithMany(p => p.Templates)
-                    .HasForeignKey(d => d.TypeId)
-                    .OnDelete(DeleteBehavior.ClientSetNull)
-                    .HasConstraintName("FK__Templates__Type___534D60F1");
+               
             });
 
             modelBuilder.Entity<TypeTemplate>(entity =>
             {
                 entity.HasKey(e => e.IdType)
-                    .HasName("PK__Type_Tem__1A20A3D5233A9D9D");
+                    .HasName("PK__Type_Tem__1A20A3D5996588A6");
 
                 entity.ToTable("Type_Templates");
 
@@ -107,7 +89,7 @@ namespace Lime_Editor.Models
             modelBuilder.Entity<User>(entity =>
             {
                 entity.HasKey(e => e.IdUser)
-                    .HasName("PK__User__D03DEDCB18817026");
+                    .HasName("PK__User__D03DEDCB15E5FBBC");
 
                 entity.ToTable("User");
 

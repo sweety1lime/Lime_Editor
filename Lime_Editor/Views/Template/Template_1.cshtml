@@ -4,7 +4,7 @@
 }
 
 <!DOCTYPE html>
-<html lang="en">
+<html id="userSpace" lang="en">
 
 <head>
     <meta charset="utf-8">
@@ -34,7 +34,7 @@
             <a contenteditable="true" class="navbar-brand d-flex align-items-center text-white" href="#">
                 <h3 contenteditable="true" class="font-weight-bolder mb-0">Lime</h3>
             </a>
-            <a class="navbar-brand d-flex align-items-center text-white" href="#">
+            <a class="navbar-brand d-flex align-items-center text-white" href="#" onclick="savPage()">
                 <h3 class="font-weight-bolder mb-0">Сохранить</h3>
             </a>
             <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbar-nav-header" aria-controls="navbar-nav-header" aria-expanded="false" aria-label="Toggle navigation"> <span class="lnr lnr-menu"></span> </button>
@@ -468,6 +468,7 @@
     <script src="https://unpkg.com/aos@next/dist/aos.js"></script>
     <!-- Main JS -->
     <script src="../js/Template_1/app.min.js"></script>
+    <script src="~/js/saveTemplate.js"></script>
     <script src="//localhost:35729/livereload.js"></script>
 </body>
 
