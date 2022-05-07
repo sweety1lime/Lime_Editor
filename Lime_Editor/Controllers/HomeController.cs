@@ -24,7 +24,7 @@ namespace Lime_Editor.Controllers
         public HomeController(IWebHostEnvironment IHostingEnvironment, LimeEditorContext context)
         {
             _environment = IHostingEnvironment;
-            this.db = context;
+            db = context;
         }
 
         public IActionResult Index()
@@ -34,6 +34,10 @@ namespace Lime_Editor.Controllers
 
         public IActionResult SignIn()
         {
+            if (HttpContext.Session.Keys.Contains("AuthUser"))
+            {
+                return RedirectToAction("MySites", "Home");
+            }
             return View();
         }
         [HttpPost]
@@ -52,7 +56,10 @@ namespace Lime_Editor.Controllers
                     return RedirectToAction("MySites", "Home");
                 }
                 ModelState.AddModelError("", "Некорректные логин и(или) пароль");
+
+               
             }
+           
             return RedirectToAction("SignIn", "Home");
 
         }
