@@ -102,7 +102,8 @@ namespace Lime_Editor.Controllers
 
         public IActionResult Templates()
         {
-            return View();
+            var templates = db.Templates.ToList();
+            return View(templates);
         }
 
         [HttpPost]
