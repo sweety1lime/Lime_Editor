@@ -1,8 +1,8 @@
 ﻿
+@model SiteControlModel
 @{
     Layout = null;
 }
-@model List<Lime_Editor.Models.Site>
 <!DOCTYPE html>
 <html lang="ru_RU">
 <head>
@@ -236,36 +236,48 @@
                 <div class="project-cards row mb-5">
                     <!--features_items-->
                     <h2 style="text-align:center">Ваши сайты</h2>
-                @foreach(var site in Model)
-                {
-                    <div class="col-sm-3">
-                        <div class="product-image-wrapper">
-                            <div class="single-products">
-                                <div class="productinfo text-center">
-                                    <img src="@site.TemplateInfo.FolderPreview" />"
-                                    <p>@site.Name</p>
-                                </div>
-                                <div class="product-overlay">
-                                    <div class="overlay-content">
-                                        <div class="justify-content-md-center ">
+                    @foreach (var site in Model.Sites)
+                    {
+                        <div class="col-sm-3">
+                            <div class="product-image-wrapper">
+                                <div class="single-products">
+                                    <div class="productinfo text-center">
+                                        <img src="@site.TemplateInfo.FolderPreview" />"
+                                        <p>@site.Name</p>
+                                    </div>
+                                    <div class="product-overlay">
+                                        <div class="overlay-content">
+                                            <div class="justify-content-md-center ">
+                                                <form asp-action="UpdateSite">
+                                                    <div class="row align-self-center">
+                                                        <div class="col-12 cd-4">
+                                                            @{
+                                                                var jsonEdit = Newtonsoft.Json.JsonConvert.SerializeObject(site);
+                                                            }
+                                                            <input asp-for="Site" name="site" value="@jsonEdit" hidden />
 
-                                            <div class="row align-self-center">
-                                                <div class="col-12 cd-4">
-                                                    <a href="" class="btn btn-success" style="outline: none; box-shadow: none;background: transparent; border: 3px solid; border-color: #43cc29; color: #43cc29; width: auto; height: auto;"><i class=""></i>Изменять шаблон</a>
-                                                </div>
-                                            </div>
-                                            <div  class="row align-self-center">
-                                                <div class="col-12 cd-4">
-                                                <a href="" style="outline: none; box-shadow: none; background: transparent; border: 3px solid; border-color: #e52527; color: #e52527; width: auto; height: auto; " class="btn btn-danger "><i class=""></i>Удалить шаблон</a>
-                                                </div>
+                                                            <input class="btn btn-success" style="outline: none; box-shadow: none;background: transparent; border: 3px solid; border-color: #43cc29; color: #43cc29; width: auto; height: auto;" type="submit" value="Изменять шаблон"/>
+                                                        </div>
+                                                    </div>
+                                                </form>
+                                                <form asp-action="DeleteSite">
+                                                    <div class="row align-self-center">
+                                                        <div class="col-12 cd-4">
+                                                            @{
+                                                                var jsonDelete = Newtonsoft.Json.JsonConvert.SerializeObject(site);
+                                                            }
+                                                            <input asp-for="Site" name="site" value="@jsonDelete" hidden />
+                                                            <input style="outline: none; box-shadow: none; background: transparent; border: 3px solid; border-color: #e52527; color: #e52527; width: auto; height: auto; " class="btn btn-danger " type="submit" value="Удалить шаблон" />
+                                                        </div>
+                                                    </div>
+                                                </form>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
-                }
+                    }
                 </div><!--features_items-->
             </div>
         </div>

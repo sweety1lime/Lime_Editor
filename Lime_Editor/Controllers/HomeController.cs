@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -97,17 +98,31 @@ namespace Lime_Editor.Controllers
 
         public IActionResult MySites()
         {
-            var sites = new List<Models.Site>();
+            var siteController = new SiteControlModel();
             if (HttpContext.Session.Keys.Contains("AuthUser"))
             {
                 var user = HttpContext.Session.GetString("AuthUser");
-                sites = db.Sites.Where(x => x.UserId == db.Users.First(u => u.Login == user).IdUser).ToList();
-                foreach (var site in sites)
-                    sites.First(s => s == site).TemplateInfo = db.Templates.First(t => t.IdTemplate == site.TemplateId);
+                siteController.Sites = db.Sites.Where(x => x.UserId == db.Users.First(u => u.Login == user).IdUser).ToList();
+                foreach (var site in siteController.Sites)
+                    siteController.Sites.First(s => s == site).TemplateInfo = db.Templates.First(t => t.IdTemplate == site.TemplateId);
             }
-            return View(sites);
+            return View(siteController);
         }
-
+        [HttpPost]
+        public IActionResult UpdateSite(SiteControlModel controlModel)
+        {
+            HttpContext.Session.SetString("SiteData", controlModel.Site);
+            return RedirectToAction("PageToEdit", "Template");
+        }
+        [HttpPost]
+        public IActionResult DeleteSite(SiteControlModel controlModel)
+        {
+            var site = (Site)JsonConvert.DeserializeObject(controlModel.Site, typeof(Site));
+            var siteToRemove = db.Sites.First(x => x.IdSite == site.IdSite);
+            db.Sites.Remove(siteToRemove);
+            db.SaveChanges();
+            return RedirectToAction("MySites", "Home");
+        }
         public IActionResult Templates()
         {
             var templates = db.Templates.ToList();
