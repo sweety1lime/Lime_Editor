@@ -15,5 +15,9 @@ namespace Lime_Editor.Controllers
             return View();
         }
 
+        public ActionResult Template_1_Preview()
+        {
+            return View();
+        }
     }
 }

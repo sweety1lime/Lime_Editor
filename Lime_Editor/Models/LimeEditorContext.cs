@@ -73,10 +73,7 @@ namespace Lime_Editor.Models
                     .IsUnicode(false)
                     .HasColumnName("Folder_Preview");
 
-                entity.Property(e => e.FolderTemplate)
-                    .IsRequired()
-                    .IsUnicode(false)
-                    .HasColumnName("Folder_Template");
+             
 
                 entity.Property(e => e.Name)
                     .IsRequired()
