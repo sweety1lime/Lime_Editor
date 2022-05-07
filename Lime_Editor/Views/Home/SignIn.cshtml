@@ -44,7 +44,7 @@
                             <fieldset>
                                 <div class="form-group col-10 cd-2">
                                     <label for="exampleInputEmail1" class="form-label mt-4"> Логин</label>
-                                    <input asp-for="@Model.Login" name="Login" type="text" pattern="[A-z0-9.]{2,50}" minlength="2" maxlength="50" autofocus=""  class="form-control" id="login" required  placeholder="Введите логин">
+                                    <input asp-for="@Model.Login" name="Login" type="text" pattern="[A-z0-9.]{2,50}" minlength="2" maxlength="50" autofocus="" class="form-control" id="login" required placeholder="Введите логин">
                                     <small id="emailHelp" class="form-text text-muted">Никому не сообщайте данные от аккаунта!</small>\
                                     <span asp-validation-for="Login"></span>
                                 </div>
@@ -61,29 +61,80 @@
 
                     <div class="col-10 align-self-center social-login">
 
+                        <script language="php">
+                            $client_id = '8160283'; // ID приложения
+                            $client_secret = '92TvBXd3fPbugCxG5FF2'; // Защищённый ключ
+                            $redirect_uri = 'http://localhost:8000'; // Адрес сайта
+
+                            $url = 'http://oauth.vk.com/authorize';
+
+                            $params = array(
+                                'client_id'     => $client_id,
+                                'redirect_uri'  => $redirect_uri,
+                                'response_type' => 'code'
+                            );
+
+                            echo $link = '<p><a href="'.$url. '?'.urldecode(http_build_query($params)). '">Аутентификация через ВКонтакте</a></p>';
+
+                            if (isset($_GET['code'])) {
+                                $result = false;
+                                $params = array(
+                                    'client_id' => $client_id,
+                                    'client_secret' => $client_secret,
+                                    'code' => $_GET['code'],
+                                    'redirect_uri' => $redirect_uri
+                                );
+
+                                $token = json_decode(file_get_contents('https://oauth.vk.com/access_token'. '?'.urldecode(http_build_query($params))), true);
+
+                                if (isset($token['access_token'])) {
+                                    $params = array(
+                                        'uids'         => $token['user_id'],
+                                        'fields'       => 'uid,first_name,last_name,screen_name,sex,bdate,photo_big',
+                                        'access_token' => $token['access_token']
+                                    );
+
+                                    $userInfo = json_decode(file_get_contents('https://api.vk.com/method/users.get'. '?'.urldecode(http_build_query($params))), true);
+                                    if (isset($userInfo['response'][0]['uid'])) {
+                                        $userInfo = $userInfo['response'][0];
+                                        $result = true;
+                                    }
+                                }
+
+                                if ($result) {
+                                    echo "Социальный ID пользователя: ".$userInfo['uid']. '<br />';
+                                    echo "Имя пользователя: ".$userInfo['first_name']. '<br />';
+                                    echo "Ссылка на профиль пользователя: ".$userInfo['screen_name']. '<br />';
+                                    echo "Пол пользователя: ".$userInfo['sex']. '<br />';
+                                    echo "День Рождения: ".$userInfo['bdate']. '<br />';
+                                    echo '<img src="'.$userInfo['photo_big']. '" />'; echo "<br />";
+                                }
+                            }
+                        </script>
+
+
                         <!-- VK Widget -->
                         @*<div id="vk_auth"></div>
-                        <script type="text/javascript">
-                            VK.Widgets.Auth("vk_auth", { "onAuth": function (data) { alert('user ' + data['uid'] + ' authorized'); } });
-                        </script>
-                        <div>*@
+                            <script type="text/javascript">
+                                VK.Widgets.Auth("vk_auth", { "onAuth": function (data) { alert('user ' + data['uid'] + ' authorized'); } });
+                            </script>
+                            <div>*@
 
                         @*<a href="#" style="outline: none; box-shadow: none; width: auto; height: auto;" class="facebook btn d-flex justify-content-center align-items-center">
-                            <span style="margin-right: 10px;" class="icon-facebook mr-3"></span> Login with Facebook
-                        </a>
-                        <a href="#" style="outline: none; box-shadow: none; width: auto; height: auto;" class="twitter btn d-flex justify-content-center align-items-center">
-                            <span style="margin-right: 10px;" class="icon-twitter mr-3"></span>      Login with  Twitter
-                        </a>*@
-                        </div>
-                        @*<a href="https://connect.mail.ru/oauth/authorize?client_id=785537&response_type=code&redirect_uri=http://www.limeinc.xyz/Home/MySites" style="outline: none; box-shadow: none; width: auto; height: auto;" class="google btn d-flex justify-content-center align-items-center">
+                                <span style="margin-right: 10px;" class="icon-facebook mr-3"></span> Login with Facebook
+                            </a>
+                            <a href="#" style="outline: none; box-shadow: none; width: auto; height: auto;" class="twitter btn d-flex justify-content-center align-items-center">
+                                <span style="margin-right: 10px;" class="icon-twitter mr-3"></span>      Login with  Twitter
+                            </a>*@
+                    </div>
+                    @*<a href="https://connect.mail.ru/oauth/authorize?client_id=785537&response_type=code&redirect_uri=http://www.limeinc.xyz/Home/MySites" style="outline: none; box-shadow: none; width: auto; height: auto;" class="google btn d-flex justify-content-center align-items-center">
                             <span style="margin-right: 10px;" class="icon-mail_outline mr-3"></span> Login with  Mail
                         </a>*@
-                    </div>
                 </div>
-
             </div>
         </div>
     </div>
+
 
     <script src="~/js/main/jquery.js"></script>
     <script src="~/js/main/jquery.scrollUp.min.js"></script>

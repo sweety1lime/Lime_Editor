@@ -62,7 +62,7 @@ namespace Lime_Editor
             {
                 endpoints.MapControllerRoute(
                     name: "default",
-                    pattern: "{controller=Home}/{action=SignUp}/{id?}");
+                    pattern: "{controller=Home}/{action=SignIn}/{id?}");
             });
         }
     }

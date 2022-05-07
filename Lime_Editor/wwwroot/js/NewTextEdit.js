@@ -1,19 +1,30 @@
-﻿// Elements
-const elements = document.querySelectorAll('.btn');
+﻿function chooseColor() {
+    var mycolor = document.getElementById("myColor").value;
+    document.execCommand('foreColor', false, mycolor);
+}
 
-// Event
-elements.forEach(element => {
-	element.addEventListener('click', () => {
-		let command = element.dataset['element'];
-		
-		if (command == 'createLink' || command == 'insertImage') {
-			let url = prompt('Enter the link here:', 'http://');
-			document.execCommand(command, false, url);
-		} else {
-			document.execCommand(command, false, null);
-		}
-	});
-});
+function changeFont() {
+    var myFont = document.getElementById("input-font").value;
+    document.execCommand('fontName', false, myFont);
+}
+
+function changeSize() {
+    var mysize = document.getElementById("fontSize").value;
+    document.execCommand('fontSize', false, mysize);
+}
+
+function checkDiv() {
+    var editorText = document.getElementById("editor1").innerHTML;
+    if (editorText === '') {
+        document.getElementById("editor1").style.border = '5px solid red';
+    }
+}
+
+function removeBorder() {
+    document.getElementById("editor1").style.border = '1px solid transparent';
+}
+
+
 
 var options = {
     placeholder: 'Waiting for your precious content',
@@ -29,4 +40,16 @@ function closeEditor() {
     document.getElementById("editor").hidden = true;
     document.getElementById("collapsedbox").hidden = true;
     document.getElementById("collapsedbtn").hidden = true;
+}
+
+function save() {
+
+    var justHtmlContent = document.getElementById('justHtml');
+    var justHtml = document.getElementById('editor1');
+    var html = "";
+    html = justHtml.innerHTML;
+    justHtmlContent.innerHTML = html;
+    document.getElementById("editor1").hidden = true;
+    document.getElementById("container").remove() = true;
+    document.getElementById("collapsedbtn").remove() = true;
 }
