@@ -153,16 +153,20 @@ namespace Lime_Editor.Controllers
                 "<link href=\"css/mainMeow.css\" rel=\"stylesheet\" \n/>" +
                 "<link href=\"css/responsive.css\" rel=\"stylesheet\" \n/>" +
                 "<link href=\"css/Themes.css\" rel=\"stylesheet\" \n/>" +
+                "<link href=\"css/TypeHeader_1.css\" rel=\"stylesheet\" \n/>" +
+                "<link href=\"css/TypeHeader_2.css\" rel=\"stylesheet\" \n/>" +
+                "<link href=\"css/TypeFooter_1.css\" rel=\"stylesheet\" \n/>" +
+                "<link href=\"css/NewTextEdit.css\" rel=\"stylesheet\" \n/>" +
                 "</head> \n" +
-                "<body> \n" +
+                "<body style=\"padding: inherit; overflow - x: hidden;\"> \n" +
                 html +
                 "\n </body> \n" +
                 "</html>";
             currentHtml = currentHtml.Replace("/images", "images");
             currentHtml = currentHtml.Replace("contenteditable=\"true\"", "contenteditable=\"false\"");
 
-            if (HttpContext.Session.Keys.Contains("AuthUser")) // Проверяем есть ли сохранённая корзина у пользователя
-                user = HttpContext.Session.GetString("AuthUser"); // десериализируем корзину из сессии
+            if (HttpContext.Session.Keys.Contains("AuthUser"))
+                user = HttpContext.Session.GetString("AuthUser"); 
 
             string directory = System.Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments) + $@"\{user}-проекты";
             if (!System.IO.Directory.Exists(directory))
@@ -170,8 +174,8 @@ namespace Lime_Editor.Controllers
             System.IO.File.WriteAllText(directory + @"\index.html", currentHtml);
             Directory.CreateDirectory(directory + "\\css");
             Directory.CreateDirectory(directory + "\\images");
-            string[] reqiredCss = new[] { "bootstrap.min.css", "bootstrap.css", "mainMeow.css", "responsive.css", "Themes.css" };
-            string[] filePaths = Directory.GetFiles(_environment.WebRootPath + "\\css\\main\\"); //файл2.css, файл3.css, файл4.css
+            string[] reqiredCss = new[] { "bootstrap.min.css", "bootstrap.css", "mainMeow.css", "responsive.css", "Themes.css", "TypeHeader_1.css", "TypeHeader_2.css", "TypeFooter_1.css", "NewTextEdit.css" };
+            string[] filePaths = Directory.GetFiles(_environment.WebRootPath + "\\css\\main\\");
             foreach (var filePath in filePaths)
             {
                 if (reqiredCss.Contains(filePath.Substring(filePath.LastIndexOf("\\") + 1)))
@@ -187,7 +191,7 @@ namespace Lime_Editor.Controllers
 
             }
 
-            string[] pathImg = Directory.GetFiles(_environment.WebRootPath + "\\images\\"); //файл2.css, файл3.css, файл4.css
+            string[] pathImg = Directory.GetFiles(_environment.WebRootPath + "\\images\\");
             foreach (var filePath in pathImg)
             {
                 if (html.Contains(filePath.Substring(filePath.LastIndexOf("\\") + 1)))
