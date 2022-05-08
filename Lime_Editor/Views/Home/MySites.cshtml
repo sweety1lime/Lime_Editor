@@ -227,7 +227,7 @@
                             <a href="@Url.Action("EditTemplates")" class="btn btn-outline-info" style="outline: none; box-shadow: none; width: auto; height: auto;"><i class=""></i>Создать сайт</a>
                         </div>
                         <div class="col-8 mb-2">
-                            <a href="" style="outline: none; box-shadow: none;  width: auto; height: auto; " class="btn btn-outline-warning"><i class=""></i>Создать папку</a>
+                            <a href="@Url.Action("Templates")" style="outline: none; box-shadow: none;  width: auto; height: auto; " class="btn btn-outline-warning"><i class=""></i>Выбрать шаблон</a>
                         </div>
                     </div>
                 </div>
@@ -242,8 +242,12 @@
                             <div class="product-image-wrapper">
                                 <div class="single-products">
                                     <div class="productinfo text-center">
-                                        <img src="@site.TemplateInfo.FolderPreview" />"
-                                        <p>@site.Name</p>
+                                        <form asp-action="ChangeName">
+                                            <img src="@site.TemplateInfo.FolderPreview" />
+                                            <input type="number" name="idSite" value="@site.IdSite" hidden/>
+                                            <input class="form-control" asp-for="Site" name="site" value="@site.Name"/>
+                                            <input href="#" class="btn" type="submit" value="Изменить" />
+                                        </form>
                                     </div>
                                     <div class="product-overlay">
                                         <div class="overlay-content">
@@ -256,7 +260,7 @@
                                                             }
                                                             <input asp-for="Site" name="site" value="@jsonEdit" hidden />
 
-                                                            <input class="btn btn-success" style="outline: none; box-shadow: none;background: transparent; border: 3px solid; border-color: #43cc29; color: #43cc29; width: auto; height: auto;" type="submit" value="Изменять шаблон"/>
+                                                            <input class="btn btn-success" style="outline: none; box-shadow: none;background: transparent; border: 3px solid; border-color: #43cc29; color: #43cc29; width: auto; height: auto;" type="submit" value="Изменять шаблон" />
                                                         </div>
                                                     </div>
                                                 </form>
@@ -295,11 +299,13 @@
             </ul>
         </div>
     </footer>
+    <script src="https://kit.fontawesome.com/158ace7cc9.js" crossorigin="anonymous"></script>
     <script src="~/js/main/jquery.js"></script>
     <script src="~/js/main/jquery.scrollUp.min.js"></script>
     <script src="~/js/main/bootstrap.min.js"></script>
     <script src="~/js/main/jquery.prettyPhoto.js"></script>
     <script src="~/js/main/main.js"></script>
     <script src="~/js/main/Themes.js"></script>
+    <script src="~/js/saveTemplate.js"></script>
 </body>
 </html>

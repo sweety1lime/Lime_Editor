@@ -57,9 +57,9 @@ namespace Lime_Editor.Controllers
                 }
                 ModelState.AddModelError("", "Некорректные логин и(или) пароль");
 
-               
+
             }
-           
+
             return RedirectToAction("SignIn", "Home");
 
         }
@@ -153,7 +153,7 @@ namespace Lime_Editor.Controllers
                 "<link href=\"css/Themes.css\" rel=\"stylesheet\" \n/>" +
                 "</head> \n" +
                 "<body> \n" +
-                html+
+                html +
                 "\n </body> \n" +
                 "</html>";
             currentHtml = currentHtml.Replace("/images", "images");
@@ -168,14 +168,14 @@ namespace Lime_Editor.Controllers
             System.IO.File.WriteAllText(directory + @"\index.html", currentHtml);
             Directory.CreateDirectory(directory + "\\css");
             Directory.CreateDirectory(directory + "\\images");
-            string[] reqiredCss = new[] { "bootstrap.min.css", "bootstrap.css", "mainMeow.css", "responsive.css" , "Themes.css" };
+            string[] reqiredCss = new[] { "bootstrap.min.css", "bootstrap.css", "mainMeow.css", "responsive.css", "Themes.css" };
             string[] filePaths = Directory.GetFiles(_environment.WebRootPath + "\\css\\main\\"); //файл2.css, файл3.css, файл4.css
             foreach (var filePath in filePaths)
             {
                 if (reqiredCss.Contains(filePath.Substring(filePath.LastIndexOf("\\") + 1)))
                 {
                     string path = filePath;
-                    string newPath = directory+ "\\css\\" + filePath.Substring(filePath.LastIndexOf("\\") + 1);
+                    string newPath = directory + "\\css\\" + filePath.Substring(filePath.LastIndexOf("\\") + 1);
                     FileInfo fileInf = new FileInfo(path);
                     if (fileInf.Exists)
                     {
@@ -242,11 +242,11 @@ namespace Lime_Editor.Controllers
             return View();
         }
 
-       
+
         public IActionResult SavetoUser(string html)
         {
             var currentHtml = "<!DOCTYPE html> \n " +
-                "<html lang=\"ru_RU\"> " +               
+                "<html lang=\"ru_RU\"> " +
                 html + "\n" +
                 "</html>";
             var sites = new Site();
@@ -258,6 +258,14 @@ namespace Lime_Editor.Controllers
             sites.Folder = currentHtml;
             sites.TemplateId = Convert.ToInt32(html.Substring(html.IndexOf("id=\"templateId ") + 15, 1));
             db.Sites.Add(sites);
+            db.SaveChanges();
+            return RedirectToAction("MySites", "Home");
+        }
+
+        [HttpPost]
+        public IActionResult ChangeName(string site, int idSite)
+        {
+            db.Sites.First(x => x.IdSite.Value == idSite).Name = site;
             db.SaveChanges();
             return RedirectToAction("MySites", "Home");
         }

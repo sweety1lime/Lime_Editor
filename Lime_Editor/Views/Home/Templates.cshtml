@@ -217,18 +217,23 @@
                         <h2 class="title text-center">Все шаблоны</h2>
                         @foreach (var template in Model)
                         {
+                            <style>
+                                .single-products:hover .product-overlay {
+                                    display: block;
+                                    height: 100% !important;
+                                }
+                            </style>
                             <div class="col-sm-3">
                                 <div class="product-image-wrapper">
                                     <div class="single-products">
                                         <div class="productinfo text-center">
-                                           
-                                            <img src="@template.FolderPreview" />
-                                            <p>@template.Name</p>
+                                            <img src="@template.FolderPreview"/>
+                                            <p style="font-size: 25px;">@template.Name</p>
+                                            
                                         </div>
                                         <div class="product-overlay">
                                             <div class="overlay-content">
                                                 <div class="row align-self-center ">
-
                                                     <div class="col-12 cd-4">
                                                         <a href="@Url.Action($"Template_{template.IdTemplate}","Template")" class="btn btn-primary "><i class=""></i>Добавить шаблон</a>
                                                     </div>
@@ -248,17 +253,6 @@
         </div>
 
     </section>
-    <footer class="footer mt-auto py-3 bg-light">
-        <div class="container">
-            <ul class="social-icons">
-                <li><a class="social-icon-twitter" href="#" title="..." target="_blank" rel="noopener"></a></li>
-                <li><a class="social-icon-fb" href="#" title="..." target="_blank" rel="noopener"></a></li>
-                <li><a class="social-icon-vk" href="#" title="..." target="_blank" rel="noopener"></a></li>
-                <li><a class="social-icon-telegram" href="#" title="..." target="_blank" rel="noopener"></a></li>
-                <li><a class="social-icon-youtube" href="#" title="..." target="_blank" rel="noopener"></a></li>
-            </ul>
-        </div>
-    </footer>
     <script src="~/js/main/jquery.js"></script>
     <script src="~/js/main/jquery.scrollUp.min.js"></script>
     <script src="~/js/main/bootstrap.min.js"></script>

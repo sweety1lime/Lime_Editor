@@ -25,7 +25,7 @@ namespace Lime_Editor.Controllers
             {
                 var siteJson = HttpContext.Session.GetString("SiteData");
                 var site = (Site)JsonConvert.DeserializeObject(siteJson, typeof(Site));
-                site.Folder = site.Folder.Replace("savPage()", "freshawakady()"); 
+                site.Folder = site.Folder.Replace("savPage()", "updatePage()"); 
                 return View(site);
             }
 
@@ -33,13 +33,13 @@ namespace Lime_Editor.Controllers
         }
 
         [HttpPost]
-        public IActionResult UpdateSite(string html)
+        public IActionResult UpdateSitecheck(string html)
         {
             var siteJson = HttpContext.Session.GetString("SiteData");
             var site = (Site)JsonConvert.DeserializeObject(siteJson, typeof(Site));
 
             var currentHtml = "<!DOCTYPE html> \n " +
-                "<html lang=\"ru_RU\"> " +
+                "<html id=\"userSpace\" lang=\"ru_RU\"> " +
                 html + "\n" +
                 "</html>";
             site.Folder = currentHtml;
