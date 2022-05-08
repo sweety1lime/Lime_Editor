@@ -107,6 +107,10 @@ namespace Lime_Editor.Models
                     .HasMaxLength(100)
                     .IsUnicode(false);
 
+                entity.Property(e => e.LastName)
+                    .HasMaxLength(100)
+                    .IsUnicode(false);
+
                 entity.Property(e => e.Password)
                     .IsRequired()
                     .HasMaxLength(20)

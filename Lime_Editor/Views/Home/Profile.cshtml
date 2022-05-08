@@ -1,6 +1,7 @@
 ﻿@{
     Layout = null;
 }
+@model Lime_Editor.Models.User;
 <!doctype html>
 <html lang="en">
 <head>
@@ -76,69 +77,45 @@
                 </div>
                 <div class="row justify-content-center">
                     <div class="col-10">
-                        <form class="row" style="margin-bottom: 5px;">
+                        <form class="row" style="margin-bottom: 5px;" asp-action="EditProfile" asp-controller="Home">
                             <h2 style="">Отображаемая информация</h2>
                             <fieldset>
                                 <div class="form-group row">
-                                    <label for="exampleInputEmail1" class="col-10 cd-4 form-label mt-4" style="width: 224px">Имя</label>
-                                    <input type="text" class="col-10 cd-4 form-label form-control" id="exampleInputEmail1" aria-describedby="emailHelp" placeholder="Иван" style=" width: 250px !important; margin-bottom: 0px;margin-top: 8px;">
+                                    <label for="" class="col-10 cd-4 form-label mt-4" style="width: 224px">Имя</label>
+                                    <input type="text" class="col-10 cd-4 form-label form-control" asp-for="@Model.Name" name="name" id="exampleInputEmail1" aria-describedby="emailHelp" value="@Model.Name" placeholder="Иван" style=" width: 250px !important; margin-bottom: 0px;margin-top: 8px;">
                                 </div>
                                 <div class="form-group row">
-                                    <label for="exampleInputPassword1" style=" width: 224px !important; margin-bottom: 0px;margin-top: 8px;" class="col-10 cd-4 form-label mt-4">Фамилия</label>
-                                    <input type="text" class="col-10 cd-4 form-label form-control" id="exampleInputEmail1" aria-describedby="emailHelp" placeholder="Иванов" style=" width: 250px !important; margin-bottom: 0px;margin-top: 8px;">
+                                    <label for="" style=" width: 224px !important; margin-bottom: 0px;margin-top: 8px;" class="col-10 cd-4 form-label mt-4">Фамилия</label>
+                                    <input type="text" class="col-10 cd-4 form-label form-control" asp-for="@Model.LastName" name="lastname" id="exampleInputEmail1" aria-describedby="emailHelp" value="@Model.LastName" placeholder="Иванов" style=" width: 250px !important; margin-bottom: 0px;margin-top: 8px;">
                                 </div>
+                                
                             </fieldset>
-                        </form>
-                    </div>
-                </div>
-                <div class="row justify-content-center">
-                    <div class="col-10">
-                        <form class="row" style="margin-bottom: 5px; margin-top: 20px;">
+
                             <h2 style="">Данные для входа</h2>
                             <fieldset>
+                                <input asp-for="@Model.IdUser" type="number" name="idUser" hidden/>
                                 <div class="form-group row">
-                                    <label for="exampleInputEmail1" class="col-10 cd-4 form-label mt-4" style="width: 260px">Эл.Почта</label>
-                                    <input type="email" class="col-10 cd-4 form-label form-control" id="exampleInputEmail1" aria-describedby="emailHelp" placeholder="Введите почту" style=" width: 330px !important; margin-bottom: 0px;margin-top: 8px;">
-                                    <small id="emailHelp" class=" form-text text-muted" style="width: 1000px;  margin-top: 0px; margin-bottom: 1px !important;height: 20px;">Никому не сообщайте почту для авторизации!</small>
+                                    <label for="" class="col-10 cd-4 form-label mt-4" style="width: 260px">Логин</label>
+                                    <input placeholder="Логин" asp-for="@Model.Login" name="login" type="text" pattern="[A-z0-9.]{2,50}" minlength="2" value="@Model.Login" autocomplete="off" maxlength="50" autofocus="" class="form-control" required>
+                                    <span asp-validation-for="Login"></span>
                                 </div>
                                 <div class="form-group row">
-                                    <label for="exampleInputPassword1" style=" width: 260px !important; margin-bottom: 0px;margin-top: 8px;" class="col-10 cd-4 form-label mt-4">Пароль</label>
-                                    <input type="password" style=" width: 330px !important; margin-bottom: 0px;margin-top: 8px;" class="col-10 cd-4 form-label form-control" id="exampleInputPassword1" placeholder="************">
+                                    <label for="" style=" width: 600px !important; margin-bottom: 0px;margin-top: 8px;" class="col-10 cd-4 form-label mt-4">Пароль</label>
+                                    <input type="password" style=" width: 330px !important; margin-bottom: 0px;margin-top: 8px;" class="col-10 cd-4 form-label form-control" id="exampleInputPassword1" asp-for="@Model.Password" name="password" value="@Model.Password">
+                                    <span asp-validation-for="Password"></span>
+                                </div>
+                                <div class="form-group row">
+                                    <label for="exampleInputEmail1" class="form-label mt-4">Эл.Почта</label>
+                                    <input asp-for="@Model.Email" name="email" value="@Model.Email" type="email" class="form-control" id="exampleInputEmail1" required autocomplete="off" aria-describedby="emailHelp" placeholder="example.mail.ru">
+                                    <span asp-validation-for="Email"></span>
+                                </div>
+                                <div class="col-2 cd-4">
+                                    <button type="submit" href="" class="btn btn-success" style="outline: none; box-shadow: none;background: transparent; border: 3px solid; border-color: #43cc29; color: #43cc29; width: auto; height: auto;"><i class=""></i>Сохранить</button>
                                 </div>
                             </fieldset>
                         </form>
                     </div>
                 </div>
-                <div class="row justify-content-center" style="margin-top: 20px;">
-                    <div class="col-10">
-                        <div class="row" style="margin-bottom: 5px;">
-                            <h2 style="">Подключенные соц-сети</h2>
-                            <fieldset>
-                                <div class="row" style="margin-top: 10px;">
-                                    <img class="col-1 cd-4 svg" src="~/images/vk_icon-icons.com_66102.svg" />
-                                    <div class="col-6 cd-4">
-                                        <h3>Vkontakte</h3>
-                                        <small>Аккаунт не привязан</small>
-                                    </div>
-                                    <div class="col-2 cd-4">
-                                        <a href="" class="btn btn-success" style="outline: none; box-shadow: none;background: transparent; border: 3px solid; border-color: #43cc29; color: #43cc29; width: auto; height: auto;"><i class=""></i>Привязать</a>
-                                    </div>
-                                </div>
-                                <div class="row" style="margin-top: 10px;">
-                                    <img class="col-1 cd-4 svg" src="~/images/google_icon-icons.com_62736.svg" />
-                                    <div class="col-6 cd-4">
-                                        <h3>Google</h3>
-                                        <small>Аккаунт привязан</small>
-                                    </div>
-                                    <div class="col-2 cd-4">
-                                        <a href="" style="outline: none; box-shadow: none; background: transparent; border: 3px solid; border-color: #e52527; color: #e52527; width: auto; height: auto; " class="btn btn-danger "><i class=""></i>Отвязать</a>
-                                    </div>
-                                </div>
-                            </fieldset>
-                        </div>
-                    </div>
-                </div>
-
             </div>
         </div>
     </div>

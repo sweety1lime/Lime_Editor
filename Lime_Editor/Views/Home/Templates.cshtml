@@ -38,173 +38,27 @@
                 <div class="collapse navbar-collapse" id="navbarColor03">
                     <ul class="navbar-nav me-auto">
                         <li class="nav-item">
-                            <a class="nav-link active" href="#">
-                                Home
+                            <a class="nav-link active" href="/Home/MySites">
+                                Главная
                                 <span class="visually-hidden">(current)</span>
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="#">Features</a>
+                            <a class="nav-link" href="/Home/Templates">Шаблоны</a>
                         </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="#">Pricing</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="#">About</a>
-                        </li>
-                        <li class="nav-item dropdown">
-                            <a class="nav-link dropdown-toggle " data-bs-toggle="dropdown" href="#" role="button" aria-haspopup="true" aria-expanded="true">Dropdown</a>
-                            <div class="dropdown-menu " data-popper-placement="bottom-start">
-                                <a class="dropdown-item" href="#">Action</a>
-                                <a class="dropdown-item" href="#">Another action</a>
-                                <a class="dropdown-item" href="#">Something else here</a>
-                                <div class="dropdown-divider"></div>
-                                <a class="dropdown-item" href="#">Separated link</a>
-                            </div>
-                        </li>
+
                     </ul>
-                    <form class="d-flex">
-                        <input class="form-control me-sm-2" type="text" placeholder="Search">
-                        <button class="btn btn-secondary my-2 my-sm-0" type="submit">Search</button>
-                    </form>
+
+                    <li class="nav-item dropdown" style="margin-bottom:20px;">
+                        <a class="nav-link dropdown-toggle" data-bs-toggle="dropdown" href="#" role="button" aria-haspopup="true" aria-expanded="true">@User.Identity.Name</a>
+                        <div class="dropdown-menu " data-popper-placement="bottom-start">
+                            <a class="dropdown-item" href="@Url.Action("Profile")">Личный кабинет</a>
+                            <a class="dropdown-item" href="@Url.Action("Logout")">Выход</a>
+                        </div>
+                    </li>
                 </div>
             </div>
         </nav>
-        <div>
-
-
-            @*<div class="header-bottom">
-
-                <div class="container" style="margin-left: 0px; margin-right:0px;">
-                    <div class="row">
-                        <div class="col-sm-6">
-                            <div class=" pull-left">
-
-                                <nav class="navbar navbar-default navbar-static">
-                                    <div class="navbar-header">
-                                        <button class="navbar-toggle" type="button" data-toggle="collapse" data-target=".js-navbar-collapse">
-                                            <span class="sr-only">Toggle navigation</span>
-                                            <span class="icon-bar"></span>
-                                            <span class="icon-bar"></span>
-                                            <span class="icon-bar"></span>
-                                        </button>
-
-                                    </div>
-
-                                    <div class="collapse navbar-collapse js-navbar-collapse">
-                                        <ul class="nav navbar-nav">
-                                            <li class="dropdown dropdown-large">
-                                                <a href="#">Some link</a>
-                                            </li>
-                                            <li class="dropdown dropdown-large">
-                                                <a href="#" class="dropdown-toggle" data-toggle="dropdown">Dropdown <b class="caret"></b></a>
-
-                                                <ul class="dropdown-menu dropdown-menu-large row">
-                                                    <li class="col-sm-6">
-                                                        <ul>
-                                                            <li class="dropdown-header">Sword of Truth</li>
-                                                            <li><a href="#">Example</a></li>
-                                                            <li><a href="#">Example</a></li>
-                                                            <li><a href="#">Example</a></li>
-                                                            <li><a href="#">Example</a></li>
-                                                            <li><a href="#">Example</a></li>
-                                                            <li><a href="#">Example</a></li>
-                                                            <li class="divider"></li>
-                                                            <li><img class"img-responsive" src="http://placehold.it/200x150" /></li>
-                                                        </ul>
-                                                    </li>
-                                                    <li class="col-sm-6">
-                                                        <ul>
-                                                            <li class="dropdown-header">Panda</li>
-                                                            <li><a href="#">Example</a></li>
-                                                            <li><a href="#">Example</a></li>
-                                                            <li><a href="#">Example</a></li>
-                                                            <li><a href="#">Example</a></li>
-                                                            <li><a href="#">Example</a></li>
-                                                            <li class="divider"></li>
-                                                            <li class="dropdown-header">Button dropdowns</li>
-                                                            <li><a href="#">Example</a></li>
-                                                            <li><a href="#">Example</a></li>
-                                                            <li><a href="#">Example</a></li>
-                                                        </ul>
-                                                    </li>
-
-
-                                                </ul>
-
-                                            </li>
-                                            <li class="dropdown dropdown-large">
-                                                <a href="#" class="dropdown-toggle" data-toggle="dropdown">Dropdown <b class="caret"></b></a>
-
-                                                <ul class="dropdown-menu dropdown-menu-large row">
-                                                    <li class="col-sm-6">
-                                                        <ul>
-                                                            <li class="dropdown-header">Sword of Truths</li>
-                                                            <li><a href="#">Example</a></li>
-                                                            <li><a href="#">Example</a></li>
-                                                            <li><a href="#">Example</a></li>
-                                                            <li><a href="#">Example</a></li>
-                                                            <li><a href="#">Example</a></li>
-                                                            <li><a href="#">Example</a></li>
-                                                            <li class="divider"></li>
-                                                            <li class="dropdown-header">Theme/Character</li>
-                                                            <li><a href="#">Example</a></li>
-                                                            <li><a href="#">Example</a></li>
-                                                            <li><a href="#">Example</a></li>
-                                                            <li><a href="#">Example</a></li>
-
-                                                        </ul>
-                                                    </li>
-                                                    <li class="col-sm-6">
-                                                        <ul>
-                                                            <li class="dropdown-header">by brand</li>
-                                                            <li><a href="#">Example</a></li>
-                                                            <li><a href="#">Example</a></li>
-                                                            <li><a href="#">Example</a></li>
-                                                            <li><a href="#">Example</a></li>
-                                                            <li><a href="#">Example</a></li>
-                                                            <li><a href="#">Example</a></li>
-                                                            <li class="divider"></li>
-                                                            <li><img class"img-responsive" src="http://placehold.it/200x150" /></li>
-                                                        </ul>
-                                                    </li>
-
-
-                                                </ul>
-
-                                            </li>
-
-                                        </ul>
-
-                                    </div>
-                                </nav>
-
-                            </div>
-                        </div>
-                        <div class="col-sm-6">
-                            <div class="w3-sidebar w3-bar-block w3-card w3-animate-right" style="display:none;right:0;" id="rightMenu">
-                                <button onclick="closeRightMenu()" class="w3-bar-item w3-button w3-large">Close &times;</button>
-                                <a href="#" class="w3-bar-item w3-button">Link 1</a>
-                                <a href="#" class="w3-bar-item w3-button">Link 2</a>
-                                <a href="#" class="w3-bar-item w3-button">Link 3</a>
-                                <script>
-                                    function openRightMenu() {
-                                        document.getElementById("rightMenu").style.display = "block";
-                                    }
-
-                                    function closeRightMenu() {
-                                        document.getElementById("rightMenu").style.display = "none";
-                                    }
-                                </script>
-                            </div>
-
-                        </div>
-                    </div>
-                </div>*@
-
-
-
-        </div>
     </header>
     <hr class="solid" style="margin-top:0px;" />
     <section>
@@ -227,9 +81,9 @@
                                 <div class="product-image-wrapper">
                                     <div class="single-products">
                                         <div class="productinfo text-center">
-                                            <img src="@template.FolderPreview"/>
+                                            <img src="@template.FolderPreview" />
                                             <p style="font-size: 25px;">@template.Name</p>
-                                            
+
                                         </div>
                                         <div class="product-overlay">
                                             <div class="overlay-content">

@@ -52,35 +52,26 @@
                 </button>
 
                 <div class="collapse navbar-collapse" id="navbarColor03">
-                    <form class="navbar-nav me-auto"></form>
-                    <ul class="navbar-nav me-auto" style="margin-bottom: 0px;margin-right: 0px !important;">
+                    <ul class="navbar-nav me-auto">
                         <li class="nav-item">
-                            <a class="nav-link active" href="#">
-                                Предпросмотр
+                            <a class="nav-link active" href="/Home/MySites">
+                                Главная
                                 <span class="visually-hidden">(current)</span>
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="#" onclick="savePage()">Сохранить</a>
+                            <a class="nav-link" href="/Home/Templates">Шаблоны</a>
                         </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="#">Настройки</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="#">Еще</a>
-                        </li>
-                        <li class="nav-item dropdown">
-                            <a class="nav-link dropdown-toggle " data-bs-toggle="dropdown" href="#" role="button" aria-haspopup="true" aria-expanded="true">Dropdown</a>
-                            <div class="dropdown-menu " data-popper-placement="bottom-start">
-                                <a class="dropdown-item" href="#">Тест</a>
-                                <a class="dropdown-item" href="#">Тест</a>
-                                <a class="dropdown-item" href="#">Тест</a>
-                                <div class="dropdown-divider"></div>
-                                <a class="dropdown-item" href="#">Тест</a>
-                            </div>
-                        </li>
+
                     </ul>
 
+                    <li class="nav-item dropdown" style="margin-bottom:20px;">
+                        <a class="nav-link dropdown-toggle" data-bs-toggle="dropdown" href="#" role="button" aria-haspopup="true" aria-expanded="true">@User.Identity.Name</a>
+                        <div class="dropdown-menu " data-popper-placement="bottom-start">
+                            <a class="dropdown-item" href="@Url.Action("Profile")">Личный кабинет</a>
+                            <a class="dropdown-item" href="@Url.Action("Logout")">Выход</a>
+                        </div>
+                    </li>
                 </div>
             </div>
         </nav>

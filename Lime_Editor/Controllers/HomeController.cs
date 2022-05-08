@@ -130,6 +130,8 @@ namespace Lime_Editor.Controllers
             db.SaveChanges();
             return RedirectToAction("MySites", "Home");
         }
+
+
         public IActionResult Templates()
         {
             var templates = db.Templates.ToList();
@@ -239,7 +241,34 @@ namespace Lime_Editor.Controllers
 
         public IActionResult Profile()
         {
-            return View();
+            var profile = new User();
+            if (HttpContext.Session.Keys.Contains("AuthUser"))
+            {
+                
+               var user = HttpContext.Session.GetString("AuthUser");
+               profile = db.Users.First(x => x.Login == user);
+            }
+            return View(profile);
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public IActionResult EditProfile(User user)
+        {
+            if (ModelState.IsValid)
+            {
+                //var index = db.Users.ToList().FindIndex(x => x.IdUser == user.IdUser);
+                db.Users.Update(user);
+                db.SaveChanges();
+                return RedirectToAction("Profile");
+            }
+
+            else
+            {
+                return View(user);
+            }
+
+         
         }
 
 

@@ -38,38 +38,21 @@
                 <div class="collapse navbar-collapse" id="navbarColor03">
                     <ul class="navbar-nav me-auto">
                         <li class="nav-item">
-                            <a class="nav-link active" href="#">
-                                Home
+                            <a class="nav-link active" href="/Home/MySites">
+                                Главная
                                 <span class="visually-hidden">(current)</span>
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="#">Features</a>
+                            <a class="nav-link" href="/Home/Templates">Шаблоны</a>
                         </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="#">Pricing</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="#">About</a>
-                        </li>
-                        <li class="nav-item dropdown">
-                            <a class="nav-link dropdown-toggle " data-bs-toggle="dropdown" href="#" role="button" aria-haspopup="true" aria-expanded="true">Dropdown</a>
-                            <div class="dropdown-menu " data-popper-placement="bottom-start">
-                                <a class="dropdown-item" href="#">Action</a>
-                                <a class="dropdown-item" href="#">Another action</a>
-                                <a class="dropdown-item" href="#">Something else here</a>
-                                <div class="dropdown-divider"></div>
-                                <a class="dropdown-item" href="#">Separated link</a>
-                            </div>
-                        </li>
+                        
                     </ul>
-                    <form class="d-flex">
-                        <input class="form-control me-sm-2" type="text" placeholder="Search">
-                        <button class="btn btn-secondary my-2 my-sm-0" type="submit">Search</button>
-                    </form>
+                    
                     <li class="nav-item dropdown" style="margin-bottom:20px;">
                         <a class="nav-link dropdown-toggle" data-bs-toggle="dropdown" href="#" role="button" aria-haspopup="true" aria-expanded="true">@User.Identity.Name</a>
                         <div class="dropdown-menu " data-popper-placement="bottom-start">
+                            <a class="dropdown-item" href="@Url.Action("Profile")">Личный кабинет</a>
                             <a class="dropdown-item" href="@Url.Action("Logout")">Выход</a>
                         </div>
                     </li>
@@ -244,8 +227,8 @@
                                     <div class="productinfo text-center">
                                         <form asp-action="ChangeName">
                                             <img src="@site.TemplateInfo.FolderPreview" />
-                                            <input type="number" name="idSite" value="@site.IdSite" hidden/>
-                                            <input class="form-control" asp-for="Site" name="site" value="@site.Name"/>
+                                            <input type="number" name="idSite" value="@site.IdSite" hidden />
+                                            <input class="form-control" asp-for="Site" name="site" value="@site.Name" />
                                             <input href="#" class="btn" type="submit" value="Изменить" />
                                         </form>
                                     </div>
