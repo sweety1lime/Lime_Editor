@@ -26,7 +26,8 @@ namespace Lime_Editor.Controllers
             {
                 var siteJson = HttpContext.Session.GetString("SiteData");
                 var site = (Site)JsonConvert.DeserializeObject(siteJson, typeof(Site));
-                site.Folder = site.Folder.Replace("savPage()", "updatePage()"); 
+                site.Folder = site.Folder.Replace("savPage()", "updatePage()");
+                site.Folder = site.Folder.Replace("poop", "downloadCommingSoon()");
                 return View(site);
             }
 
@@ -53,7 +54,7 @@ namespace Lime_Editor.Controllers
         }
 
         [HttpPost]
-        public IActionResult SaveSite(string html)
+        public IActionResult SaveRuby(string html)
         {
             var siteJson = HttpContext.Session.GetString("SiteData");
             var site = (Site)JsonConvert.DeserializeObject(siteJson, typeof(Site));
@@ -70,7 +71,7 @@ namespace Lime_Editor.Controllers
 
             if (HttpContext.Session.Keys.Contains("AuthUser"))
                 user = HttpContext.Session.GetString("AuthUser");
-            string directory = System.Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments) + $@"\{user}-сайты";
+            string directory = System.Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments) + $@"\{user}-RubyTemplate";
             if (!System.IO.Directory.Exists(directory))
                 System.IO.Directory.CreateDirectory(directory);
             System.IO.File.WriteAllText(directory + @"\index.html", currentHtml);
@@ -142,11 +143,187 @@ namespace Lime_Editor.Controllers
             return Ok();
         }
 
+        [HttpPost]
+        public IActionResult SaveSublime(string html)
+        {
+            var siteJson = HttpContext.Session.GetString("SiteData");
+            var site = (Site)JsonConvert.DeserializeObject(siteJson, typeof(Site));
+            var user = "";
+            var currentHtml = "<!DOCTYPE html> \n " +
+                "<html id=\"userSpace\" lang=\"ru_RU\"> " +
+                html + "\n" +
+                "</html>";
+            currentHtml = currentHtml.Replace("contenteditable=\"true\"", "contenteditable=\"false\"");
+            currentHtml = currentHtml.Replace("/js/Template_2/", "js/");
+            currentHtml = currentHtml.Replace("/css/Template_2/", "css/");
+            currentHtml = currentHtml.Replace("/images/Template_2/", "images/");
+
+            if (HttpContext.Session.Keys.Contains("AuthUser"))
+                user = HttpContext.Session.GetString("AuthUser");
+            string directory = System.Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments) + $@"\{user}-SublimeTemplate";
+            if (!System.IO.Directory.Exists(directory))
+                System.IO.Directory.CreateDirectory(directory);
+            System.IO.File.WriteAllText(directory + @"\index.html", currentHtml);
+            Directory.CreateDirectory(directory + "\\css");
+            Directory.CreateDirectory(directory + "\\images");
+            Directory.CreateDirectory(directory + "\\js");
+            Directory.CreateDirectory(directory + "\\fonts");
+
+            var oldCssPath = _environment.WebRootPath + "\\css\\Template_2\\";
+            var newCssPath = directory + "\\css\\";
+
+            foreach (string dirPath in Directory.GetDirectories(oldCssPath, "*", SearchOption.AllDirectories))
+                Directory.CreateDirectory(dirPath.Replace(oldCssPath, newCssPath));
+
+            foreach (string pathBuBu in Directory.GetFiles(oldCssPath, "*.*", SearchOption.AllDirectories))
+                System.IO.File.Copy(pathBuBu, pathBuBu.Replace(oldCssPath, newCssPath), true);
+
+
+            var oldJsPath = _environment.WebRootPath + "\\js\\Template_2\\";
+            var newJsPath = directory + "\\js\\";
+
+            foreach (string dirPath in Directory.GetDirectories(oldJsPath, "*", SearchOption.AllDirectories))
+                Directory.CreateDirectory(dirPath.Replace(oldJsPath, newJsPath));
+
+            foreach (string pathBuBu in Directory.GetFiles(oldJsPath, "*.*", SearchOption.AllDirectories))
+                System.IO.File.Copy(pathBuBu, pathBuBu.Replace(oldJsPath, newJsPath), true);
+
+            var oldFontPath = _environment.WebRootPath + "\\fonts\\Template_2\\";
+            var newFontPath = directory + "\\fonts\\";
+
+            foreach (string dirPath in Directory.GetDirectories(oldFontPath, "*", SearchOption.AllDirectories))
+                Directory.CreateDirectory(dirPath.Replace(oldFontPath, newFontPath));
+
+            foreach (string pathBuBu in Directory.GetFiles(oldFontPath, "*.*", SearchOption.AllDirectories))
+                System.IO.File.Copy(pathBuBu, pathBuBu.Replace(oldFontPath, newFontPath), true);
+
+            string[] pathImg = Directory.GetFiles(_environment.WebRootPath + "\\images\\Template_2\\");
+            foreach (var filePath in pathImg)
+            {
+                if (html.Contains(filePath.Substring(filePath.LastIndexOf("\\") + 1)))
+                {
+                    string path = filePath;
+                    string newImagePath = directory + "\\images\\" + filePath.Substring(filePath.LastIndexOf("\\") + 1);
+                    FileInfo fileInf = new FileInfo(path);
+                    if (fileInf.Exists)
+                    {
+                        fileInf.CopyTo(newImagePath, true);
+                    }
+                }
+
+            }
+
+            return Ok();
+        }
+
+        [HttpPost]
+        public IActionResult SaveCoomingSoon(string html)
+        {
+            var siteJson = HttpContext.Session.GetString("SiteData");
+            var site = (Site)JsonConvert.DeserializeObject(siteJson, typeof(Site));
+            var user = "";
+            var currentHtml = "<!DOCTYPE html> \n " +
+                "<html id=\"userSpace\" lang=\"ru_RU\"> " +
+                html + "\n" +
+                "</html>";
+            currentHtml = currentHtml.Replace("contenteditable=\"true\"", "contenteditable=\"false\"");
+            currentHtml = currentHtml.Replace("/js/Template_3/", "js/");
+            currentHtml = currentHtml.Replace("/css/Template_3/", "css/");
+            currentHtml = currentHtml.Replace("/images/Template_3/", "images/");
+            currentHtml = currentHtml.Replace("/vendor/Template_3/", "vendor/");
+            currentHtml = currentHtml.Replace("/fonts/Template_3/", "fonts/");
+
+            if (HttpContext.Session.Keys.Contains("AuthUser"))
+                user = HttpContext.Session.GetString("AuthUser");
+            string directory = System.Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments) + $@"\{user}-ComingSoonTemplate";
+            if (!System.IO.Directory.Exists(directory))
+                System.IO.Directory.CreateDirectory(directory);
+            System.IO.File.WriteAllText(directory + @"\index.html", currentHtml);
+            Directory.CreateDirectory(directory + "\\css");
+            Directory.CreateDirectory(directory + "\\images");
+            Directory.CreateDirectory(directory + "\\vendor");
+            Directory.CreateDirectory(directory + "\\js");
+            Directory.CreateDirectory(directory + "\\fonts");
+
+            var oldCssPath = _environment.WebRootPath + "\\css\\Template_3\\";
+            var newCssPath = directory + "\\css\\";
+
+            foreach (string dirPath in Directory.GetDirectories(oldCssPath, "*", SearchOption.AllDirectories))
+                Directory.CreateDirectory(dirPath.Replace(oldCssPath, newCssPath));
+
+            foreach (string pathBuBu in Directory.GetFiles(oldCssPath, "*.*", SearchOption.AllDirectories))
+                System.IO.File.Copy(pathBuBu, pathBuBu.Replace(oldCssPath, newCssPath), true);
+
+
+            var oldJsPath = _environment.WebRootPath + "\\js\\Template_3\\";
+            var newJsPath = directory + "\\js\\";
+
+            foreach (string dirPath in Directory.GetDirectories(oldJsPath, "*", SearchOption.AllDirectories))
+                Directory.CreateDirectory(dirPath.Replace(oldJsPath, newJsPath));
+
+            foreach (string pathBuBu in Directory.GetFiles(oldJsPath, "*.*", SearchOption.AllDirectories))
+                System.IO.File.Copy(pathBuBu, pathBuBu.Replace(oldJsPath, newJsPath), true);
+
+            var oldFontPath = _environment.WebRootPath + "\\fonts\\Template_3\\";
+            var newFontPath = directory + "\\fonts\\";
+
+            foreach (string dirPath in Directory.GetDirectories(oldFontPath, "*", SearchOption.AllDirectories))
+                Directory.CreateDirectory(dirPath.Replace(oldFontPath, newFontPath));
+
+            foreach (string pathBuBu in Directory.GetFiles(oldFontPath, "*.*", SearchOption.AllDirectories))
+                System.IO.File.Copy(pathBuBu, pathBuBu.Replace(oldFontPath, newFontPath), true);
+
+            var oldVendorPath = _environment.WebRootPath + "\\vendor\\Template_3\\";
+            var newVendorPath = directory + "\\vendor\\";
+
+            foreach (string dirPath in Directory.GetDirectories(oldVendorPath, "*", SearchOption.AllDirectories))
+                Directory.CreateDirectory(dirPath.Replace(oldVendorPath, newVendorPath));
+
+            foreach (string pathBuBu in Directory.GetFiles(oldVendorPath, "*.*", SearchOption.AllDirectories))
+                System.IO.File.Copy(pathBuBu, pathBuBu.Replace(oldVendorPath, newVendorPath), true);
+
+            string[] pathImg = Directory.GetFiles(_environment.WebRootPath + "\\images\\Template_3\\");
+            foreach (var filePath in pathImg)
+            {
+                if (html.Contains(filePath.Substring(filePath.LastIndexOf("\\") + 1)))
+                {
+                    string path = filePath;
+                    string newImagePath = directory + "\\images\\" + filePath.Substring(filePath.LastIndexOf("\\") + 1);
+                    FileInfo fileInf = new FileInfo(path);
+                    if (fileInf.Exists)
+                    {
+                        fileInf.CopyTo(newImagePath, true);
+                    }
+                }
+
+            }
+
+            return Ok();
+        }
+
         public ActionResult Template_1()
         {
             return View();
         }
         public ActionResult Template_1_Preview()
+        {
+            return View();
+        }
+
+        public ActionResult Template_2()
+        {
+            return View();
+        }
+        public ActionResult Template_2_Preview()
+        {
+            return View();
+        }
+
+        public ActionResult Template_3()
+        {
+            return View();
+        }
+        public ActionResult Template_3_Preview()
         {
             return View();
         }

@@ -279,7 +279,7 @@ namespace Lime_Editor.Controllers
         public IActionResult SavetoUser(string html)
         {
             var currentHtml = "<!DOCTYPE html> \n " +
-                "<html lang=\"ru_RU\"> " +
+                "<html id=\"userSpace\" lang=\"ru_RU\"> " +
                 html + "\n" +
                 "</html>";
             var sites = new Site();
