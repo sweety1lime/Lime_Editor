@@ -157,6 +157,7 @@ namespace Lime_Editor.Controllers
             currentHtml = currentHtml.Replace("/js/Template_2/", "js/");
             currentHtml = currentHtml.Replace("/css/Template_2/", "css/");
             currentHtml = currentHtml.Replace("/images/Template_2/", "images/");
+            currentHtml = currentHtml.Replace("class=\"changethis\"", "class=\"otstup\"");
 
             if (HttpContext.Session.Keys.Contains("AuthUser"))
                 user = HttpContext.Session.GetString("AuthUser");
@@ -197,21 +198,17 @@ namespace Lime_Editor.Controllers
             foreach (string pathBuBu in Directory.GetFiles(oldFontPath, "*.*", SearchOption.AllDirectories))
                 System.IO.File.Copy(pathBuBu, pathBuBu.Replace(oldFontPath, newFontPath), true);
 
-            string[] pathImg = Directory.GetFiles(_environment.WebRootPath + "\\images\\Template_2\\");
-            foreach (var filePath in pathImg)
-            {
-                if (html.Contains(filePath.Substring(filePath.LastIndexOf("\\") + 1)))
-                {
-                    string path = filePath;
-                    string newImagePath = directory + "\\images\\" + filePath.Substring(filePath.LastIndexOf("\\") + 1);
-                    FileInfo fileInf = new FileInfo(path);
-                    if (fileInf.Exists)
-                    {
-                        fileInf.CopyTo(newImagePath, true);
-                    }
-                }
+            var oldImagePath = _environment.WebRootPath + "\\images\\Template_2\\";
+            var newImagePath = directory + "\\images\\";
 
-            }
+            foreach (string dirPath in Directory.GetDirectories(oldImagePath, "*", SearchOption.AllDirectories))
+                Directory.CreateDirectory(dirPath.Replace(oldImagePath, newImagePath));
+
+            foreach (string pathBuBu in Directory.GetFiles(oldImagePath, "*.*", SearchOption.AllDirectories))
+                System.IO.File.Copy(pathBuBu, pathBuBu.Replace(oldImagePath, newImagePath), true);
+
+
+           
 
             return Ok();
         }
@@ -282,21 +279,14 @@ namespace Lime_Editor.Controllers
             foreach (string pathBuBu in Directory.GetFiles(oldVendorPath, "*.*", SearchOption.AllDirectories))
                 System.IO.File.Copy(pathBuBu, pathBuBu.Replace(oldVendorPath, newVendorPath), true);
 
-            string[] pathImg = Directory.GetFiles(_environment.WebRootPath + "\\images\\Template_3\\");
-            foreach (var filePath in pathImg)
-            {
-                if (html.Contains(filePath.Substring(filePath.LastIndexOf("\\") + 1)))
-                {
-                    string path = filePath;
-                    string newImagePath = directory + "\\images\\" + filePath.Substring(filePath.LastIndexOf("\\") + 1);
-                    FileInfo fileInf = new FileInfo(path);
-                    if (fileInf.Exists)
-                    {
-                        fileInf.CopyTo(newImagePath, true);
-                    }
-                }
+            var oldImagePath = _environment.WebRootPath + "\\images\\Template_3\\";
+            var newImagePath = directory + "\\images\\";
 
-            }
+            foreach (string dirPath in Directory.GetDirectories(oldImagePath, "*", SearchOption.AllDirectories))
+                Directory.CreateDirectory(dirPath.Replace(oldImagePath, newImagePath));
+
+            foreach (string pathBuBu in Directory.GetFiles(oldImagePath, "*.*", SearchOption.AllDirectories))
+                System.IO.File.Copy(pathBuBu, pathBuBu.Replace(oldImagePath, newImagePath), true);
 
             return Ok();
         }

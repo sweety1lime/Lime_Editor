@@ -227,6 +227,9 @@ header {
     header nav {
         float: right;
     }
+    .otstup{
+        margin-top:50px;
+    }
 
 
         header nav ul li {
