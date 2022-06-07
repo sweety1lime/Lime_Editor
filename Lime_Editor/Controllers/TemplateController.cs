@@ -28,6 +28,8 @@ namespace Lime_Editor.Controllers
                 var site = (Site)JsonConvert.DeserializeObject(siteJson, typeof(Site));
                 site.Folder = site.Folder.Replace("savPage()", "updatePage()");
                 site.Folder = site.Folder.Replace("poop", "downloadCommingSoon()");
+                site.Folder = site.Folder.Replace("temp", "downloadTemp()");
+                site.Folder = site.Folder.Replace("Sublime", "downloadSublime()");
                 return View(site);
             }
 
