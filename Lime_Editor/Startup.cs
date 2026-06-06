@@ -1,7 +1,8 @@
-using Microsoft.AspNetCore.Authentication.Cookies;
+using Lime_Editor.Models;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.HttpsPolicy;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -25,15 +26,30 @@ namespace Lime_Editor
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
-            services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme).AddCookie(options => //CookieAuthenticationOptions
-            {
-                options.LoginPath = new Microsoft.AspNetCore.Http.PathString("/Home/SignIn");
-            });
-            services.AddDistributedMemoryCache();
+            services.AddDbContext<LimeEditorContext>(x => x.UseNpgsql(Configuration.GetConnectionString("connect")));
 
+            services.AddIdentity<ApplicationUser, IdentityRole<int>>(options =>
+            {
+                options.Password.RequiredLength = 6;
+                options.Password.RequireNonAlphanumeric = false;
+                options.Password.RequireUppercase = false;
+                options.Password.RequireDigit = false;
+                options.User.RequireUniqueEmail = true;
+                options.SignIn.RequireConfirmedAccount = false; // подтверждение email добавим позже
+            })
+                .AddEntityFrameworkStores<LimeEditorContext>()
+                .AddDefaultTokenProviders();
+
+            services.ConfigureApplicationCookie(options =>
+            {
+                options.LoginPath = "/Home/SignIn";
+                options.AccessDeniedPath = "/Home/SignIn";
+                options.LogoutPath = "/Home/Logout";
+            });
+
+            services.AddDistributedMemoryCache();
             services.AddSession();
             services.AddControllersWithViews();
-            services.AddDbContext<Models.LimeEditorContext>(x => x.UseNpgsql(Configuration.GetConnectionString("connect")));
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.

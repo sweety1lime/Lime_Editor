@@ -1,12 +1,12 @@
-﻿using System;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Metadata;
 
 #nullable disable
 
 namespace Lime_Editor.Models
 {
-    public partial class LimeEditorContext : DbContext
+    public partial class LimeEditorContext : IdentityDbContext<ApplicationUser, IdentityRole<int>, int>
     {
         public LimeEditorContext()
         {
@@ -20,10 +20,12 @@ namespace Lime_Editor.Models
         public virtual DbSet<Site> Sites { get; set; }
         public virtual DbSet<Template> Templates { get; set; }
         public virtual DbSet<TypeTemplate> TypeTemplates { get; set; }
-        public virtual DbSet<User> Users { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
+            // Обязательно для Identity — конфигурирует таблицы AspNet*.
+            base.OnModelCreating(modelBuilder);
+
             modelBuilder.Entity<Site>(entity =>
             {
                 entity.HasKey(e => e.IdSite)
@@ -44,6 +46,11 @@ namespace Lime_Editor.Models
 
                 entity.Property(e => e.TemplateId).HasColumnName("Template_Id");
 
+                // Сайт принадлежит пользователю; при удалении пользователя его сайты удаляются.
+                entity.HasOne<ApplicationUser>()
+                    .WithMany()
+                    .HasForeignKey(e => e.UserId)
+                    .OnDelete(DeleteBehavior.Cascade);
             });
 
             modelBuilder.Entity<Template>(entity =>
@@ -64,7 +71,6 @@ namespace Lime_Editor.Models
                     .IsUnicode(false);
 
                 entity.Property(e => e.TypeId).HasColumnName("Type_Id");
-
             });
 
             modelBuilder.Entity<TypeTemplate>(entity =>
@@ -79,39 +85,6 @@ namespace Lime_Editor.Models
                 entity.Property(e => e.Name)
                     .IsRequired()
                     .HasMaxLength(100)
-                    .IsUnicode(false);
-            });
-
-            modelBuilder.Entity<User>(entity =>
-            {
-                entity.HasKey(e => e.IdUser)
-                    .HasName("PK__User__D03DEDCB15E5FBBC");
-
-                entity.ToTable("User");
-
-                entity.Property(e => e.IdUser).HasColumnName("Id_User");
-
-                entity.Property(e => e.Email)
-                    .IsRequired()
-                    .HasMaxLength(100)
-                    .IsUnicode(false);
-
-                entity.Property(e => e.Login)
-                    .IsRequired()
-                    .HasMaxLength(100)
-                    .IsUnicode(false);
-
-                entity.Property(e => e.Name)
-                    .HasMaxLength(100)
-                    .IsUnicode(false);
-
-                entity.Property(e => e.LastName)
-                    .HasMaxLength(100)
-                    .IsUnicode(false);
-
-                entity.Property(e => e.Password)
-                    .IsRequired()
-                    .HasMaxLength(20)
                     .IsUnicode(false);
             });
 
