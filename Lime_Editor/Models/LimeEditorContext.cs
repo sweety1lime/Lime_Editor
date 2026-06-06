@@ -24,8 +24,6 @@ namespace Lime_Editor.Models
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
-            modelBuilder.HasAnnotation("Relational:Collation", "Cyrillic_General_CI_AS");
-
             modelBuilder.Entity<Site>(entity =>
             {
                 entity.HasKey(e => e.IdSite)
