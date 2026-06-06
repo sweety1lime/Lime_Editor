@@ -33,7 +33,7 @@ namespace Lime_Editor
 
             services.AddSession();
             services.AddControllersWithViews();
-            services.AddDbContext<Models.LimeEditorContext>(x => x.UseSqlServer(Configuration.GetConnectionString("connect")));
+            services.AddDbContext<Models.LimeEditorContext>(x => x.UseNpgsql(Configuration.GetConnectionString("connect")));
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
