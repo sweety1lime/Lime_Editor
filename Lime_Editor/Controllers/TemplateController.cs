@@ -1,4 +1,5 @@
 ﻿using Lime_Editor.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -9,6 +10,7 @@ using System.Linq;
 
 namespace Lime_Editor.Controllers
 {
+    [Authorize]
     public class TemplateController : Controller
     {
         private readonly IWebHostEnvironment _environment;
@@ -71,8 +73,7 @@ namespace Lime_Editor.Controllers
             currentHtml = currentHtml.Replace("../css/Template_1/", "css/");
             currentHtml = currentHtml.Replace("../images/Template_1/", "images/");
 
-            if (HttpContext.Session.Keys.Contains("AuthUser"))
-                user = HttpContext.Session.GetString("AuthUser");
+            user = User.Identity?.Name ?? "user";
             string directory = System.Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments) + $@"\{user}-RubyTemplate";
             if (!System.IO.Directory.Exists(directory))
                 System.IO.Directory.CreateDirectory(directory);
@@ -161,8 +162,7 @@ namespace Lime_Editor.Controllers
             currentHtml = currentHtml.Replace("/images/Template_2/", "images/");
             currentHtml = currentHtml.Replace("class=\"changethis\"", "class=\"otstup\"");
 
-            if (HttpContext.Session.Keys.Contains("AuthUser"))
-                user = HttpContext.Session.GetString("AuthUser");
+            user = User.Identity?.Name ?? "user";
             string directory = System.Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments) + $@"\{user}-SublimeTemplate";
             if (!System.IO.Directory.Exists(directory))
                 System.IO.Directory.CreateDirectory(directory);
@@ -232,8 +232,7 @@ namespace Lime_Editor.Controllers
             currentHtml = currentHtml.Replace("/vendor/Template_3/", "vendor/");
             currentHtml = currentHtml.Replace("/fonts/Template_3/", "fonts/");
 
-            if (HttpContext.Session.Keys.Contains("AuthUser"))
-                user = HttpContext.Session.GetString("AuthUser");
+            user = User.Identity?.Name ?? "user";
             string directory = System.Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments) + $@"\{user}-ComingSoonTemplate";
             if (!System.IO.Directory.Exists(directory))
                 System.IO.Directory.CreateDirectory(directory);

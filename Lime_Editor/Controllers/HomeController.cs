@@ -1,18 +1,16 @@
-﻿using Lime_Editor.Models;
-using Microsoft.AspNetCore.Authentication;
-using Microsoft.AspNetCore.Authentication.Cookies;
+using Lime_Editor.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json;
 using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net.Http.Headers;
-using System.Security.Claims;
 using System.Threading.Tasks;
 
 namespace Lime_Editor.Controllers
@@ -20,11 +18,33 @@ namespace Lime_Editor.Controllers
     public class HomeController : Controller
     {
         private readonly IWebHostEnvironment _environment;
-        private LimeEditorContext db;
-        public HomeController(IWebHostEnvironment IHostingEnvironment, LimeEditorContext context)
+        private readonly LimeEditorContext db;
+        private readonly UserManager<ApplicationUser> _userManager;
+        private readonly SignInManager<ApplicationUser> _signInManager;
+
+        public HomeController(
+            IWebHostEnvironment environment,
+            LimeEditorContext context,
+            UserManager<ApplicationUser> userManager,
+            SignInManager<ApplicationUser> signInManager)
         {
-            _environment = IHostingEnvironment;
+            _environment = environment;
             db = context;
+            _userManager = userManager;
+            _signInManager = signInManager;
+        }
+
+        // Id текущего аутентифицированного пользователя (для [Authorize]-действий).
+        private int CurrentUserId => int.Parse(_userManager.GetUserId(User));
+
+        // Проверка, что сайт принадлежит текущему пользователю (защита от IDOR).
+        private async Task<bool> UserOwnsSiteAsync(int? siteId)
+        {
+            if (siteId == null)
+            {
+                return false;
+            }
+            return await db.Sites.AnyAsync(s => s.IdSite == siteId && s.UserId == CurrentUserId);
         }
 
         public IActionResult Index()
@@ -34,52 +54,37 @@ namespace Lime_Editor.Controllers
 
         public IActionResult SignIn()
         {
-            if (HttpContext.Session.Keys.Contains("AuthUser"))
+            if (User.Identity != null && User.Identity.IsAuthenticated)
             {
                 return RedirectToAction("MySites", "Home");
             }
             return View();
         }
+
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> SignIn(LoginModel model)
         {
-
             if (ModelState.IsValid)
             {
-                User user = await db.Users.FirstOrDefaultAsync(u => u.Login == model.Login && u.Password == model.Password);
-                if (user != null)
+                var result = await _signInManager.PasswordSignInAsync(
+                    model.Login, model.Password, isPersistent: false, lockoutOnFailure: true);
+                if (result.Succeeded)
                 {
-                    HttpContext.Session.SetString("AuthUser", model.Login);
-                    await Authenticate(model.Login); // аутентификация
-
                     return RedirectToAction("MySites", "Home");
                 }
                 ModelState.AddModelError("", "Некорректные логин и(или) пароль");
-
-
             }
 
-            return RedirectToAction("SignIn", "Home");
+            return View(model);
+        }
 
-        }
-        private async Task Authenticate(string userName)
-        {
-            // создаем один claim
-            var claims = new List<Claim>
-            {
-                new Claim(ClaimsIdentity.DefaultNameClaimType, userName)
-            };
-            // создаем объект ClaimsIdentity
-            ClaimsIdentity id = new ClaimsIdentity(claims, "ApplicationCookie", ClaimsIdentity.DefaultNameClaimType, ClaimsIdentity.DefaultRoleClaimType);
-            // установка аутентификационных куки
-            await HttpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, new ClaimsPrincipal(id));
-        }
         public async Task<IActionResult> Logout()
         {
-            await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+            await _signInManager.SignOutAsync();
             return RedirectToAction("SignIn");
         }
+
         public IActionResult SignUp()
         {
             return View();
@@ -87,61 +92,81 @@ namespace Lime_Editor.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> SignUp(User person)
+        public async Task<IActionResult> SignUp(RegisterViewModel model)
         {
             if (ModelState.IsValid)
             {
-                db.Users.Add(person);
-                await db.SaveChangesAsync();
-                return RedirectToAction("SignIn");
+                var user = new ApplicationUser { UserName = model.Login, Email = model.Email };
+                var result = await _userManager.CreateAsync(user, model.Password);
+                if (result.Succeeded)
+                {
+                    return RedirectToAction("SignIn");
+                }
+
+                foreach (var error in result.Errors)
+                {
+                    ModelState.AddModelError("", error.Description);
+                }
             }
 
-            else
-            {
-                return View(person);
-            }
-
+            return View(model);
         }
 
-        public IActionResult MySites()
+        [Authorize]
+        public async Task<IActionResult> MySites()
         {
-            var siteController = new SiteControlModel();
-            if (HttpContext.Session.Keys.Contains("AuthUser"))
+            var userId = CurrentUserId;
+            var siteController = new SiteControlModel
             {
-                var user = HttpContext.Session.GetString("AuthUser");
-                siteController.Sites = db.Sites.Where(x => x.UserId == db.Users.First(u => u.Login == user).IdUser).ToList();
-                foreach (var site in siteController.Sites)
-                    siteController.Sites.First(s => s == site).TemplateInfo = db.Templates.First(t => t.IdTemplate == site.TemplateId);
+                Sites = await db.Sites.Where(s => s.UserId == userId).ToListAsync()
+            };
+            foreach (var site in siteController.Sites)
+            {
+                site.TemplateInfo = await db.Templates.FirstOrDefaultAsync(t => t.IdTemplate == site.TemplateId);
             }
             return View(siteController);
         }
+
+        [Authorize]
         [HttpPost]
-        public IActionResult UpdateSite(SiteControlModel controlModel)
+        public async Task<IActionResult> UpdateSite(SiteControlModel controlModel)
         {
+            var site = (Site)JsonConvert.DeserializeObject(controlModel.Site, typeof(Site));
+            if (!await UserOwnsSiteAsync(site.IdSite))
+            {
+                return Forbid();
+            }
             HttpContext.Session.SetString("SiteData", controlModel.Site);
             return RedirectToAction("PageToEdit", "Template");
         }
+
+        [Authorize]
         [HttpPost]
-        public IActionResult DeleteSite(SiteControlModel controlModel)
+        public async Task<IActionResult> DeleteSite(SiteControlModel controlModel)
         {
             var site = (Site)JsonConvert.DeserializeObject(controlModel.Site, typeof(Site));
-            var siteToRemove = db.Sites.First(x => x.IdSite == site.IdSite);
+            if (!await UserOwnsSiteAsync(site.IdSite))
+            {
+                return Forbid();
+            }
+            var siteToRemove = await db.Sites.FirstAsync(x => x.IdSite == site.IdSite);
             db.Sites.Remove(siteToRemove);
-            db.SaveChanges();
+            await db.SaveChangesAsync();
             return RedirectToAction("MySites", "Home");
         }
 
-
-        public IActionResult Templates()
+        [Authorize]
+        public async Task<IActionResult> Templates()
         {
-            var templates = db.Templates.ToList();
+            var templates = await db.Templates.ToListAsync();
             return View(templates);
         }
 
+        [Authorize]
         [HttpPost]
         public IActionResult EditTemplatesPost(string html)
         {
-            string user = "";
+            var user = User.Identity?.Name ?? "user";
             var currentHtml = "<!DOCTYPE html> \n " +
                 "<html lang=\"ru_RU\"> " +
                 "\n <head> \n " +
@@ -165,9 +190,6 @@ namespace Lime_Editor.Controllers
             currentHtml = currentHtml.Replace("/images", "images");
             currentHtml = currentHtml.Replace("contenteditable=\"true\"", "contenteditable=\"false\"");
 
-            if (HttpContext.Session.Keys.Contains("AuthUser"))
-                user = HttpContext.Session.GetString("AuthUser"); 
-
             string directory = System.Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments) + $@"\{user}-проекты";
             if (!System.IO.Directory.Exists(directory))
                 System.IO.Directory.CreateDirectory(directory);
@@ -188,7 +210,6 @@ namespace Lime_Editor.Controllers
                         fileInf.CopyTo(newPath, true);
                     }
                 }
-
             }
 
             string[] pathImg = Directory.GetFiles(_environment.WebRootPath + "\\images\\");
@@ -204,35 +225,45 @@ namespace Lime_Editor.Controllers
                         fileInf.CopyTo(newPath, true);
                     }
                 }
-
             }
 
             return Ok();
         }
 
+        [Authorize]
         public IActionResult EditTemplates()
         {
             var imageModel = new ImageModel { UrlImage = "/images/cover-1.jpg" };
             return View(imageModel);
         }
 
+        [Authorize]
         [HttpPost]
         public IActionResult EditTemplates(string name)
         {
             var imageModel = new ImageModel { UrlImage = "/images/cover-1.jpg" };
-            if (HttpContext.Request.Form.Files != null)
+            if (HttpContext.Request.Form.Files != null && HttpContext.Request.Form.Files.Count > 0)
             {
                 var file = HttpContext.Request.Form.Files.First();
                 if (file.Length > 0)
                 {
-                    string fileName = ContentDispositionHeaderValue.Parse(file.ContentDisposition).FileName.Trim('"');
+                    // Валидация загрузки: только изображения и ограничение размера.
+                    const long maxBytes = 5 * 1024 * 1024; // 5 МБ
+                    var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif", ".webp" };
+                    var rawName = ContentDispositionHeaderValue.Parse(file.ContentDisposition).FileName.Trim('"');
+                    var extension = Path.GetExtension(rawName).ToLowerInvariant();
+
+                    if (file.Length > maxBytes || !allowedExtensions.Contains(extension)
+                        || !file.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return BadRequest("Допустимы только изображения до 5 МБ.");
+                    }
 
                     var myUniqueFileName = Convert.ToString(Guid.NewGuid());
-                    var FileExtension = Path.GetExtension(fileName);
-                    string newFileName = myUniqueFileName + FileExtension;
-                    fileName = Path.Combine(_environment.WebRootPath, "demoimages") + $@"\{newFileName}";
+                    string newFileName = myUniqueFileName + extension;
+                    var savePath = Path.Combine(_environment.WebRootPath, "demoimages", newFileName);
 
-                    using (FileStream fs = System.IO.File.Create(fileName))
+                    using (FileStream fs = System.IO.File.Create(savePath))
                     {
                         file.CopyTo(fs);
                         fs.Flush();
@@ -243,63 +274,99 @@ namespace Lime_Editor.Controllers
             return View(imageModel);
         }
 
-        public IActionResult Profile()
+        [Authorize]
+        public async Task<IActionResult> Profile()
         {
-            var profile = new User();
-            if (HttpContext.Session.Keys.Contains("AuthUser"))
+            var user = await _userManager.GetUserAsync(User);
+            if (user == null)
             {
-                
-               var user = HttpContext.Session.GetString("AuthUser");
-               profile = db.Users.First(x => x.Login == user);
+                return RedirectToAction("SignIn");
             }
-            return View(profile);
+
+            var model = new ProfileViewModel
+            {
+                Id = user.Id,
+                Login = user.UserName,
+                Email = user.Email,
+                Name = user.Name,
+                LastName = user.LastName
+            };
+            return View(model);
         }
 
+        [Authorize]
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public IActionResult EditProfile(User user)
+        public async Task<IActionResult> EditProfile(ProfileViewModel model)
         {
-            if (ModelState.IsValid)
+            if (!ModelState.IsValid)
             {
-                //var index = db.Users.ToList().FindIndex(x => x.IdUser == user.IdUser);
-                db.Users.Update(user);
-                db.SaveChanges();
-                return RedirectToAction("Profile");
+                return View("Profile", model);
             }
 
-            else
+            // Текущий пользователь берётся из cookie, а не из формы — нельзя отредактировать чужой профиль.
+            var user = await _userManager.GetUserAsync(User);
+            if (user == null)
             {
-                return View(user);
+                return RedirectToAction("SignIn");
             }
 
-         
+            user.Name = model.Name;
+            user.LastName = model.LastName;
+            user.Email = model.Email;
+            user.UserName = model.Login;
+
+            var updateResult = await _userManager.UpdateAsync(user);
+            if (!updateResult.Succeeded)
+            {
+                foreach (var error in updateResult.Errors)
+                {
+                    ModelState.AddModelError("", error.Description);
+                }
+                return View("Profile", model);
+            }
+
+            if (!string.IsNullOrEmpty(model.Password))
+            {
+                var token = await _userManager.GeneratePasswordResetTokenAsync(user);
+                await _userManager.ResetPasswordAsync(user, token, model.Password);
+            }
+
+            await _signInManager.RefreshSignInAsync(user);
+            return RedirectToAction("Profile");
         }
 
-
-        public IActionResult SavetoUser(string html)
+        [Authorize]
+        [HttpPost]
+        public async Task<IActionResult> SavetoUser(string html)
         {
             var currentHtml = "<!DOCTYPE html> \n " +
                 "<html id=\"userSpace\" lang=\"ru_RU\"> " +
                 html + "\n" +
                 "</html>";
-            var sites = new Site();
-            var user = "";
-            sites.Name = "NewSite";
-            if (HttpContext.Session.Keys.Contains("AuthUser"))
-                user = HttpContext.Session.GetString("AuthUser");
-            sites.UserId = db.Users.First(x => x.Login == user).IdUser.Value;
-            sites.Folder = currentHtml;
-            sites.TemplateId = Convert.ToInt32(html.Substring(html.IndexOf("id=\"templateId ") + 15, 1));
+            var sites = new Site
+            {
+                Name = "NewSite",
+                UserId = CurrentUserId,
+                Folder = currentHtml,
+                TemplateId = Convert.ToInt32(html.Substring(html.IndexOf("id=\"templateId ") + 15, 1))
+            };
             db.Sites.Add(sites);
-            db.SaveChanges();
+            await db.SaveChangesAsync();
             return RedirectToAction("MySites", "Home");
         }
 
+        [Authorize]
         [HttpPost]
-        public IActionResult ChangeName(string site, int idSite)
+        public async Task<IActionResult> ChangeName(string site, int idSite)
         {
-            db.Sites.First(x => x.IdSite.Value == idSite).Name = site;
-            db.SaveChanges();
+            if (!await UserOwnsSiteAsync(idSite))
+            {
+                return Forbid();
+            }
+            var target = await db.Sites.FirstAsync(x => x.IdSite.Value == idSite);
+            target.Name = site;
+            await db.SaveChangesAsync();
             return RedirectToAction("MySites", "Home");
         }
 
