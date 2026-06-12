@@ -361,3 +361,28 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+
+# Secrets / локальные файлы
+.env
+.env.*
+!.env.example
+reset-pg-password.ps1
+reset-pg-password.log
+
+# Caddy persistent data (если случайно окажется в репо)
+caddy_data/
+caddy_config/
+# Playwright UI tests
+node_modules/
+test-results/
+playwright-report/
+playwright/.auth/
+tests/**/*-snapshots/
+
+# Машинно-специфичные хелперы и бэкапы (как reset-pg-password.*)
+machine-path.backup.txt
+fix-dotnet-path.ps1
+fix-dotnet-path.log
+
+# Загрузки пользователей (рантайм) — медиа-менеджер пишет сюда
+Lime_Editor/wwwroot/media/

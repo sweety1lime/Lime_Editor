@@ -1,0 +1,10 @@
+# Caddy автоматически выпускает TLS через Let's Encrypt, если домен указывает на этот сервер.
+{$DOMAIN} {
+    encode gzip zstd
+
+    reverse_proxy app:8080 {
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+    }
+}
