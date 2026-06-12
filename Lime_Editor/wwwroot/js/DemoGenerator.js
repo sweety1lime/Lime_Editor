@@ -8,8 +8,10 @@
 }
 
 function genCover() {
+    var tokenMeta = document.querySelector('meta[name="X-CSRF-TOKEN"]');
+    var token = tokenMeta ? tokenMeta.content : "";
     var newDiv = document.createElement('div');
-    newDiv.innerHTML = '<div><article class="cover" style="background-image:url(/images/cover-1.jpg)!important"><a href="#ex1" rel="modal:open"><span class="material-icons" style="color:#fff">build</span></a><h4 contenteditable="true" class="cover__uptitle">your company</h4><h1 contenteditable="true" class="cover__title">Title/TagLine</h1><p contenteditable="true" class="cover__description">Lorem ipsum dolor sit amet, consectetur adipiscing elit. Maecenas lobortis odio vel varius sollicitudin.</p></article><div id="ex1" class="modal" style="height:100px"><div class="input"><div class="form-group"><form method="post" enctype="multipart/form-data"><input type="file" accept=".jpg, .jpeg, .png" name="files" id="files" class="input-file"><label for="files" class="btn btn-tertiary js-labelFile"><i class="icon fa fa-check"></i> <input type="submit" value="Загрузить"></label></form></div></div></div></div>';
+    newDiv.innerHTML = '<div><article class="cover" style="background-image:url(/images/cover-1.jpg)!important"><a href="#ex1" rel="modal:open"><span class="material-icons" style="color:#fff">build</span></a><h4 contenteditable="true" class="cover__uptitle">your company</h4><h1 contenteditable="true" class="cover__title">Title/TagLine</h1><p contenteditable="true" class="cover__description">Lorem ipsum dolor sit amet, consectetur adipiscing elit. Maecenas lobortis odio vel varius sollicitudin.</p></article><div id="ex1" class="modal" style="height:100px"><div class="input"><div class="form-group"><form method="post" enctype="multipart/form-data"><input type="hidden" name="__RequestVerificationToken" value="' + token + '"><input type="file" accept=".jpg, .jpeg, .png" name="files" id="files" class="input-file"><label for="files" class="btn btn-tertiary js-labelFile"><i class="icon fa fa-check"></i> <input type="submit" value="Загрузить"></label></form></div></div></div></div>';
     const $colors = document.querySelector('#userSpace');
     $colors.appendChild(newDiv);
     document.getElementById("collapsed").hidden = true;
@@ -50,26 +52,25 @@ function genFooter_type1() {
 }
 
 function savePage() {
-    var userSource = document.getElementById("userSpace")
-    var xmlHttpRequest = new XMLHttpRequest()
-    var form = new FormData()
-    var source = ""
-    var url = ""
-
+    var userSource = document.getElementById("userSpace");
     if (userSource == null) { return; }
+    var tokenMeta = document.querySelector('meta[name="X-CSRF-TOKEN"]');
+    var token = tokenMeta ? tokenMeta.content : "";
+    var url = document.documentURI;
+    url = url.slice(0, url.lastIndexOf("/")) + "/EditTemplatesPost";
+    var form = new FormData();
+    form.append("html", userSource.innerHTML);
 
-    url = document.documentURI
-
-    url = url.slice(0, url.lastIndexOf("/")) + "/EditTemplatesPost"
-
-    source = userSource.innerHTML
-
-    form.append("html", source)
-
-    xmlHttpRequest.open("POST", url)
-
-    xmlHttpRequest.send(form)
-
-    alert(xmlHttpRequest.status)
-
+    // Сервер сохраняет сайт в БД и редиректит на /Home/MySites — переходим туда.
+    var xhr = new XMLHttpRequest();
+    xhr.open("POST", url);
+    xhr.setRequestHeader("X-CSRF-TOKEN", token);
+    xhr.onload = function () {
+        if (xhr.status === 200 || xhr.status === 302) {
+            window.location.href = "/Home/MySites";
+        } else {
+            alert("Ошибка сохранения: " + xhr.status);
+        }
+    };
+    xhr.send(form);
 }

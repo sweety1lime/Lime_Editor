@@ -1,0 +1,73 @@
+@model AdminUsersViewModel
+@{
+    ViewData["Title"] = "Админка — Пользователи";
+}
+
+<section class="lime-aurora lime-aurora--subtle" style="padding: var(--space-12) 0 var(--space-8);">
+    <div class="lime-container">
+        <div class="lime-flex lime-justify-between lime-items-center lime-wrap lime-gap-4">
+            <div>
+                <h2 style="margin-bottom: var(--space-1);">Пользователи</h2>
+                <p class="lime-text-muted" style="margin:0;">@Model.Users.Count записей</p>
+            </div>
+            <a class="lime-btn lime-btn--ghost" href="/Admin/Index">← Дашборд</a>
+        </div>
+    </div>
+</section>
+
+<section class="lime-container" style="padding-bottom: var(--space-16);">
+    @if (TempData["Error"] != null)
+    {
+        <div class="lime-alert lime-alert--warn lime-mb-4">@TempData["Error"]</div>
+    }
+
+    <div class="lime-card" style="overflow-x:auto; padding: var(--space-2);">
+        <table class="lime-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>UserName</th>
+                    <th>Email</th>
+                    <th>Сайтов</th>
+                    <th>Роль</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var u in Model.Users)
+                {
+                    <tr>
+                        <td class="lime-text-muted">@u.Id</td>
+                        <td><strong>@u.UserName</strong></td>
+                        <td class="lime-text-muted">@u.Email</td>
+                        <td>@u.SitesCount</td>
+                        <td>
+                            @if (u.IsAdmin)
+                            {
+                                <span class="lime-badge lime-badge--warn">Admin</span>
+                            }
+                            else
+                            {
+                                <span class="lime-badge lime-badge--muted">User</span>
+                            }
+                        </td>
+                        <td>
+                            <div class="lime-flex lime-gap-2">
+                                <form asp-action="ToggleAdmin" method="post" style="display:inline;">
+                                    <input type="hidden" name="userId" value="@u.Id">
+                                    <button type="submit" class="lime-btn lime-btn--ghost lime-btn--sm">
+                                        @(u.IsAdmin ? "Снять Admin" : "Назначить Admin")
+                                    </button>
+                                </form>
+                                <form asp-action="DeleteUser" method="post" style="display:inline;" onsubmit="return confirm('Удалить пользователя со всеми сайтами?');">
+                                    <input type="hidden" name="userId" value="@u.Id">
+                                    <button type="submit" class="lime-btn lime-btn--danger lime-btn--sm">Удалить</button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</section>

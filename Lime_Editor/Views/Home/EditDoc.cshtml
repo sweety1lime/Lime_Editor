@@ -1,0 +1,223 @@
+@inject Microsoft.AspNetCore.Antiforgery.IAntiforgery Antiforgery
+@model ConstructorViewModel
+@{
+    Layout = null;
+    var csrfToken = Antiforgery.GetAndStoreTokens(Context).RequestToken;
+    var isEdit = Model.SiteId.HasValue;
+    // Защита от закрытия </script> в пользовательском контенте при инлайне JSON.
+    var seedJson = (Model.DocumentJson ?? "null").Replace("</", "<\\/");
+}<!DOCTYPE html>
+<html lang="ru" data-theme="dark">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="X-CSRF-TOKEN" content="@csrfToken">
+    <title>Конструктор · Lime</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="~/css/lime/tokens.css" asp-append-version="true">
+    <link rel="stylesheet" href="~/css/lime/base.css" asp-append-version="true">
+    <link rel="stylesheet" href="~/css/lime/components.css" asp-append-version="true">
+    <link rel="stylesheet" href="~/css/lime/constructor.css" asp-append-version="true">
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.6/Sortable.min.js" defer></script>
+    <script>
+        window.__LIME_DOC__ = @Html.Raw(seedJson);
+        window.__LIME_DOC_VERSION__ = @Model.DocVersion; // Site.UpdatedAt.Ticks — optimistic concurrency
+    </script>
+</head>
+<body>
+    <div class="lime-editor">
+        <div class="lime-editor__topbar">
+            <div class="lime-editor__topbar-left">
+                <a class="lime-editor__mark" href="/Home/MySites" title="К моим сайтам" aria-label="К моим сайтам">L</a>
+                <span class="lime-text-muted" style="font-size: var(--text-sm);">@Model.SiteName</span>
+                <span class="lime-badge lime-badge--accent">@(isEdit ? "редактор" : "черновик")</span>
+            </div>
+            <div class="lime-editor__topbar-center">
+                <div class="lime-flex lime-gap-2" style="margin-right: var(--space-3);">
+                    <button type="button" class="lime-btn lime-btn--ghost lime-btn--sm" data-doc-undo disabled title="Отменить (Ctrl+Z)">↶</button>
+                    <button type="button" class="lime-btn lime-btn--ghost lime-btn--sm" data-doc-redo disabled title="Вернуть (Ctrl+Shift+Z)">↷</button>
+                </div>
+                <div class="lime-device-toggle">
+                    <button type="button" class="lime-device-toggle__btn is-active" data-doc-bp="base" title="Десктоп">🖥</button>
+                    <button type="button" class="lime-device-toggle__btn" data-doc-bp="tablet" title="Планшет">📊</button>
+                    <button type="button" class="lime-device-toggle__btn" data-doc-bp="mobile" title="Мобайл">📱</button>
+                </div>
+            </div>
+            <div class="lime-editor__topbar-right">
+                <span class="lime-text-muted" data-doc-status style="font-size: var(--text-xs); margin-right: var(--space-2);"></span>
+                <button type="button" class="lime-btn lime-btn--violet lime-btn--sm" data-doc-ai-open title="Сгенерировать страницу по описанию">✨ AI заново</button>
+                <button type="button" class="lime-btn lime-btn--ghost lime-btn--sm" data-doc-theme-open title="Тема сайта">🎨 Тема</button>
+                <button type="button" class="lime-btn lime-btn--primary lime-btn--sm" data-doc-save data-site-id="@(Model.SiteId?.ToString() ?? "")">
+                    @(isEdit ? "Обновить" : "Опубликовать")
+                </button>
+            </div>
+        </div>
+
+        <aside class="lime-editor__sidebar">
+            <div class="lime-editor__sidebar-section">
+                <h3>Блоки</h3>
+                <div class="lime-editor__tiles">
+                    <button type="button" class="lime-block-tile" data-doc-add="cover"><span class="lime-block-tile__icon">▢</span><span>Обложка</span></button>
+                    <button type="button" class="lime-block-tile" data-doc-add="features"><span class="lime-block-tile__icon">✦</span><span>Фичи</span></button>
+                    <button type="button" class="lime-block-tile" data-doc-add="stats"><span class="lime-block-tile__icon">#</span><span>Цифры</span></button>
+                    <button type="button" class="lime-block-tile" data-doc-add="gallery"><span class="lime-block-tile__icon">▦</span><span>Галерея</span></button>
+                    <button type="button" class="lime-block-tile" data-doc-add="cta"><span class="lime-block-tile__icon">◉</span><span>Призыв</span></button>
+                    <button type="button" class="lime-block-tile" data-doc-add="heading"><span class="lime-block-tile__icon">T</span><span>Заголовок</span></button>
+                    <button type="button" class="lime-block-tile" data-doc-add="text"><span class="lime-block-tile__icon">¶</span><span>Текст</span></button>
+                    <button type="button" class="lime-block-tile" data-doc-add="buttonGroup"><span class="lime-block-tile__icon">⬚</span><span>Кнопки</span></button>
+                    <button type="button" class="lime-block-tile" data-doc-add="image"><span class="lime-block-tile__icon">🖼</span><span>Картинка</span></button>
+                    <button type="button" class="lime-block-tile" data-doc-add="video"><span class="lime-block-tile__icon">▶</span><span>Видео</span></button>
+                    <button type="button" class="lime-block-tile" data-doc-add="container"><span class="lime-block-tile__icon">▣</span><span>Контейнер</span></button>
+                    <button type="button" class="lime-block-tile" data-doc-add="columns"><span class="lime-block-tile__icon">⫼</span><span>Колонки</span></button>
+                    <button type="button" class="lime-block-tile" data-doc-add="divider"><span class="lime-block-tile__icon">—</span><span>Разделитель</span></button>
+                    <button type="button" class="lime-block-tile" data-doc-add="spacer"><span class="lime-block-tile__icon">↕</span><span>Отступ</span></button>
+                </div>
+            </div>
+            <div class="lime-editor__sidebar-section">
+                <h3>Компоненты</h3>
+                <div id="lime-doc-components"></div>
+            </div>
+
+            <div class="lime-editor__sidebar-section">
+                <div class="lime-editor__hint">
+                    <b>Совет.</b> Опиши идею через <b>✨ AI заново</b> — Lime соберёт блоки сам. Стили правятся для выбранного устройства, текст — прямо в блоке.
+                </div>
+            </div>
+        </aside>
+
+        <main class="lime-editor__canvas">
+            <div id="lime-doc-pages" class="lime-doc-pages-bar"></div>
+            <div id="lime-doc-workspace" class="lime-workspace" data-device="desktop"></div>
+
+            <!-- Intro overlay (показывается на пустом документе) -->
+            <div class="lime-le-intro" id="lime-doc-intro">
+                <div class="lime-le-prompt">
+                    <div class="lime-le-prompt__eyebrow">✨ AI-конструктор</div>
+                    <h2 class="lime-le-prompt__title">Опиши сайт — соберём за минуту</h2>
+                    <p class="lime-le-prompt__sub">Одно-два предложения о бизнесе или проекте. Lime подберёт структуру, тексты и палитру, а блоки появятся прямо на холсте.</p>
+                    <textarea class="lime-le-prompt__input" id="lime-doc-intro-prompt" maxlength="2000"
+                              placeholder="Например: кофейня «Зерно» в Казани — обжариваем сами, доставка по городу, подписка на кофе…"></textarea>
+                    <div class="lime-le-chips" id="lime-doc-intro-chips">
+                        <button type="button" class="lime-le-chip">Кофейня с доставкой</button>
+                        <button type="button" class="lime-le-chip">Студия дизайна</button>
+                        <button type="button" class="lime-le-chip">Личный бренд-коуч</button>
+                        <button type="button" class="lime-le-chip">SaaS для команд</button>
+                    </div>
+                    <div class="lime-le-prompt__foot">
+                        <span class="lime-le-prompt__hint">⌘/Ctrl + Enter — создать</span>
+                        <div class="lime-flex lime-gap-2">
+                            <button type="button" class="lime-btn lime-btn--ghost lime-btn--sm" id="lime-doc-intro-skip">Собрать вручную</button>
+                            <button type="button" class="lime-btn lime-btn--primary lime-btn--sm" id="lime-doc-intro-go">Создать сайт →</button>
+                        </div>
+                    </div>
+                    <div class="lime-le-prompt__msg" id="lime-doc-intro-msg"></div>
+                </div>
+            </div>
+        </main>
+
+        <aside class="lime-editor__inspector" id="lime-doc-inspector">
+            <div class="lime-inspector__empty">Выбери блок в холсте, чтобы редактировать его стили.</div>
+        </aside>
+    </div>
+
+    <!-- AI generation status pill + toast -->
+    <div class="lime-le-status" id="lime-doc-le-status">
+        <span class="lime-le-spinner" id="lime-doc-le-spinner"></span>
+        <span class="lime-le-status__text" id="lime-doc-le-status-text">Разбираю запрос…</span>
+    </div>
+    <div class="lime-le-toast" id="lime-doc-le-toast"><b>✓ Сайт готов.</b> Можно править блоки.</div>
+
+    <!-- Theme (тема сайта) modal -->
+    <div id="lime-doc-theme-modal" class="lime-modal-backdrop">
+        <div class="lime-modal" style="max-width: 440px;">
+            <div class="lime-modal__head">
+                <h3 style="margin:0;">Тема сайта</h3>
+                <button type="button" class="lime-modal__close" data-doc-theme-close aria-label="Закрыть">×</button>
+            </div>
+            <div class="lime-modal__body">
+                <p class="lime-text-muted" style="font-size: var(--text-xs); margin-bottom: var(--space-3);">
+                    Токены применяются ко всему сайту. Поменяешь раз — обновится везде, где блок ссылается на токен (свотчи под цветами в инспекторе).
+                </p>
+                <div class="lime-flex lime-items-center" style="justify-content: space-between; margin-bottom: var(--space-2);">
+                    <span class="lime-text-muted" style="font-size: var(--text-sm);">Акцент</span>
+                    <input type="color" id="lime-theme-accent" class="lime-color-input">
+                </div>
+                <div class="lime-flex lime-items-center" style="justify-content: space-between; margin-bottom: var(--space-2);">
+                    <span class="lime-text-muted" style="font-size: var(--text-sm);">Акцент 2</span>
+                    <input type="color" id="lime-theme-accent2" class="lime-color-input">
+                </div>
+                <div class="lime-flex lime-items-center" style="justify-content: space-between; margin-bottom: var(--space-2);">
+                    <span class="lime-text-muted" style="font-size: var(--text-sm);">Фон сайта</span>
+                    <input type="color" id="lime-theme-bg" class="lime-color-input">
+                </div>
+                <div class="lime-flex lime-items-center" style="justify-content: space-between; margin-bottom: var(--space-2);">
+                    <span class="lime-text-muted" style="font-size: var(--text-sm);">Текст</span>
+                    <input type="color" id="lime-theme-fg" class="lime-color-input">
+                </div>
+                <div class="lime-flex lime-items-center" style="justify-content: space-between; margin-bottom: var(--space-3);">
+                    <span class="lime-text-muted" style="font-size: var(--text-sm);">Приглушённый</span>
+                    <input type="color" id="lime-theme-muted" class="lime-color-input">
+                </div>
+                <label style="display:block; font-size: var(--text-xs); color: var(--muted); margin-bottom: 4px;">Шрифт</label>
+                <select id="lime-theme-font" class="lime-select" style="width:100%;">
+                    <option value="'Inter', system-ui, sans-serif">Inter</option>
+                    <option value="'Instrument Serif', Georgia, serif">Instrument Serif</option>
+                    <option value="'Space Grotesk', system-ui, sans-serif">Space Grotesk</option>
+                    <option value="system-ui, -apple-system, sans-serif">Системный</option>
+                    <option value="Georgia, 'Times New Roman', serif">Georgia</option>
+                </select>
+                <div class="lime-flex lime-gap-2" style="justify-content:flex-end; margin-top: var(--space-3);">
+                    <button type="button" class="lime-btn lime-btn--primary lime-btn--sm" data-doc-theme-close>Готово</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- AI modal (описание бизнеса → блоки) -->
+    <div id="lime-doc-ai-modal" class="lime-modal-backdrop">
+        <div class="lime-modal" style="max-width: 560px;">
+            <div class="lime-modal__head">
+                <h3 style="margin:0;">✨ Сгенерировать страницу</h3>
+                <button type="button" class="lime-modal__close" data-doc-ai-close aria-label="Закрыть">×</button>
+            </div>
+            <div class="lime-modal__body">
+                <p class="lime-text-muted" style="font-size: var(--text-xs); margin-bottom: var(--space-3);">
+                    Опиши бизнес или проект — AI соберёт лендинг из блоков конструктора прямо на активной странице.
+                    Потом всё можно править как обычно (и откатить через Ctrl+Z).
+                </p>
+                <textarea id="lime-doc-ai-prompt" class="lime-textarea" rows="5" maxlength="2000" style="width:100%;"
+                          placeholder="Например: кофейня «Зерно» в Казани — обжариваем сами, доставка по городу, подписка на кофе…"></textarea>
+                <div class="lime-flex lime-items-center" style="justify-content: space-between; margin-top: var(--space-3);">
+                    <span class="lime-text-muted" id="lime-doc-ai-status" style="font-size: var(--text-xs);"></span>
+                    <button type="button" class="lime-btn lime-btn--primary lime-btn--sm" data-doc-ai-generate>Сгенерировать</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Media picker modal -->
+    <div id="lime-media-modal" class="lime-modal-backdrop">
+        <div class="lime-modal">
+            <div class="lime-modal__head">
+                <h3 style="margin:0;">Выбери изображение</h3>
+                <div class="lime-flex lime-gap-2 lime-items-center">
+                    <label for="lime-media-upload" class="lime-btn lime-btn--soft lime-btn--sm" style="cursor:pointer;">+ Загрузить</label>
+                    <input id="lime-media-upload" type="file" accept=".jpg,.jpeg,.png,.gif,.webp" style="display:none;">
+                    <button type="button" class="lime-modal__close" data-lime-modal-close aria-label="Закрыть">×</button>
+                </div>
+            </div>
+            <div class="lime-modal__body">
+                <div id="lime-media-status" class="lime-text-muted" style="display:none; margin-bottom: var(--space-3);"></div>
+                <div id="lime-media-grid" class="lime-picker-grid">
+                    <div class="lime-text-muted">Загрузка...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="~/js/lime/lime-doc.js" asp-append-version="true"></script>
+    <script src="~/js/lime/lime-doc-editor.js" asp-append-version="true" defer></script>
+</body>
+</html>

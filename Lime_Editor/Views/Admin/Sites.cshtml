@@ -1,0 +1,66 @@
+@model AdminSitesViewModel
+@{
+    ViewData["Title"] = "Админка — Сайты";
+}
+
+<section class="lime-aurora lime-aurora--subtle" style="padding: var(--space-12) 0 var(--space-8);">
+    <div class="lime-container">
+        <div class="lime-flex lime-justify-between lime-items-center lime-wrap lime-gap-4">
+            <div>
+                <h2 style="margin-bottom: var(--space-1);">Все сайты</h2>
+                <p class="lime-text-muted" style="margin:0;">@Model.Sites.Count записей</p>
+            </div>
+            <a class="lime-btn lime-btn--ghost" href="/Admin/Index">← Дашборд</a>
+        </div>
+    </div>
+</section>
+
+<section class="lime-container" style="padding-bottom: var(--space-16);">
+    <div class="lime-card" style="overflow-x:auto; padding: var(--space-2);">
+        <table class="lime-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Название</th>
+                    <th>Шаблон</th>
+                    <th>Владелец</th>
+                    <th>Slug</th>
+                    <th>Статус</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var s in Model.Sites)
+                {
+                    <tr>
+                        <td class="lime-text-muted">@s.Id</td>
+                        <td><strong>@s.Name</strong></td>
+                        <td class="lime-text-muted">@s.TemplateName</td>
+                        <td>@s.OwnerUserName</td>
+                        <td><code class="lime-text-muted">@(s.Slug ?? "—")</code></td>
+                        <td>
+                            @if (s.IsPublished)
+                            {
+                                <span class="lime-badge lime-badge--success">Опубликован</span>
+                                if (!string.IsNullOrEmpty(s.Slug))
+                                {
+                                    <a class="lime-text-accent" style="font-size: var(--text-xs); margin-left: var(--space-2);" href="/u/@s.OwnerUserName/@s.Slug" target="_blank" rel="noopener">открыть ↗</a>
+                                }
+                            }
+                            else
+                            {
+                                <span class="lime-badge lime-badge--muted">Черновик</span>
+                            }
+                        </td>
+                        <td>
+                            <form asp-action="DeleteSite" method="post" onsubmit="return confirm('Удалить сайт?');">
+                                <input type="hidden" name="idSite" value="@s.Id">
+                                <button type="submit" class="lime-btn lime-btn--danger lime-btn--sm">Удалить</button>
+                            </form>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</section>

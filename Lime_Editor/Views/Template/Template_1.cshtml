@@ -11,7 +11,9 @@
 <head>
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <title id="templateId 1">Get on LimeTemplates</title>
+    <title>Get on LimeTemplates</title>
+    <meta name="templateId" content="1">
+    <meta name="X-CSRF-TOKEN" content="@(((Microsoft.AspNetCore.Antiforgery.IAntiforgery)Context.RequestServices.GetService(typeof(Microsoft.AspNetCore.Antiforgery.IAntiforgery))).GetAndStoreTokens(Context).RequestToken)">
     <meta name="description" content="LimeEditor">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
     <!-- External CSS -->
@@ -39,7 +41,7 @@
             <a class="navbar-brand d-flex align-items-center text-white" id="del" href="#" onclick="savPage()">
                 <h3 class="font-weight-bolder mb-0">Сохранить</h3>
             </a>
-            <a href="#" onclick="temp" id="del1" class="navbar-brand d-flex align-items-center text-white">
+            <a href="#" onclick="downloadSite()" id="del1" class="navbar-brand d-flex align-items-center text-white">
                 <h3 class="font-weight-bolder mb-0">Скачать</h3>
             </a>
             <a href="/Home/MySites" id="del2" class="navbar-brand d-flex align-items-center text-white">

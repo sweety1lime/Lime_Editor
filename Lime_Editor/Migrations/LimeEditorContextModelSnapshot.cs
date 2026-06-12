@@ -22,6 +22,31 @@ namespace Lime_Editor.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("Lime_Editor.Models.AiUsage", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("PeriodStart")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Used")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId", "PeriodStart")
+                        .IsUnique();
+
+                    b.ToTable("AiUsages");
+                });
+
             modelBuilder.Entity("Lime_Editor.Models.ApplicationUser", b =>
                 {
                     b.Property<int>("Id")
@@ -95,6 +120,76 @@ namespace Lime_Editor.Migrations
                     b.ToTable("AspNetUsers", (string)null);
                 });
 
+            modelBuilder.Entity("Lime_Editor.Models.FormSubmission", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("DataJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("IpAddress")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<bool>("IsRead")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("SiteId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("SubmittedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SiteId");
+
+                    b.ToTable("FormSubmissions");
+                });
+
+            modelBuilder.Entity("Lime_Editor.Models.MediaAsset", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("ContentType")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<string>("OriginalName")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<long>("SizeBytes")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("StoredFileName")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<DateTime>("UploadedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("MediaAssets");
+                });
+
             modelBuilder.Entity("Lime_Editor.Models.Site", b =>
                 {
                     b.Property<int?>("IdSite")
@@ -104,10 +199,31 @@ namespace Lime_Editor.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int?>("IdSite"));
 
+                    b.Property<string>("DocumentJson")
+                        .IsUnicode(false)
+                        .HasColumnType("text");
+
+                    b.Property<string>("DraftFolder")
+                        .IsUnicode(false)
+                        .HasColumnType("text");
+
                     b.Property<string>("Folder")
                         .IsRequired()
                         .IsUnicode(false)
                         .HasColumnType("text");
+
+                    b.Property<bool>("IsPublished")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
+
+                    b.Property<string>("MetaDescription")
+                        .HasMaxLength(400)
+                        .HasColumnType("character varying(400)");
+
+                    b.Property<string>("MetaTitle")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -115,20 +231,74 @@ namespace Lime_Editor.Migrations
                         .IsUnicode(false)
                         .HasColumnType("character varying(100)");
 
+                    b.Property<string>("OgImage")
+                        .HasMaxLength(400)
+                        .HasColumnType("character varying(400)");
+
+                    b.Property<DateTime?>("PublishedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("PublishedDocumentJson")
+                        .IsUnicode(false)
+                        .HasColumnType("text");
+
+                    b.Property<bool>("ShowInGallery")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Slug")
+                        .HasMaxLength(120)
+                        .IsUnicode(false)
+                        .HasColumnType("character varying(120)");
+
                     b.Property<int>("TemplateId")
                         .HasColumnType("integer")
                         .HasColumnName("Template_Id");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<int>("UserId")
                         .HasColumnType("integer")
                         .HasColumnName("User_Id");
 
+                    b.Property<int>("ViewsCount")
+                        .HasColumnType("integer");
+
                     b.HasKey("IdSite")
                         .HasName("PK__Sites__A2DC903C1CED58AB");
 
-                    b.HasIndex("UserId");
+                    b.HasIndex("UserId", "Slug")
+                        .IsUnique()
+                        .HasFilter("\"Slug\" IS NOT NULL");
 
                     b.ToTable("Sites");
+                });
+
+            modelBuilder.Entity("Lime_Editor.Models.SiteLike", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("SiteId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("SiteId", "UserId")
+                        .IsUnique();
+
+                    b.ToTable("SiteLikes");
                 });
 
             modelBuilder.Entity("Lime_Editor.Models.Template", b =>
@@ -160,6 +330,36 @@ namespace Lime_Editor.Migrations
                         .HasName("PK__Template__8F91BE5EDFE8DD90");
 
                     b.ToTable("Templates");
+
+                    b.HasData(
+                        new
+                        {
+                            IdTemplate = 1,
+                            FolderPreview = "/images/Template_1/Preview_1.png",
+                            Name = "Ruby",
+                            TypeId = 1
+                        },
+                        new
+                        {
+                            IdTemplate = 2,
+                            FolderPreview = "/images/Template_2/Template_Preview.png",
+                            Name = "Sublime",
+                            TypeId = 1
+                        },
+                        new
+                        {
+                            IdTemplate = 3,
+                            FolderPreview = "/images/Template_3/Preview.png",
+                            Name = "Coming Soon",
+                            TypeId = 1
+                        },
+                        new
+                        {
+                            IdTemplate = 4,
+                            FolderPreview = "/images/cover-1.jpg",
+                            Name = "Custom",
+                            TypeId = 1
+                        });
                 });
 
             modelBuilder.Entity("Lime_Editor.Models.TypeTemplate", b =>
@@ -181,6 +381,13 @@ namespace Lime_Editor.Migrations
                         .HasName("PK__Type_Tem__1A20A3D5996588A6");
 
                     b.ToTable("Type_Templates", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            IdType = 1,
+                            Name = "Landing"
+                        });
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole<int>", b =>
@@ -315,8 +522,50 @@ namespace Lime_Editor.Migrations
                     b.ToTable("AspNetUserTokens", (string)null);
                 });
 
+            modelBuilder.Entity("Lime_Editor.Models.AiUsage", b =>
+                {
+                    b.HasOne("Lime_Editor.Models.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Lime_Editor.Models.FormSubmission", b =>
+                {
+                    b.HasOne("Lime_Editor.Models.Site", null)
+                        .WithMany()
+                        .HasForeignKey("SiteId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Lime_Editor.Models.MediaAsset", b =>
+                {
+                    b.HasOne("Lime_Editor.Models.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Lime_Editor.Models.Site", b =>
                 {
+                    b.HasOne("Lime_Editor.Models.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Lime_Editor.Models.SiteLike", b =>
+                {
+                    b.HasOne("Lime_Editor.Models.Site", null)
+                        .WithMany()
+                        .HasForeignKey("SiteId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
                     b.HasOne("Lime_Editor.Models.ApplicationUser", null)
                         .WithMany()
                         .HasForeignKey("UserId")

@@ -20,6 +20,10 @@ namespace Lime_Editor.Models
         public virtual DbSet<Site> Sites { get; set; }
         public virtual DbSet<Template> Templates { get; set; }
         public virtual DbSet<TypeTemplate> TypeTemplates { get; set; }
+        public virtual DbSet<MediaAsset> MediaAssets { get; set; }
+        public virtual DbSet<FormSubmission> FormSubmissions { get; set; }
+        public virtual DbSet<AiUsage> AiUsages { get; set; }
+        public virtual DbSet<SiteLike> SiteLikes { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -37,6 +41,13 @@ namespace Lime_Editor.Models
                     .IsRequired()
                     .IsUnicode(false);
 
+                entity.Property(e => e.DraftFolder).IsUnicode(false);
+                entity.Property(e => e.DocumentJson).IsUnicode(false);
+                entity.Property(e => e.PublishedDocumentJson).IsUnicode(false);
+                entity.Property(e => e.MetaTitle).HasMaxLength(200);
+                entity.Property(e => e.MetaDescription).HasMaxLength(400);
+                entity.Property(e => e.OgImage).HasMaxLength(400);
+
                 entity.Property(e => e.Name)
                     .IsRequired()
                     .HasMaxLength(100)
@@ -45,6 +56,16 @@ namespace Lime_Editor.Models
                 entity.Property(e => e.UserId).HasColumnName("User_Id");
 
                 entity.Property(e => e.TemplateId).HasColumnName("Template_Id");
+
+                entity.Property(e => e.Slug).HasMaxLength(120).IsUnicode(false);
+                entity.Property(e => e.IsPublished).HasDefaultValue(false);
+                entity.Property(e => e.PublishedAt);
+
+                // На пару (UserId, Slug) накладывается уникальность — у одного пользователя
+                // не может быть двух сайтов с одинаковым slug. NULL slug разрешён множеством.
+                entity.HasIndex(s => new { s.UserId, s.Slug })
+                    .IsUnique()
+                    .HasFilter("\"Slug\" IS NOT NULL");
 
                 // Сайт принадлежит пользователю; при удалении пользователя его сайты удаляются.
                 entity.HasOne<ApplicationUser>()
@@ -87,6 +108,74 @@ namespace Lime_Editor.Models
                     .HasMaxLength(100)
                     .IsUnicode(false);
             });
+
+            modelBuilder.Entity<MediaAsset>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.OriginalName).IsRequired().HasMaxLength(255);
+                entity.Property(e => e.StoredFileName).IsRequired().HasMaxLength(80);
+                entity.Property(e => e.ContentType).HasMaxLength(120);
+                entity.HasIndex(e => e.UserId);
+
+                // Удаление пользователя удаляет его медиа (файлы на диске чистятся отдельно при удалении).
+                entity.HasOne<ApplicationUser>()
+                    .WithMany()
+                    .HasForeignKey(e => e.UserId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<FormSubmission>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.DataJson).IsRequired();
+                entity.Property(e => e.IpAddress).HasMaxLength(64);
+                entity.HasIndex(e => e.SiteId);
+
+                // Заявка принадлежит сайту; при удалении сайта его заявки удаляются.
+                entity.HasOne<Site>()
+                    .WithMany()
+                    .HasForeignKey(e => e.SiteId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<AiUsage>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                // Один счётчик на пользователя на месяц.
+                entity.HasIndex(e => new { e.UserId, e.PeriodStart }).IsUnique();
+                entity.HasOne<ApplicationUser>()
+                    .WithMany()
+                    .HasForeignKey(e => e.UserId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<SiteLike>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                // Один лайк на пару (сайт, пользователь).
+                entity.HasIndex(e => new { e.SiteId, e.UserId }).IsUnique();
+                entity.HasOne<Site>()
+                    .WithMany()
+                    .HasForeignKey(e => e.SiteId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                entity.HasOne<ApplicationUser>()
+                    .WithMany()
+                    .HasForeignKey(e => e.UserId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            // Стартовые данные: 1 тип + 3 шаблона (Id совпадает со значением meta "templateId" в Template_{1,2,3}.cshtml).
+            modelBuilder.Entity<TypeTemplate>().HasData(
+                new TypeTemplate { IdType = 1, Name = "Landing" }
+            );
+
+            modelBuilder.Entity<Template>().HasData(
+                new Template { IdTemplate = 1, Name = "Ruby",        FolderPreview = "/images/Template_1/Preview_1.png",        TypeId = 1 },
+                new Template { IdTemplate = 2, Name = "Sublime",     FolderPreview = "/images/Template_2/Template_Preview.png", TypeId = 1 },
+                new Template { IdTemplate = 3, Name = "Coming Soon", FolderPreview = "/images/Template_3/Preview.png",          TypeId = 1 },
+                // Id = 4 — псевдо-шаблон "Custom", на нём строятся сайты из "Создать сайт".
+                new Template { IdTemplate = 4, Name = "Custom",      FolderPreview = "/images/cover-1.jpg",                     TypeId = 1 }
+            );
 
             OnModelCreatingPartial(modelBuilder);
         }

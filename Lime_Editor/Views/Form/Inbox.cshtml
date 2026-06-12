@@ -1,0 +1,82 @@
+@model List<FormSubmission>
+@using Newtonsoft.Json
+@{
+    ViewData["Title"] = "Заявки";
+    var siteName = ViewBag.SiteName as string;
+    var siteId = (int)ViewBag.SiteId;
+}
+
+<section class="lime-aurora lime-aurora--subtle" style="padding: var(--space-12) 0 var(--space-8);">
+    <div class="lime-container">
+        <div class="lime-flex lime-gap-2 lime-items-center lime-wrap" style="justify-content: space-between;">
+            <div>
+                <h2 style="margin-bottom: var(--space-2);">Заявки · @siteName</h2>
+                <p class="lime-text-muted">Лиды, отправленные через формы на твоём сайте. Всего: @Model.Count.</p>
+            </div>
+            <a class="lime-btn lime-btn--ghost" href="/Home/MySites">← К сайтам</a>
+        </div>
+    </div>
+</section>
+
+<section class="lime-container" style="padding-bottom: var(--space-16);">
+    @if (Model.Count == 0)
+    {
+        <div class="lime-empty lime-card lime-card--padded">
+            <div class="lime-empty__icon">📭</div>
+            <div class="lime-empty__title">Пока нет заявок</div>
+            <p>Добавь блок «Форма» в конструкторе, опубликуй сайт — и заявки появятся здесь.</p>
+        </div>
+    }
+    else
+    {
+        <div class="lime-flex lime-gap-3" style="flex-direction: column;">
+            @foreach (var sub in Model)
+            {
+                Dictionary<string, string> fields;
+                try
+                {
+                    fields = JsonConvert.DeserializeObject<Dictionary<string, string>>(sub.DataJson)
+                             ?? new Dictionary<string, string>();
+                }
+                catch
+                {
+                    fields = new Dictionary<string, string>();
+                }
+
+                <div class="lime-card lime-card--padded">
+                    <div class="lime-flex lime-gap-2 lime-items-center lime-wrap" style="justify-content: space-between; margin-bottom: var(--space-3);">
+                        <div class="lime-text-muted" style="font-size: var(--text-sm);">
+                            🕑 @sub.SubmittedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm")
+                            @if (!string.IsNullOrEmpty(sub.IpAddress))
+                            {
+                                <span> · IP @sub.IpAddress</span>
+                            }
+                        </div>
+                        <form asp-action="DeleteSubmission" asp-controller="Form" method="post"
+                              style="display:inline;" onsubmit="return confirm('Удалить заявку?');">
+                            <input type="hidden" name="id" value="@sub.Id">
+                            <button type="submit" class="lime-btn lime-btn--danger lime-btn--sm">Удалить</button>
+                        </form>
+                    </div>
+
+                    @if (fields.Count == 0)
+                    {
+                        <div class="lime-text-muted">Пустая заявка.</div>
+                    }
+                    else
+                    {
+                        <table class="lime-leads-table" style="width:100%; border-collapse: collapse;">
+                            @foreach (var kv in fields)
+                            {
+                                <tr>
+                                    <td style="padding: 4px 12px 4px 0; vertical-align: top; color: var(--fg-muted); white-space: nowrap; font-size: var(--text-sm);">@kv.Key</td>
+                                    <td style="padding: 4px 0; word-break: break-word;">@kv.Value</td>
+                                </tr>
+                            }
+                        </table>
+                    }
+                </div>
+            }
+        </div>
+    }
+</section>

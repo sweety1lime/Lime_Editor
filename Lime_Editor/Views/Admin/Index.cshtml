@@ -1,0 +1,48 @@
+@model AdminDashboardModel
+@{
+    ViewData["Title"] = "Админка — Дашборд";
+}
+
+<section class="lime-aurora lime-aurora--subtle" style="padding: var(--space-12) 0 var(--space-8);">
+    <div class="lime-container">
+        <h2 style="margin-bottom: var(--space-2);">Дашборд</h2>
+        <p class="lime-text-muted">Сводка по проекту — пользователи, сайты, публикации.</p>
+    </div>
+</section>
+
+<section class="lime-container" style="padding-bottom: var(--space-16);">
+    <div class="lime-admin-stats">
+        <div class="lime-card">
+            <div class="lime-stat__label">Пользователей</div>
+            <div class="lime-stat__value">@Model.UsersTotal</div>
+        </div>
+        <div class="lime-card">
+            <div class="lime-stat__label">Сайтов</div>
+            <div class="lime-stat__value">@Model.SitesTotal</div>
+        </div>
+        <div class="lime-card">
+            <div class="lime-stat__label">Опубликовано</div>
+            <div class="lime-stat__value" style="color: var(--success);">@Model.PublishedSitesTotal</div>
+        </div>
+        <div class="lime-card">
+            <div class="lime-stat__label">Админов</div>
+            <div class="lime-stat__value" style="color: var(--warn);">@Model.AdminsTotal</div>
+        </div>
+    </div>
+
+    <div class="lime-flex lime-gap-3 lime-mt-8">
+        <a class="lime-btn lime-btn--ghost" href="/Admin/Users">Пользователи →</a>
+        <a class="lime-btn lime-btn--ghost" href="/Admin/Sites">Сайты →</a>
+        <form method="post" asp-action="RepublishAll" asp-controller="Admin"
+              onsubmit="return confirm('Пересобрать все опубликованные сайты движка B из их JSON-снапшотов?');">
+            @Html.AntiForgeryToken()
+            <button type="submit" class="lime-btn lime-btn--soft" title="После обновления рендерера фиксы доедут до уже опубликованных страниц">
+                ⟳ Пересобрать публикации (движок B)
+            </button>
+        </form>
+    </div>
+    @if (TempData["AdminMessage"] != null)
+    {
+        <p class="lime-text-muted lime-mt-4">@TempData["AdminMessage"]</p>
+    }
+</section>

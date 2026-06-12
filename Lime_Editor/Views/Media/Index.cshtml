@@ -1,0 +1,105 @@
+@model IList<MediaAsset>
+@{
+    ViewData["Title"] = "Медиа";
+    var userId = (int)ViewBag.UserId;
+}
+
+<section class="lime-aurora lime-aurora--subtle" style="padding: var(--space-12) 0 var(--space-8);">
+    <div class="lime-container">
+        <h2 style="margin-bottom: var(--space-2);">Медиа</h2>
+        <p class="lime-text-muted">Изображения для твоих сайтов. Прямая ссылка под каждой картинкой.</p>
+    </div>
+</section>
+
+<section class="lime-container" style="padding-bottom: var(--space-16);">
+    @if (TempData["Error"] != null)
+    {
+        <div class="lime-alert lime-alert--warn lime-mb-4">@TempData["Error"]</div>
+    }
+
+    <form asp-action="Upload" method="post" enctype="multipart/form-data" class="lime-uploader" id="media-uploader">
+        <div style="font-size: 32px; margin-bottom: var(--space-2);">📤</div>
+        <div style="font-size: var(--text-lg); font-weight: 600; margin-bottom: var(--space-2);">Перетащи или выбери файл</div>
+        <p class="lime-uploader__hint">jpg, png, gif, webp · до 5 МБ · автоматическое сжатие до 1920px</p>
+        <input type="file" name="file" id="media-file" accept=".jpg,.jpeg,.png,.gif,.webp" required style="display:none;">
+        <div class="lime-flex lime-gap-2 lime-justify-center">
+            <label for="media-file" class="lime-btn lime-btn--primary" style="cursor:pointer;">Выбрать файл</label>
+            <button type="submit" class="lime-btn lime-btn--ghost" id="media-submit" disabled>Загрузить</button>
+        </div>
+        <div id="media-filename" class="lime-text-muted lime-mt-2" style="font-size: var(--text-xs);"></div>
+    </form>
+
+    @if (Model.Count == 0)
+    {
+        <div class="lime-empty lime-mt-8">
+            <div class="lime-empty__icon">🖼️</div>
+            <div class="lime-empty__title">Пока пусто</div>
+            <p>Загрузи первое изображение через форму выше.</p>
+        </div>
+    }
+    else
+    {
+        <div class="lime-media lime-mt-6">
+            @foreach (var m in Model)
+            {
+                var url = $"/media/{userId}/{m.StoredFileName}";
+                <div class="lime-media-card">
+                    <a href="@url" target="_blank" rel="noopener">
+                        <img class="lime-media-card__img" src="@url" alt="@m.OriginalName" loading="lazy">
+                    </a>
+                    <div class="lime-media-card__body">
+                        <div class="lime-media-card__name" title="@m.OriginalName">@m.OriginalName</div>
+                        <div class="lime-media-card__meta">@(m.SizeBytes / 1024) КБ · @m.UploadedAt.ToString("yyyy-MM-dd")</div>
+                        <code class="lime-media-card__url" data-url="@url" onclick="this.select?.()">@url</code>
+                        <form asp-action="Delete" method="post" onsubmit="return confirm('Удалить навсегда?');">
+                            <input type="hidden" name="id" value="@m.Id">
+                            <button type="submit" class="lime-btn lime-btn--danger lime-btn--sm" style="width:100%;">Удалить</button>
+                        </form>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</section>
+
+@section Scripts {
+    <script>
+        (function () {
+            var fileInput = document.getElementById("media-file");
+            var filenameLabel = document.getElementById("media-filename");
+            var submitBtn = document.getElementById("media-submit");
+            var dropzone = document.getElementById("media-uploader");
+
+            function setFile(file) {
+                if (!file) return;
+                var dt = new DataTransfer();
+                dt.items.add(file);
+                fileInput.files = dt.files;
+                filenameLabel.textContent = file.name + " · " + Math.round(file.size / 1024) + " КБ";
+                submitBtn.disabled = false;
+            }
+
+            fileInput.addEventListener("change", function () {
+                if (fileInput.files.length > 0) {
+                    setFile(fileInput.files[0]);
+                }
+            });
+
+            ["dragenter", "dragover"].forEach(function (ev) {
+                dropzone.addEventListener(ev, function (e) {
+                    e.preventDefault();
+                    dropzone.classList.add("is-drag");
+                });
+            });
+            ["dragleave", "drop"].forEach(function (ev) {
+                dropzone.addEventListener(ev, function (e) {
+                    e.preventDefault();
+                    dropzone.classList.remove("is-drag");
+                });
+            });
+            dropzone.addEventListener("drop", function (e) {
+                if (e.dataTransfer.files.length > 0) setFile(e.dataTransfer.files[0]);
+            });
+        })();
+    </script>
+}

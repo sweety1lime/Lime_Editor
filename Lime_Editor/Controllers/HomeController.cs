@@ -1,4 +1,5 @@
 using Lime_Editor.Models;
+using Lime_Editor.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
@@ -21,17 +22,23 @@ namespace Lime_Editor.Controllers
         private readonly LimeEditorContext db;
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly SignInManager<ApplicationUser> _signInManager;
+        private readonly ITemplateExportService _exportService;
+        private readonly IDocumentRenderer _docRenderer;
 
         public HomeController(
             IWebHostEnvironment environment,
             LimeEditorContext context,
             UserManager<ApplicationUser> userManager,
-            SignInManager<ApplicationUser> signInManager)
+            SignInManager<ApplicationUser> signInManager,
+            ITemplateExportService exportService,
+            IDocumentRenderer docRenderer)
         {
             _environment = environment;
             db = context;
             _userManager = userManager;
             _signInManager = signInManager;
+            _exportService = exportService;
+            _docRenderer = docRenderer;
         }
 
         // Id текущего аутентифицированного пользователя (для [Authorize]-действий).
@@ -47,9 +54,19 @@ namespace Lime_Editor.Controllers
             return await db.Sites.AnyAsync(s => s.IdSite == siteId && s.UserId == CurrentUserId);
         }
 
-        public IActionResult Index()
+        public async Task<IActionResult> Index()
         {
-            return View();
+            if (User?.Identity?.IsAuthenticated == true)
+            {
+                return RedirectToAction(nameof(MySites));
+            }
+            // На лендинге показываем 3 публичных шаблона (без Custom Id=4).
+            var templates = await db.Templates
+                .AsNoTracking()
+                .Where(t => t.IdTemplate != TemplateExportConfigs.CustomTemplateId)
+                .OrderBy(t => t.IdTemplate)
+                .ToListAsync();
+            return View(templates);
         }
 
         public IActionResult SignIn()
@@ -116,19 +133,36 @@ namespace Lime_Editor.Controllers
         public async Task<IActionResult> MySites()
         {
             var userId = CurrentUserId;
-            var siteController = new SiteControlModel
+            // Один запрос с LEFT JOIN вместо N+1 (раньше: 1 запрос Sites + по запросу на каждый сайт).
+            var rows = await (
+                from s in db.Sites
+                where s.UserId == userId
+                join t in db.Templates on s.TemplateId equals t.IdTemplate into tj
+                from t in tj.DefaultIfEmpty()
+                select new { Site = s, Template = t }
+            ).ToListAsync();
+
+            foreach (var row in rows)
             {
-                Sites = await db.Sites.Where(s => s.UserId == userId).ToListAsync()
-            };
-            foreach (var site in siteController.Sites)
-            {
-                site.TemplateInfo = await db.Templates.FirstOrDefaultAsync(t => t.IdTemplate == site.TemplateId);
+                row.Site.TemplateInfo = row.Template;
             }
-            return View(siteController);
+
+            // Счётчик новых (непрочитанных) заявок на каждый сайт — для бейджа «Заявки (N)».
+            var siteIds = rows.Select(r => r.Site.IdSite ?? 0).ToList();
+            var leadCounts = await db.FormSubmissions
+                .Where(f => !f.IsRead && siteIds.Contains(f.SiteId))
+                .GroupBy(f => f.SiteId)
+                .Select(g => new { SiteId = g.Key, Count = g.Count() })
+                .ToListAsync();
+            ViewBag.LeadCounts = leadCounts.ToDictionary(x => x.SiteId, x => x.Count);
+
+            var model = new SiteControlModel { Sites = rows.Select(r => r.Site).ToList() };
+            return View(model);
         }
 
         [Authorize]
         [HttpPost]
+        [ValidateAntiForgeryToken]
         public async Task<IActionResult> UpdateSite(SiteControlModel controlModel)
         {
             var site = (Site)JsonConvert.DeserializeObject(controlModel.Site, typeof(Site));
@@ -142,6 +176,7 @@ namespace Lime_Editor.Controllers
 
         [Authorize]
         [HttpPost]
+        [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteSite(SiteControlModel controlModel)
         {
             var site = (Site)JsonConvert.DeserializeObject(controlModel.Site, typeof(Site));
@@ -162,83 +197,168 @@ namespace Lime_Editor.Controllers
             return View(templates);
         }
 
+        // Новый редактор на JSON-движке (Трек B). Strangler: рядом со старым EditTemplates.
         [Authorize]
-        [HttpPost]
-        public IActionResult EditTemplatesPost(string html)
+        public async Task<IActionResult> EditDoc(int? siteId)
         {
-            var user = User.Identity?.Name ?? "user";
-            var currentHtml = "<!DOCTYPE html> \n " +
-                "<html lang=\"ru_RU\"> " +
-                "\n <head> \n " +
-                "<meta charset=\"utf - 8\"> \n" +
-                "<meta name=\"viewport\" content=\"width = device - width, initial - scale = 1.0\"> \n" +
-                "<title>Тестовый</title> \n" +
-                "<link href=\"css/bootstrap.min.css\" rel=\"stylesheet\"/> \n" +
-                "<link href=\"css/bootstrap.css\" rel=\"stylesheet\"/> \n" +
-                "<link href=\"css/mainMeow.css\" rel=\"stylesheet\" \n/>" +
-                "<link href=\"css/responsive.css\" rel=\"stylesheet\" \n/>" +
-                "<link href=\"css/Themes.css\" rel=\"stylesheet\" \n/>" +
-                "<link href=\"css/TypeHeader_1.css\" rel=\"stylesheet\" \n/>" +
-                "<link href=\"css/TypeHeader_2.css\" rel=\"stylesheet\" \n/>" +
-                "<link href=\"css/TypeFooter_1.css\" rel=\"stylesheet\" \n/>" +
-                "<link href=\"css/NewTextEdit.css\" rel=\"stylesheet\" \n/>" +
-                "</head> \n" +
-                "<body style=\"padding: inherit; overflow - x: hidden;\"> \n" +
-                html +
-                "\n </body> \n" +
-                "</html>";
-            currentHtml = currentHtml.Replace("/images", "images");
-            currentHtml = currentHtml.Replace("contenteditable=\"true\"", "contenteditable=\"false\"");
-
-            string directory = System.Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments) + $@"\{user}-проекты";
-            if (!System.IO.Directory.Exists(directory))
-                System.IO.Directory.CreateDirectory(directory);
-            System.IO.File.WriteAllText(directory + @"\index.html", currentHtml);
-            Directory.CreateDirectory(directory + "\\css");
-            Directory.CreateDirectory(directory + "\\images");
-            string[] reqiredCss = new[] { "bootstrap.min.css", "bootstrap.css", "mainMeow.css", "responsive.css", "Themes.css", "TypeHeader_1.css", "TypeHeader_2.css", "TypeFooter_1.css", "NewTextEdit.css" };
-            string[] filePaths = Directory.GetFiles(_environment.WebRootPath + "\\css\\main\\");
-            foreach (var filePath in filePaths)
+            var vm = new ConstructorViewModel
             {
-                if (reqiredCss.Contains(filePath.Substring(filePath.LastIndexOf("\\") + 1)))
-                {
-                    string path = filePath;
-                    string newPath = directory + "\\css\\" + filePath.Substring(filePath.LastIndexOf("\\") + 1);
-                    FileInfo fileInf = new FileInfo(path);
-                    if (fileInf.Exists)
-                    {
-                        fileInf.CopyTo(newPath, true);
-                    }
-                }
-            }
-
-            string[] pathImg = Directory.GetFiles(_environment.WebRootPath + "\\images\\");
-            foreach (var filePath in pathImg)
+                SiteId = null,
+                SiteName = "Новый сайт (движок B)",
+                DocumentJson = null,
+            };
+            if (siteId.HasValue)
             {
-                if (html.Contains(filePath.Substring(filePath.LastIndexOf("\\") + 1)))
+                var userId = CurrentUserId;
+                var site = await db.Sites.FirstOrDefaultAsync(s => s.IdSite == siteId.Value && s.UserId == userId);
+                if (site == null)
                 {
-                    string path = filePath;
-                    string newPath = directory + "\\images\\" + filePath.Substring(filePath.LastIndexOf("\\") + 1);
-                    FileInfo fileInf = new FileInfo(path);
-                    if (fileInf.Exists)
-                    {
-                        fileInf.CopyTo(newPath, true);
-                    }
+                    return Forbid();
                 }
+                if (site.TemplateId != TemplateExportConfigs.CustomTemplateId)
+                {
+                    return BadRequest("Этот сайт нельзя редактировать через движок B.");
+                }
+                vm.SiteId = site.IdSite;
+                vm.SiteName = site.Name;
+                vm.MetaTitle = site.MetaTitle;
+                vm.MetaDescription = site.MetaDescription;
+                vm.OgImage = site.OgImage;
+                vm.DocumentJson = site.DocumentJson;
+                vm.DocVersion = site.UpdatedAt?.Ticks ?? 0;
             }
-
-            return Ok();
-        }
-
-        [Authorize]
-        public IActionResult EditTemplates()
-        {
-            var imageModel = new ImageModel { UrlImage = "/images/cover-1.jpg" };
-            return View(imageModel);
+            return View(vm);
         }
 
         [Authorize]
         [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> EditTemplatesPost(
+            string html, int? siteId, string metaTitle, string metaDescription, string ogImage,
+            string documentJson = null, bool auto = false, long baseVersion = -1)
+        {
+            var userId = CurrentUserId;
+
+            static string Norm(string v) => string.IsNullOrWhiteSpace(v) ? null : v.Trim();
+            metaTitle = Norm(metaTitle);
+            metaDescription = Norm(metaDescription);
+            ogImage = Norm(ogImage);
+
+            if (siteId.HasValue)
+            {
+                // UPDATE — редактируем существующий Custom-сайт (пишем в черновик).
+                var site = await db.Sites.FirstOrDefaultAsync(s => s.IdSite == siteId.Value && s.UserId == userId);
+                if (site == null)
+                {
+                    return Forbid();
+                }
+                if (site.TemplateId != TemplateExportConfigs.CustomTemplateId)
+                {
+                    return BadRequest("Этот сайт нельзя редактировать через Custom-конструктор.");
+                }
+                // Optimistic concurrency (этап 0.4): клиент прислал версию, с которой
+                // открыл документ. Расхождение = документ сохранён из другого окна —
+                // 409, а не молчаливый last-write-wins.
+                if (Site.IsVersionConflict(baseVersion, site.UpdatedAt))
+                {
+                    return Conflict(new { error = "version", version = site.UpdatedAt?.Ticks ?? 0 });
+                }
+                site.MetaTitle = metaTitle;
+                site.MetaDescription = metaDescription;
+                site.OgImage = ogImage;
+                if (documentJson != null) site.DocumentJson = documentJson;
+                site.DraftFolder = WrapCustomHtml(html, site);
+                // Неопубликованный сайт держим синхронным (Folder обязателен в БД);
+                // опубликованный — Folder меняется только при повторной Publish.
+                if (!site.IsPublished)
+                {
+                    site.Folder = site.DraftFolder;
+                }
+                site.UpdatedAt = DateTime.UtcNow;
+                await db.SaveChangesAsync();
+                // Автосейву возвращаем свежую версию — клиент продолжает цепочку с неё.
+                return auto ? Json(new { version = site.UpdatedAt.Value.Ticks }) : RedirectToAction("MySites");
+            }
+
+            // CREATE — новый сайт.
+            var name = "Новый сайт";
+            var slug = await GenerateUniqueSlugAsync(userId, name);
+            var created = new Site
+            {
+                Name = name,
+                UserId = userId,
+                TemplateId = TemplateExportConfigs.CustomTemplateId,
+                Slug = slug,
+                IsPublished = false,
+                MetaTitle = metaTitle,
+                MetaDescription = metaDescription,
+                OgImage = ogImage,
+                DocumentJson = documentJson,
+                UpdatedAt = DateTime.UtcNow,
+            };
+            created.Folder = WrapCustomHtml(html, created);
+            created.DraftFolder = created.Folder;
+            db.Sites.Add(created);
+            await db.SaveChangesAsync();
+            return auto ? Json(new { version = created.UpdatedAt.Value.Ticks }) : RedirectToAction("MySites");
+        }
+
+        // Wrap для сохранения Folder в БД вынесен в Services.PublishedPageBuilder (этап 0.2) —
+        // он нужен и Publish здесь, и RepublishAll в админке.
+        private static string WrapCustomHtml(string innerHtml, Site site)
+            => Services.PublishedPageBuilder.WrapCustomHtml(innerHtml, site);
+
+        private async Task<string> GenerateUniqueSlugAsync(int userId, string baseName)
+        {
+            var baseSlug = SlugGenerator.Generate(baseName);
+            var slug = baseSlug;
+            var i = 1;
+            while (await db.Sites.AnyAsync(s => s.UserId == userId && s.Slug == slug))
+            {
+                slug = $"{baseSlug}-{i++}";
+            }
+            return slug;
+        }
+
+        [Authorize]
+        public async Task<IActionResult> EditTemplates(int? siteId)
+        {
+            var vm = new ConstructorViewModel
+            {
+                SiteId = null,
+                SiteName = "Новый сайт",
+                BodyHtml = string.Empty,
+            };
+            if (siteId.HasValue)
+            {
+                var userId = CurrentUserId;
+                var site = await db.Sites.FirstOrDefaultAsync(s => s.IdSite == siteId.Value && s.UserId == userId);
+                if (site == null)
+                {
+                    return Forbid();
+                }
+                if (site.TemplateId != TemplateExportConfigs.CustomTemplateId)
+                {
+                    // Не Custom — отправляем в legacy-редактор через UpdateSite-flow (через сессию).
+                    HttpContext.Session.SetString("SiteData", Newtonsoft.Json.JsonConvert.SerializeObject(site));
+                    return RedirectToAction("PageToEdit", "Template");
+                }
+                vm.SiteId = site.IdSite;
+                vm.SiteName = site.Name;
+                vm.MetaTitle = site.MetaTitle;
+                vm.MetaDescription = site.MetaDescription;
+                vm.OgImage = site.OgImage;
+                vm.DocumentJson = site.DocumentJson;
+                // Редактируем черновик (если есть), иначе опубликованный снапшот.
+                var editSource = string.IsNullOrEmpty(site.DraftFolder) ? site.Folder : site.DraftFolder;
+                vm.BodyHtml = Services.PublishedHtmlSanitizer.ExtractBodyForEditor(editSource);
+            }
+            return View(vm);
+        }
+
+        [Authorize]
+        [HttpPost]
+        [ValidateAntiForgeryToken]
         public IActionResult EditTemplates(string name)
         {
             var imageModel = new ImageModel { UrlImage = "/images/cover-1.jpg" };
@@ -338,26 +458,85 @@ namespace Lime_Editor.Controllers
 
         [Authorize]
         [HttpPost]
-        public async Task<IActionResult> SavetoUser(string html)
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> SavetoUser(string html, int templateId)
         {
+            var name = "Новый сайт";
+            var slug = await GenerateUniqueSlugAsync(CurrentUserId, name);
             var currentHtml = "<!DOCTYPE html> \n " +
                 "<html id=\"userSpace\" lang=\"ru_RU\"> " +
                 html + "\n" +
                 "</html>";
-            var sites = new Site
+            db.Sites.Add(new Site
             {
-                Name = "NewSite",
+                Name = name,
                 UserId = CurrentUserId,
                 Folder = currentHtml,
-                TemplateId = Convert.ToInt32(html.Substring(html.IndexOf("id=\"templateId ") + 15, 1))
-            };
-            db.Sites.Add(sites);
+                TemplateId = templateId,
+                Slug = slug,
+                IsPublished = false,
+            });
             await db.SaveChangesAsync();
             return RedirectToAction("MySites", "Home");
         }
 
         [Authorize]
         [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Publish(int idSite)
+        {
+            if (!await UserOwnsSiteAsync(idSite))
+            {
+                return Forbid();
+            }
+            var target = await db.Sites.FirstAsync(s => s.IdSite == idSite);
+            // Старые сайты (созданные до миграции AddPublishingAndCustomTemplate) имеют Slug = NULL —
+            // на лету генерим уникальный slug из имени, иначе публичный URL будет /u/{user}/ → 404.
+            if (string.IsNullOrEmpty(target.Slug))
+            {
+                target.Slug = await GenerateUniqueSlugAsync(CurrentUserId, target.Name);
+            }
+            if (!string.IsNullOrEmpty(target.DocumentJson))
+            {
+                // Движок B (этап 0.2): сервер сам компилирует publish-HTML из JSON тем же
+                // lime-doc.js, что и клиент. Снапшот JSON фиксируем отдельно — DocumentJson
+                // дальше живёт как черновик автосейва, а republish идёт из снапшота.
+                target.PublishedDocumentJson = target.DocumentJson;
+                var body = _docRenderer.RenderSite(target.PublishedDocumentJson);
+                target.Folder = PublishedPageBuilder.WrapCustomHtml(body, target);
+            }
+            else if (!string.IsNullOrEmpty(target.DraftFolder))
+            {
+                // Legacy-путь: промоут клиентского черновика в опубликованный снапшот.
+                target.Folder = target.DraftFolder;
+            }
+            target.IsPublished = true;
+            target.PublishedAt = DateTime.UtcNow;
+            // Сообщество (этап 3): опубликованный сайт по умолчанию виден в галерее
+            // (он и так публичен по ссылке); скрыть можно кнопкой в «Мои сайты».
+            target.ShowInGallery = true;
+            await db.SaveChangesAsync();
+            return RedirectToAction("MySites");
+        }
+
+        [Authorize]
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Unpublish(int idSite)
+        {
+            if (!await UserOwnsSiteAsync(idSite))
+            {
+                return Forbid();
+            }
+            var target = await db.Sites.FirstAsync(s => s.IdSite == idSite);
+            target.IsPublished = false;
+            await db.SaveChangesAsync();
+            return RedirectToAction("MySites");
+        }
+
+        [Authorize]
+        [HttpPost]
+        [ValidateAntiForgeryToken]
         public async Task<IActionResult> ChangeName(string site, int idSite)
         {
             if (!await UserOwnsSiteAsync(idSite))
