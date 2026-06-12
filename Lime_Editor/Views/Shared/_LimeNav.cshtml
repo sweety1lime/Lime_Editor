@@ -1,0 +1,64 @@
+@{
+    var currentController = ViewContext.RouteData.Values["controller"]?.ToString() ?? "";
+    var currentAction = ViewContext.RouteData.Values["action"]?.ToString() ?? "";
+    bool isAuthed = User?.Identity?.IsAuthenticated == true;
+    bool isAdmin = User?.IsInRole("Admin") == true;
+
+    string activeIf(string controller, string action = null)
+    {
+        var ok = string.Equals(currentController, controller, StringComparison.OrdinalIgnoreCase)
+                 && (action == null || string.Equals(currentAction, action, StringComparison.OrdinalIgnoreCase));
+        return ok ? " lime-nav__link--active" : "";
+    }
+}
+<nav class="lime-navbar">
+    <div class="lime-container lime-navbar__inner">
+        <a href="@(isAuthed ? "/Home/MySites" : "/")" class="lime-brand" aria-label="Lime — главная">
+            <span class="lime-brand__mark" aria-hidden="true">L</span>
+            <span>Lime</span><span class="lime-brand__dot">.</span>
+        </a>
+
+        @if (isAuthed)
+        {
+            <ul class="lime-nav">
+                <li><a class="lime-nav__link@(activeIf("Home", "MySites"))" href="/Home/MySites">Мои сайты</a></li>
+                <li><a class="lime-nav__link@(activeIf("Home", "Templates"))" href="/Home/Templates">Шаблоны</a></li>
+                <li><a class="lime-nav__link@(activeIf("Community"))" href="/Community/Index">Сообщество</a></li>
+                <li><a class="lime-nav__link@(activeIf("Media"))" href="/Media/Index">Медиа</a></li>
+                @if (isAdmin)
+                {
+                    <li><a class="lime-nav__link lime-nav__link--admin@(activeIf("Admin"))" href="/Admin/Index">Админка</a></li>
+                }
+            </ul>
+        }
+        else
+        {
+            <ul class="lime-nav">
+                <li><a class="lime-nav__link@(activeIf("Home", "Index"))" href="/Home/Index">Главная</a></li>
+                <li><a class="lime-nav__link" href="/Home/Index#features">Возможности</a></li>
+                <li><a class="lime-nav__link" href="/Home/Index#templates">Шаблоны</a></li>
+                <li><a class="lime-nav__link@(activeIf("Community"))" href="/Community/Index">Сообщество</a></li>
+            </ul>
+        }
+
+        <div class="lime-nav__right">
+            @if (isAuthed)
+            {
+                <div class="lime-dropdown">
+                    <button type="button" class="lime-dropdown__trigger" data-lime-dropdown aria-haspopup="true" aria-label="Меню профиля">
+                        <span class="lime-avatar" aria-hidden="true">@(User.Identity.Name?.Substring(0, 1).ToUpper())</span>
+                    </button>
+                    <div class="lime-dropdown__panel" role="menu">
+                        <a class="lime-dropdown__item" href="/Home/Profile">Личный кабинет</a>
+                        <a class="lime-dropdown__item" href="/Home/Logout">Выход</a>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <a class="lime-btn lime-btn--ghost lime-btn--sm" href="/Home/SignIn">Войти</a>
+                <a class="lime-btn lime-btn--primary lime-btn--sm" href="/Home/SignUp">Создать аккаунт</a>
+            }
+        </div>
+    </div>
+</nav>

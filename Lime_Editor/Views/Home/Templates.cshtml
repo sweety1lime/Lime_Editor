@@ -1,117 +1,72 @@
-﻿
-@{
-    Layout = null;
-}
 @model List<Lime_Editor.Models.Template>
-<!DOCTYPE html>
-<html lang="ru_RU">
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Шаблоны</title>
-    <link href="~/css/main/bootstrap.min.css" rel="stylesheet" />
-    <link href="~/css/main/bootstrap.css" rel="stylesheet" />
-    <link href="~/css/main/font-awesome.min.css" rel="stylesheet" />
-    <link href="~/css/main/prettyPhoto.css" rel="stylesheet" />
-    <link href="~/css/main/animate.css" rel="stylesheet" />
-    <link href="~/css/main/mainMeow.css" rel="stylesheet" />
-    <link href="~/css/main/responsive.css" rel="stylesheet" />
-    <link href="~/css/main/Themes.css" rel="stylesheet" />
+@{
+    ViewData["Title"] = "Шаблоны";
+    // Custom (Id=4) — внутренний "пустой" шаблон, в галерее его не показываем.
+    var publicTemplates = (Model ?? new List<Lime_Editor.Models.Template>())
+        .Where(t => t.IdTemplate != 4)
+        .ToList();
+}
 
-</head><!--/head-->
+<section class="lime-container lime-band">
+    <div class="reveal">
+        <div class="lime-eyebrow">Галерея</div>
+        <h1 class="display">Старт за секунду</h1>
+        <p>Выбери точку отсчёта — каждый шаблон полностью редактируется в конструкторе. Или начни с чистого листа и дай AI собрать первый вариант.</p>
+    </div>
+</section>
 
-<body>
-    <!-- Optional JavaScript; choose one of the two! -->
-    <!-- Option 1: Bootstrap Bundle with Popper -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta3/dist/js/bootstrap.bundle.min.js" integrity="sha384-JEW9xMcG8R+pH31jmWH6WWP0WintQrMb4s7ZOdauHnUtxwoG2vI5DkLtS3qm9Ekf" crossorigin="anonymous"></script>
-
-
-
-    <header class="header" id="header">
-        <nav class="navbar navbar-expand-lg navbar-light bg-light">
-            <div class="container-fluid">
-                <a class="navbar-brand" style="font-size: 40px;" href="#">LIME</a>
-                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarColor03" aria-controls="navbarColor03" aria-expanded="false" aria-label="Toggle navigation">
-                    <span class="navbar-toggler-icon"></span>
-                </button>
-
-                <div class="collapse navbar-collapse" id="navbarColor03">
-                    <ul class="navbar-nav me-auto">
-                        <li class="nav-item">
-                            <a class="nav-link active" href="/Home/MySites">
-                                Главная
-                                <span class="visually-hidden">(current)</span>
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="/Home/Templates">Шаблоны</a>
-                        </li>
-
-                    </ul>
-
-                    <li class="nav-item dropdown" style="margin-bottom:20px;">
-                        <a class="nav-link dropdown-toggle" data-bs-toggle="dropdown" href="#" role="button" aria-haspopup="true" aria-expanded="true">@User.Identity.Name</a>
-                        <div class="dropdown-menu " data-popper-placement="bottom-start">
-                            <a class="dropdown-item" href="@Url.Action("Profile")">Личный кабинет</a>
-                            <a class="dropdown-item" href="@Url.Action("Logout")">Выход</a>
-                        </div>
-                    </li>
-                </div>
-            </div>
-        </nav>
-    </header>
-    <hr class="solid" style="margin-top:0px;" />
-    <section>
-        <div class="container">
-            <div class="row">
-                <div class="col-cd-7 padding-right">
-
-                    <div class="project-cards row mb-5">
-                        <!--features_items-->
-                        <h2 class="title text-center">Все шаблоны</h2>
-                        @foreach (var template in Model)
-                        {
-                            <style>
-                                .single-products:hover .product-overlay {
-                                    display: block;
-                                    height: 100% !important;
-                                }
-                            </style>
-                            <div class="col-sm-3">
-                                <div class="product-image-wrapper">
-                                    <div class="single-products">
-                                        <div class="productinfo text-center">
-                                            <img src="@template.FolderPreview" />
-                                            <p style="font-size: 25px;">@template.Name</p>
-
-                                        </div>
-                                        <div class="product-overlay">
-                                            <div class="overlay-content">
-                                                <div class="row align-self-center ">
-                                                    <div class="col-12 cd-4">
-                                                        <a href="@Url.Action($"Template_{template.IdTemplate}","Template")" class="btn btn-primary "><i class=""></i>Добавить шаблон</a>
-                                                    </div>
-                                                    <div class="col-12 cd-4">
-                                                        <a href="@Url.Action($"Template_{template.IdTemplate}_Preview","Template")" class="btn btn-primary "><i class=""></i>Предпросмотр</a>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        }
-                    </div><!--features_items-->
-                </div>
-            </div>
+<section class="lime-container" style="padding:34px 0 60px;">
+    @if (publicTemplates.Count == 0)
+    {
+        <div class="lime-empty lime-card">
+            <div class="lime-empty__title">Шаблонов пока нет</div>
+            <p>Зайди позже или собери сайт с нуля.</p>
+            <a class="lime-btn lime-btn--primary lime-mt-4" href="/Home/EditDoc">Создать с нуля</a>
         </div>
+    }
+    else
+    {
+        <div class="lime-tpl-grid">
+            @{ var li = 0; }
+            @foreach (var t in publicTemplates)
+            {
+                <div class="lime-tpl reveal" data-delay="@((li++ % 3) + 1)">
+                    <div class="lime-tpl__preview">
+                        @if (!string.IsNullOrEmpty(t.FolderPreview))
+                        {
+                            <img src="@t.FolderPreview" alt="@t.Name" loading="lazy">
+                        }
+                        else
+                        {
+                            <div class="lime-shot lime-shot-@(((li) % 6) + 1)"><div class="lime-shot__ui"><div class="lime-shot__bar" style="width:54%"></div><div class="lime-shot__bar dim" style="width:76%"></div><div class="lime-shot__chip"></div><div class="lime-shot__row"><div class="lime-shot__sq"></div><div class="lime-shot__sq"></div><div class="lime-shot__sq"></div></div></div></div>
+                        }
+                        <span class="lime-tpl__tag lime-badge lime-badge--muted">Шаблон</span>
+                    </div>
+                    <div class="lime-tpl__body">
+                        <div><div class="lime-tpl__name">@t.Name</div><div class="lime-tpl__type">Готовый шаблон</div></div>
+                        <div class="lime-tpl__actions">
+                            <a class="lime-btn lime-btn--soft lime-btn--sm" href="@Url.Action($"Template_{t.IdTemplate}", "Template")">Открыть →</a>
+                            <a class="lime-btn lime-btn--ghost lime-btn--sm" href="@Url.Action($"Template_{t.IdTemplate}_Preview", "Template")" target="_blank" rel="noopener">Превью</a>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</section>
 
-    </section>
-    <script src="~/js/main/jquery.js"></script>
-    <script src="~/js/main/jquery.scrollUp.min.js"></script>
-    <script src="~/js/main/bootstrap.min.js"></script>
-    <script src="~/js/main/jquery.prettyPhoto.js"></script>
-    <script src="~/js/main/main.js"></script>
-    <script src="~/js/main/Themes.js"></script>
-</body>
-</html>
+<section class="lime-container" style="padding-bottom:90px;">
+    <div class="lime-finalcta reveal" style="padding:56px 48px;">
+        <div class="lime-finalcta__glow"></div>
+        <div class="lime-finalcta__inner" style="display:flex;align-items:center;justify-content:space-between;gap:24px;flex-wrap:wrap;text-align:left;">
+            <div>
+                <h2 style="font-size:clamp(28px,3.4vw,40px);margin-bottom:8px;">Не нашёл <em>подходящий</em>?</h2>
+                <p style="margin:0;font-size:16px;">Опиши идею словами — AI соберёт сайт с нуля за минуту.</p>
+            </div>
+            <a class="lime-btn lime-btn--primary lime-btn--lg" href="/Home/EditDoc">
+                <svg viewBox="0 0 24 24" fill="none"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3z" fill="currentColor"/></svg>
+                Создать с нуля
+            </a>
+        </div>
+    </div>
+</section>

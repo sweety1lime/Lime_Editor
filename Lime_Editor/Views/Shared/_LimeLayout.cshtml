@@ -1,0 +1,35 @@
+@{
+    var title = (ViewData["Title"] as string) ?? "Lime";
+}<!DOCTYPE html>
+<html lang="ru" data-theme="dark">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="dark">
+    <title>@title · Lime</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="~/css/lime/tokens.css" asp-append-version="true">
+    <link rel="stylesheet" href="~/css/lime/base.css" asp-append-version="true">
+    <link rel="stylesheet" href="~/css/lime/aurora.css" asp-append-version="true">
+    <link rel="stylesheet" href="~/css/lime/components.css" asp-append-version="true">
+    <link rel="stylesheet" href="~/css/lime/pages.css" asp-append-version="true">
+    @await RenderSectionAsync("Head", required: false)
+</head>
+<body>
+    <div class="aurora-bg" aria-hidden="true"></div>
+    <div class="page">
+        @await Html.PartialAsync("_LimeNav")
+
+        <main>
+            @RenderBody()
+        </main>
+
+        @await Html.PartialAsync("_LimeFooter")
+    </div>
+
+    <script src="~/js/lime/lime-ui.js" asp-append-version="true" defer></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

@@ -1,294 +1,153 @@
-﻿
 @model SiteControlModel
 @{
-    Layout = null;
+    ViewData["Title"] = "Мои сайты";
+    var sites = Model?.Sites ?? new List<Site>();
+    var total = sites.Count;
+    var published = sites.Count(s => s.IsPublished);
+    var drafts = total - published;
+    var leadCounts = ViewBag.LeadCounts as Dictionary<int, int>;
+    var totalLeads = leadCounts?.Values.Sum() ?? 0;
 }
-<!DOCTYPE html>
-<html lang="ru_RU">
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Мои сайты</title>
-    <link href="~/css/main/bootstrap.min.css" rel="stylesheet" />
-    <link href="~/css/main/bootstrap.css" rel="stylesheet" />
-    <link href="~/css/main/font-awesome.min.css" rel="stylesheet" />
-    <link href="~/css/main/prettyPhoto.css" rel="stylesheet" />
-    <link href="~/css/main/animate.css" rel="stylesheet" />
-    <link href="~/css/main/mainMeow.css" rel="stylesheet" />
-    <link href="~/css/main/responsive.css" rel="stylesheet" />
-    <link href="~/css/main/Themes.css" rel="stylesheet" />
 
-</head><!--/head-->
-
-<body>
-    <!-- Optional JavaScript; choose one of the two! -->
-    <!-- Option 1: Bootstrap Bundle with Popper -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta3/dist/js/bootstrap.bundle.min.js" integrity="sha384-JEW9xMcG8R+pH31jmWH6WWP0WintQrMb4s7ZOdauHnUtxwoG2vI5DkLtS3qm9Ekf" crossorigin="anonymous"></script>
-
-
-
-    <header class="header" id="header">
-        <nav class="navbar navbar-expand-lg navbar-light bg-light">
-            <div class="container-fluid">
-                <a class="navbar-brand" style="font-size: 40px;" href="#">LIME</a>
-                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarColor03" aria-controls="navbarColor03" aria-expanded="false" aria-label="Toggle navigation">
-                    <span class="navbar-toggler-icon"></span>
-                </button>
-
-                <div class="collapse navbar-collapse" id="navbarColor03">
-                    <ul class="navbar-nav me-auto">
-                        <li class="nav-item">
-                            <a class="nav-link active" href="/Home/MySites">
-                                Главная
-                                <span class="visually-hidden">(current)</span>
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="/Home/Templates">Шаблоны</a>
-                        </li>
-                        
-                    </ul>
-                    
-                    <li class="nav-item dropdown" style="margin-bottom:20px;">
-                        <a class="nav-link dropdown-toggle" data-bs-toggle="dropdown" href="#" role="button" aria-haspopup="true" aria-expanded="true">@User.Identity.Name</a>
-                        <div class="dropdown-menu " data-popper-placement="bottom-start">
-                            <a class="dropdown-item" href="@Url.Action("Profile")">Личный кабинет</a>
-                            <a class="dropdown-item" href="@Url.Action("Logout")">Выход</a>
-                        </div>
-                    </li>
-                </div>
-            </div>
-        </nav>
+<section class="lime-container" style="padding-top:54px;">
+    <!-- HEAD -->
+    <div class="lime-dash-head reveal">
         <div>
-
-
-            @*<div class="header-bottom">
-
-                <div class="container" style="margin-left: 0px; margin-right:0px;">
-                    <div class="row">
-                        <div class="col-sm-6">
-                            <div class=" pull-left">
-
-                                <nav class="navbar navbar-default navbar-static">
-                                    <div class="navbar-header">
-                                        <button class="navbar-toggle" type="button" data-toggle="collapse" data-target=".js-navbar-collapse">
-                                            <span class="sr-only">Toggle navigation</span>
-                                            <span class="icon-bar"></span>
-                                            <span class="icon-bar"></span>
-                                            <span class="icon-bar"></span>
-                                        </button>
-
-                                    </div>
-
-                                    <div class="collapse navbar-collapse js-navbar-collapse">
-                                        <ul class="nav navbar-nav">
-                                            <li class="dropdown dropdown-large">
-                                                <a href="#">Some link</a>
-                                            </li>
-                                            <li class="dropdown dropdown-large">
-                                                <a href="#" class="dropdown-toggle" data-toggle="dropdown">Dropdown <b class="caret"></b></a>
-
-                                                <ul class="dropdown-menu dropdown-menu-large row">
-                                                    <li class="col-sm-6">
-                                                        <ul>
-                                                            <li class="dropdown-header">Sword of Truth</li>
-                                                            <li><a href="#">Example</a></li>
-                                                            <li><a href="#">Example</a></li>
-                                                            <li><a href="#">Example</a></li>
-                                                            <li><a href="#">Example</a></li>
-                                                            <li><a href="#">Example</a></li>
-                                                            <li><a href="#">Example</a></li>
-                                                            <li class="divider"></li>
-                                                            <li><img class"img-responsive" src="http://placehold.it/200x150" /></li>
-                                                        </ul>
-                                                    </li>
-                                                    <li class="col-sm-6">
-                                                        <ul>
-                                                            <li class="dropdown-header">Panda</li>
-                                                            <li><a href="#">Example</a></li>
-                                                            <li><a href="#">Example</a></li>
-                                                            <li><a href="#">Example</a></li>
-                                                            <li><a href="#">Example</a></li>
-                                                            <li><a href="#">Example</a></li>
-                                                            <li class="divider"></li>
-                                                            <li class="dropdown-header">Button dropdowns</li>
-                                                            <li><a href="#">Example</a></li>
-                                                            <li><a href="#">Example</a></li>
-                                                            <li><a href="#">Example</a></li>
-                                                        </ul>
-                                                    </li>
-
-
-                                                </ul>
-
-                                            </li>
-                                            <li class="dropdown dropdown-large">
-                                                <a href="#" class="dropdown-toggle" data-toggle="dropdown">Dropdown <b class="caret"></b></a>
-
-                                                <ul class="dropdown-menu dropdown-menu-large row">
-                                                    <li class="col-sm-6">
-                                                        <ul>
-                                                            <li class="dropdown-header">Sword of Truths</li>
-                                                            <li><a href="#">Example</a></li>
-                                                            <li><a href="#">Example</a></li>
-                                                            <li><a href="#">Example</a></li>
-                                                            <li><a href="#">Example</a></li>
-                                                            <li><a href="#">Example</a></li>
-                                                            <li><a href="#">Example</a></li>
-                                                            <li class="divider"></li>
-                                                            <li class="dropdown-header">Theme/Character</li>
-                                                            <li><a href="#">Example</a></li>
-                                                            <li><a href="#">Example</a></li>
-                                                            <li><a href="#">Example</a></li>
-                                                            <li><a href="#">Example</a></li>
-
-                                                        </ul>
-                                                    </li>
-                                                    <li class="col-sm-6">
-                                                        <ul>
-                                                            <li class="dropdown-header">by brand</li>
-                                                            <li><a href="#">Example</a></li>
-                                                            <li><a href="#">Example</a></li>
-                                                            <li><a href="#">Example</a></li>
-                                                            <li><a href="#">Example</a></li>
-                                                            <li><a href="#">Example</a></li>
-                                                            <li><a href="#">Example</a></li>
-                                                            <li class="divider"></li>
-                                                            <li><img class"img-responsive" src="http://placehold.it/200x150" /></li>
-                                                        </ul>
-                                                    </li>
-
-
-                                                </ul>
-
-                                            </li>
-
-                                        </ul>
-
-                                    </div>
-                                </nav>
-
-                            </div>
-                        </div>
-                        <div class="col-sm-6">
-                            <div class="w3-sidebar w3-bar-block w3-card w3-animate-right" style="display:none;right:0;" id="rightMenu">
-                                <button onclick="closeRightMenu()" class="w3-bar-item w3-button w3-large">Close &times;</button>
-                                <a href="#" class="w3-bar-item w3-button">Link 1</a>
-                                <a href="#" class="w3-bar-item w3-button">Link 2</a>
-                                <a href="#" class="w3-bar-item w3-button">Link 3</a>
-                                <script>
-                                    function openRightMenu() {
-                                        document.getElementById("rightMenu").style.display = "block";
-                                    }
-
-                                    function closeRightMenu() {
-                                        document.getElementById("rightMenu").style.display = "none";
-                                    }
-                                </script>
-                            </div>
-
-                        </div>
-                    </div>
-                </div>*@
-
-
-
+            <div class="lime-dash-hi">Привет, <span>@User.Identity.Name</span> 👋</div>
+            <div class="lime-dash-sub">Управляй сайтами, публикуй, скачивай ZIP. Сегодня хороший день, чтобы что-то запустить.</div>
         </div>
-    </header>
-    <hr class="solid" style="margin-top:0px;" />
-    <section>
-        <div class="container">
-            <div class="row">
-                <div class="col-8 md-4">
-                    <h2>Раздел | Мои сайты</h2>
-                    <p>Выберите сайт, редактируйте,сохраняйте или удаляйте его!</p>
-                </div>
-                <div class="col-4 md-4 ">
-                    <div class="row cd-4 justify-content-md-center  ">
+        <div class="lime-dash-actions">
+            <a class="lime-btn lime-btn--ghost" href="/Home/Templates">Шаблоны</a>
+            <a class="lime-btn lime-btn--primary" href="/Home/EditDoc">
+                <svg viewBox="0 0 24 24" fill="none"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3z" fill="currentColor"/></svg>
+                Новый сайт с AI
+            </a>
+        </div>
+    </div>
 
-                        <div class="col-8 mb-2">
-                            <a href="@Url.Action("EditTemplates")" class="btn btn-outline-info" style="outline: none; box-shadow: none; width: auto; height: auto;"><i class=""></i>Создать сайт</a>
-                        </div>
-                        <div class="col-8 mb-2">
-                            <a href="@Url.Action("Templates")" style="outline: none; box-shadow: none;  width: auto; height: auto; " class="btn btn-outline-warning"><i class=""></i>Выбрать шаблон</a>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-cd-7 padding-right">
-                <div class="project-cards row mb-5">
-                    <!--features_items-->
-                    <h2 style="text-align:center">Ваши сайты</h2>
-                    @foreach (var site in Model.Sites)
+    <!-- STATS -->
+    <div class="lime-stats">
+        <div class="lime-stat reveal" data-delay="1">
+            <div class="lime-stat__label">Всего сайтов</div>
+            <div class="lime-stat__value display"><span data-count="@total">0</span></div>
+            <div class="lime-stat__spark"><svg width="56" height="24" viewBox="0 0 56 24" fill="none"><path d="M1 20L10 14L19 17L28 8L37 11L46 4L55 7" stroke="var(--lime)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        </div>
+        <div class="lime-stat reveal" data-delay="2">
+            <div class="lime-stat__label">Опубликовано</div>
+            <div class="lime-stat__value display" style="color:var(--success);"><span data-count="@published">0</span></div>
+        </div>
+        <div class="lime-stat reveal" data-delay="3">
+            <div class="lime-stat__label">Черновики</div>
+            <div class="lime-stat__value display" style="color:var(--muted);"><span data-count="@drafts">0</span></div>
+        </div>
+        <div class="lime-stat reveal" data-delay="4">
+            <div class="lime-stat__label">Заявки</div>
+            <div class="lime-stat__value display" style="color:var(--violet);"><span data-count="@totalLeads">0</span></div>
+        </div>
+    </div>
+
+    <!-- SITES -->
+    <div class="lime-sites" style="padding-bottom:80px;">
+        @foreach (var site in sites)
+        {
+            var previewSrc = site.TemplateInfo?.FolderPreview;
+            var jsonEdit = Newtonsoft.Json.JsonConvert.SerializeObject(site);
+            var unreadLeads = (leadCounts != null && site.IdSite.HasValue && leadCounts.ContainsKey(site.IdSite.Value))
+                ? leadCounts[site.IdSite.Value] : 0;
+            <div class="lime-site reveal">
+                <div class="lime-site__preview">
+                    @if (!string.IsNullOrEmpty(previewSrc))
                     {
-                        <div class="col-sm-3">
-                            <div class="product-image-wrapper">
-                                <div class="single-products">
-                                    <div class="productinfo text-center">
-                                        <form asp-action="ChangeName">
-                                            <img src="@site.TemplateInfo.FolderPreview" />
-                                            <input type="number" name="idSite" value="@site.IdSite" hidden />
-                                            <input class="form-control" asp-for="Site" name="site" value="@site.Name" />
-                                            <input href="#" class="btn" type="submit" value="Изменить" />
-                                        </form>
-                                    </div>
-                                    <div class="product-overlay">
-                                        <div class="overlay-content">
-                                            <div class="justify-content-md-center ">
-                                                <form asp-action="UpdateSite">
-                                                    <div class="row align-self-center">
-                                                        <div class="col-12 cd-4">
-                                                            @{
-                                                                var jsonEdit = Newtonsoft.Json.JsonConvert.SerializeObject(site);
-                                                            }
-                                                            <input asp-for="Site" name="site" value="@jsonEdit" hidden />
-
-                                                            <input class="btn btn-success" style="outline: none; box-shadow: none;background: transparent; border: 3px solid; border-color: #43cc29; color: #43cc29; width: auto; height: auto;" type="submit" value="Изменять шаблон" />
-                                                        </div>
-                                                    </div>
-                                                </form>
-                                                <form asp-action="DeleteSite">
-                                                    <div class="row align-self-center">
-                                                        <div class="col-12 cd-4">
-                                                            @{
-                                                                var jsonDelete = Newtonsoft.Json.JsonConvert.SerializeObject(site);
-                                                            }
-                                                            <input asp-for="Site" name="site" value="@jsonDelete" hidden />
-                                                            <input style="outline: none; box-shadow: none; background: transparent; border: 3px solid; border-color: #e52527; color: #e52527; width: auto; height: auto; " class="btn btn-danger " type="submit" value="Удалить шаблон" />
-                                                        </div>
-                                                    </div>
-                                                </form>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+                        <img src="@previewSrc" alt="@site.Name" loading="lazy">
                     }
-                </div><!--features_items-->
+                    else
+                    {
+                        <div class="lime-shot lime-shot-@(((site.IdSite ?? 0) % 6) + 1)"><div class="lime-shot__ui"><div class="lime-shot__bar" style="width:52%"></div><div class="lime-shot__bar dim" style="width:74%"></div><div class="lime-shot__chip"></div><div class="lime-shot__row"><div class="lime-shot__sq"></div><div class="lime-shot__sq"></div><div class="lime-shot__sq"></div></div></div></div>
+                    }
+                    <div class="lime-site__badges">
+                        @if (site.IsPublished && !string.IsNullOrEmpty(site.Slug))
+                        {
+                            <span class="lime-badge lime-badge--success">Опубликован</span>
+                            @if (site.HasUnpublishedChanges)
+                            {
+                                <span class="lime-badge lime-badge--warn">Есть изменения</span>
+                            }
+                        }
+                        else if (site.IsPublished)
+                        {
+                            <span class="lime-badge lime-badge--warn">Нужна повторная публикация</span>
+                        }
+                        else
+                        {
+                            <span class="lime-badge lime-badge--muted">Черновик</span>
+                        }
+                    </div>
+                </div>
+                <div class="lime-site__body">
+                    <form asp-action="ChangeName" asp-controller="Home" method="post" class="lime-site__name-form">
+                        <input type="hidden" name="idSite" value="@site.IdSite">
+                        <input class="lime-site__name-input" name="site" value="@site.Name" required maxlength="100" aria-label="Название сайта">
+                        <button type="submit" class="lime-btn lime-btn--ghost lime-btn--sm" title="Сохранить имя" aria-label="Сохранить имя">✓</button>
+                    </form>
+
+                    @if (site.IsPublished && !string.IsNullOrEmpty(site.Slug))
+                    {
+                        <a class="lime-site__url" href="/u/@User.Identity.Name/@site.Slug" target="_blank" rel="noopener">/u/@User.Identity.Name/@site.Slug</a>
+                    }
+                    else
+                    {
+                        <div class="lime-site__url lime-site__url--off">не опубликован</div>
+                    }
+
+                    <div class="lime-site__actions">
+                        <form asp-action="UpdateSite" asp-controller="Home" method="post" style="display:inline;">
+                            <input type="hidden" name="site" value="@jsonEdit">
+                            <button type="submit" class="lime-btn lime-btn--soft lime-btn--sm">Редактировать</button>
+                        </form>
+                        @if (!string.IsNullOrEmpty(site.DocumentJson))
+                        {
+                            <a class="lime-btn lime-btn--ghost lime-btn--sm" href="/Home/EditDoc?siteId=@site.IdSite">✦ Движок B</a>
+                        }
+                        <a class="lime-btn lime-btn--ghost lime-btn--sm" href="/Form/Inbox?siteId=@site.IdSite">
+                            📨 Заявки@(unreadLeads > 0 ? $" ({unreadLeads})" : "")
+                        </a>
+                        @if (site.IsPublished)
+                        {
+                            <form asp-action="ToggleGallery" asp-controller="Community" method="post" style="display:inline;">
+                                <input type="hidden" name="idSite" value="@site.IdSite">
+                                <button type="submit" class="lime-btn lime-btn--ghost lime-btn--sm"
+                                        title="@(site.ShowInGallery ? "Сайт виден в галерее сообщества — нажми, чтобы скрыть" : "Сайт скрыт из галереи — нажми, чтобы показать")">
+                                    @(site.ShowInGallery ? "🌐 В галерее" : "🚫 Скрыт")
+                                </button>
+                            </form>
+                            <form asp-action="Unpublish" asp-controller="Home" method="post" style="display:inline;">
+                                <input type="hidden" name="idSite" value="@site.IdSite">
+                                <button type="submit" class="lime-btn lime-btn--ghost lime-btn--sm">Снять</button>
+                            </form>
+                        }
+                        else
+                        {
+                            <form asp-action="Publish" asp-controller="Home" method="post" style="display:inline;">
+                                <input type="hidden" name="idSite" value="@site.IdSite">
+                                <button type="submit" class="lime-btn lime-btn--ghost lime-btn--sm">Опубликовать</button>
+                            </form>
+                        }
+                        <form asp-action="DeleteSite" asp-controller="Home" method="post" style="display:inline;" onsubmit="return confirm('Удалить сайт навсегда?');">
+                            <input type="hidden" name="site" value="@jsonEdit">
+                            <button type="submit" class="lime-btn lime-btn--danger lime-btn--sm">Удалить</button>
+                        </form>
+                    </div>
+                </div>
             </div>
-        </div>
+        }
 
-
-    </section>
-    <footer class="footer mt-auto py-3 bg-light">
-        <div class="container">
-            <ul class="social-icons">
-                <li><a class="social-icon-twitter" href="#" title="..." target="_blank" rel="noopener"></a></li>
-                <li><a class="social-icon-fb" href="#" title="..." target="_blank" rel="noopener"></a></li>
-                <li><a class="social-icon-vk" href="#" title="..." target="_blank" rel="noopener"></a></li>
-                <li><a class="social-icon-telegram" href="#" title="..." target="_blank" rel="noopener"></a></li>
-                <li><a class="social-icon-youtube" href="#" title="..." target="_blank" rel="noopener"></a></li>
-            </ul>
-        </div>
-    </footer>
-    <script src="https://kit.fontawesome.com/158ace7cc9.js" crossorigin="anonymous"></script>
-    <script src="~/js/main/jquery.js"></script>
-    <script src="~/js/main/jquery.scrollUp.min.js"></script>
-    <script src="~/js/main/bootstrap.min.js"></script>
-    <script src="~/js/main/jquery.prettyPhoto.js"></script>
-    <script src="~/js/main/main.js"></script>
-    <script src="~/js/main/Themes.js"></script>
-    <script src="~/js/saveTemplate.js"></script>
-</body>
-</html>
+        <!-- new site card -->
+        <a class="lime-site lime-site--new reveal" href="/Home/EditDoc">
+            <div>
+                <div class="lime-site--new__ico"><svg viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></div>
+                <h3>Новый сайт</h3>
+                <p>Опиши идею — AI соберёт за минуту</p>
+            </div>
+        </a>
+    </div>
+</section>

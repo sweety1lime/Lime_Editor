@@ -1,106 +1,105 @@
-﻿@{
-    Layout = null;
-}
 @model Lime_Editor.Models.RegisterViewModel
-<!doctype html>
-<html lang="en">
-<head>
-    <!-- Required meta tags -->
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-    <link href="https://fonts.googleapis.com/css?family=Roboto:300,400&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="~/fonts/icomoon/style.css">
-    <link href="~/css/signin/owl.carousel.min.css" rel="stylesheet" />
-    <link href="~/css/main/bootstrap.css" rel="stylesheet" />
-    <link href="~/css/main/bootstrap.min.css" rel="stylesheet" />
-    <link href="~/css/signin/style.css" rel="stylesheet" />
-    <link href="~/css/sign.css" rel="stylesheet" />
-    <link href="~/css/main/font-awesome.min.css" rel="stylesheet" />
-    <link href="~/css/main/prettyPhoto.css" rel="stylesheet" />
-    <link href="~/css/main/animate.css" rel="stylesheet" />
-    <link href="~/css/main/mainMeow.css" rel="stylesheet" />
-    <link href="~/css/main/responsive.css" rel="stylesheet" />
-    <link href="~/css/main/Themes.css" rel="stylesheet" />
-    <title>Регистрация</title>
-</head>
-<body>
-    <div class="">
-        <div class="">
-            <div class="container">
-                <div class="row">
-                    <div class="col-12 cd-lg-10" style="text-align: center;">
-                        <h1 style="margin-left: 0px;">Регистрация</h1>
-                        <p>Если вы уже создали аккаунт. <a href="@Url.Action("SignIn")">Авторизируйтесь</a></p>
+@{
+    ViewData["Title"] = "Регистрация";
+}
+
+<section class="lime-auth">
+    <div class="lime-auth__split reveal">
+        <!-- form -->
+        <div class="lime-auth__form-side">
+            <h1 class="lime-auth__title display">Создай аккаунт</h1>
+            <p class="lime-auth__subtitle">30 секунд — и можно начинать собирать сайты.</p>
+
+            @if (!ViewData.ModelState.IsValid)
+            {
+                var allErrors = ViewData.ModelState
+                    .SelectMany(kv => kv.Value.Errors.Select(e => e.ErrorMessage))
+                    .Where(s => !string.IsNullOrEmpty(s))
+                    .ToList();
+                if (allErrors.Count > 0)
+                {
+                    <div class="lime-alert lime-alert--danger lime-mb-4">
+                        <ul style="margin:0; padding-left: 1.2em;">
+                            @foreach (var e in allErrors)
+                            {
+                                <li>@e</li>
+                            }
+                        </ul>
                     </div>
-                </div>
-                <div class="row justify-content-center">
+                }
+            }
 
-                    <div class="col-10">
-                        <form class="row" style="margin-bottom: 5px;" asp-antiforgery="true" asp-action="SignUp" asp-controller="Home">
-                            <fieldset>
-                                <div class="form-group col-10 cd-2">
-                                    <label for="exampleInputEmail1" class="form-label mt-4">Эл.Почта</label>
-                                    <input asp-for="@Model.Email" name="email" value="" type="email" class="form-control" id="exampleInputEmail1" required autocomplete="off" aria-describedby="emailHelp" placeholder="example.mail.ru">
-                                    <small id="emailHelp" class="form-text text-muted">Никому не сообщайте свою почту для авторизации</small>
-                                    <span asp-validation-for="Email"></span>
-                                </div>
-                                <div class="form-group col-10 cd-2">
-                                    <label for="exampleInputLogin" class="form-label mt-4">Логин</label>
-                                    <input placeholder="Логин" asp-for="@Model.Login" name="login" type="text" pattern="[A-z0-9.]{2,50}" minlength="2" autocomplete="off" maxlength="50" autofocus="" class="form-control" required>
-                                    <span asp-validation-for="Login"></span>
-                                </div>
-                                <div class="form-group col-10 cd-2">
-                                    <label for="exampleInputPassword1" class="form-label mt-4">Придумайте пароль</label>
-                                    <input asp-for="@Model.Password" name="password" type="password" value="" class="form-control" id="password" placeholder="***********" onkeyup='check();'>
-                                    <span asp-validation-for="Password"></span>
-                                </div>
-                                <div class="form-group col-10 cd-2">
-                                    <label for="exampleInputPassword1" class="form-label mt-4">Павторите пароль</label>
-                                    <input type="password" class="form-control" id="confirm_password" onkeyup='check();' placeholder="************">
-                                    <span id='message'></span>
-                                </div>
-
-                                <button type="submit" class="btn btn-outline-info" style="outline: none; box-shadow: none; width: auto; height: auto;">Зарегистрироваться</button>
-                            </fieldset>
-                        </form>
-                    </div>
-
-                    <div class="col-10 align-self-center social-login">
-
-                        <!-- VK Widget -->
-                        @*<div id="vk_auth"></div>
-                            <script type="text/javascript">
-                                VK.Widgets.Auth("vk_auth", { "onAuth": function (data) { alert('user ' + data['uid'] + ' authorized'); } });
-                            </script>*@
-                        <div>
-
-                            @*<a href="#" style="outline: none; box-shadow: none; width: auto; height: auto;" class="facebook btn d-flex justify-content-center align-items-center">
-                                    <span style="margin-right: 10px;" class="icon-facebook mr-3"></span> Login with Facebook
-                                </a>
-                                <a href="#" style="outline: none; box-shadow: none; width: auto; height: auto;" class="twitter btn d-flex justify-content-center align-items-center">
-                                    <span style="margin-right: 10px;" class="icon-twitter mr-3"></span>      Login with  Twitter
-                                </a>*@
-                        </div>
-                        @*<a href="https://connect.mail.ru/oauth/authorize?client_id=785537&response_type=code&redirect_uri=http://www.limeinc.xyz/Home/MySites" style="outline: none; box-shadow: none; width: auto; height: auto;" class="google btn d-flex justify-content-center align-items-center">
-                                <span style="margin-right: 10px;" class="icon-mail_outline mr-3"></span> Login with  Mail
-                            </a>*@
-                    </div>
+            <form asp-action="SignUp" asp-controller="Home" method="post" autocomplete="off">
+                <div class="lime-field">
+                    <label asp-for="Email" class="lime-label">Email</label>
+                    <input asp-for="Email" class="lime-input" type="email" required placeholder="you@example.com">
+                    <span asp-validation-for="Email" class="lime-validation"></span>
                 </div>
 
+                <div class="lime-field">
+                    <label asp-for="Login" class="lime-label">Логин</label>
+                    <input asp-for="Login" class="lime-input" type="text" required pattern="[A-z0-9.]{2,50}" minlength="2" maxlength="50" placeholder="username">
+                    <span class="lime-help">2-50 символов, латиница и цифры.</span>
+                    <span asp-validation-for="Login" class="lime-validation"></span>
+                </div>
+
+                <div class="lime-field">
+                    <label asp-for="Password" class="lime-label">Пароль</label>
+                    <input asp-for="Password" class="lime-input" type="password" required minlength="6" placeholder="••••••••" oninput="window.LimeSignup&&window.LimeSignup.check()">
+                    <span asp-validation-for="Password" class="lime-validation"></span>
+                </div>
+
+                <div class="lime-field">
+                    <label class="lime-label" for="signup-confirm">Повторите пароль</label>
+                    <input id="signup-confirm" class="lime-input" type="password" required minlength="6" placeholder="••••••••" oninput="window.LimeSignup&&window.LimeSignup.check()">
+                    <span id="signup-confirm-msg" class="lime-help"></span>
+                </div>
+
+                <button type="submit" class="lime-btn lime-btn--primary lime-btn--lg" style="width:100%;margin-top:6px;">Зарегистрироваться →</button>
+            </form>
+
+            <div class="lime-auth__divider">
+                Уже есть аккаунт? <a href="@Url.Action("SignIn")">Войти</a>
             </div>
         </div>
 
-
+        <!-- aside -->
+        <div class="lime-auth__aside">
+            <div class="lime-auth__aside-glow"></div>
+            <div class="lime-auth__aside-inner">
+                <div class="lime-brand"><span class="lime-brand__mark" aria-hidden="true">L</span><span>Lime</span><span class="lime-brand__dot">.</span></div>
+                <div class="lime-auth__quote display">Сделай первый сайт <em>сегодня</em> — без кода и без дизайнера.</div>
+            </div>
+            <div class="lime-auth__stat">
+                <div><b class="display">12k+</b><span>сайтов собрано</span></div>
+                <div><b class="display">30с</b><span>до первого экрана</span></div>
+                <div><b class="display">0₽</b><span>чтобы начать</span></div>
+            </div>
+        </div>
     </div>
+</section>
 
-
-
-    <script src="~/js/main/jquery.js"></script>
-    <script src="~/js/main/jquery.scrollUp.min.js"></script>
-    <script src="~/js/main/bootstrap.min.js"></script>
-    <script src="~/js/main/jquery.prettyPhoto.js"></script>
-    <script src="~/js/main/main.js"></script>
-    <script src="~/js/main/Themes.js"></script>
-    <script src="~/js/checkPassword.js"></script>
-</body>
-</html>
+@section Scripts {
+    <script>
+        window.LimeSignup = {
+            check: function () {
+                var passEl = document.querySelector('input[name="Password"]');
+                var confirmEl = document.getElementById("signup-confirm");
+                var msg = document.getElementById("signup-confirm-msg");
+                if (!passEl || !confirmEl || !msg) { return; }
+                var pass = passEl.value;
+                var confirm = confirmEl.value;
+                if (!confirm) { msg.textContent = ""; msg.className = "lime-help"; return; }
+                if (pass === confirm) {
+                    msg.textContent = "✓ Пароли совпадают";
+                    msg.className = "lime-help";
+                    msg.style.color = "var(--success)";
+                } else {
+                    msg.textContent = "Пароли не совпадают";
+                    msg.className = "lime-validation";
+                    msg.style.color = "";
+                }
+            }
+        };
+    </script>
+}
