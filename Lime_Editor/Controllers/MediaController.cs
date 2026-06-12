@@ -1,0 +1,166 @@
+using Lime_Editor.Models;
+using Lime_Editor.Services;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using SixLabors.ImageSharp;
+using System;
+using System.IO;
+using System.Linq;
+using System.Threading.Tasks;
+
+namespace Lime_Editor.Controllers
+{
+    [Authorize]
+    public class MediaController : Controller
+    {
+        public const string MediaFolder = "media";
+        public const long MaxBytes = 5 * 1024 * 1024;
+        public static readonly string[] AllowedExtensions = { ".jpg", ".jpeg", ".png", ".gif", ".webp" };
+
+        private readonly LimeEditorContext db;
+        private readonly UserManager<ApplicationUser> _userManager;
+        private readonly IWebHostEnvironment _env;
+        private readonly IImageProcessor _imageProcessor;
+
+        public MediaController(
+            LimeEditorContext context,
+            UserManager<ApplicationUser> userManager,
+            IWebHostEnvironment env,
+            IImageProcessor imageProcessor)
+        {
+            db = context;
+            _userManager = userManager;
+            _env = env;
+            _imageProcessor = imageProcessor;
+        }
+
+        private int CurrentUserId => int.Parse(_userManager.GetUserId(User));
+
+        public async Task<IActionResult> Index()
+        {
+            var userId = CurrentUserId;
+            var items = await db.MediaAssets
+                .Where(m => m.UserId == userId)
+                .OrderByDescending(m => m.UploadedAt)
+                .ToListAsync();
+            ViewBag.UserId = userId;
+            return View(items);
+        }
+
+        // JSON-эндпоинт для media-picker в конструкторе. Только свои файлы текущего юзера.
+        [HttpGet]
+        [Produces("application/json")]
+        public async Task<IActionResult> ApiList()
+        {
+            var userId = CurrentUserId;
+            var items = await db.MediaAssets
+                .Where(m => m.UserId == userId)
+                .OrderByDescending(m => m.UploadedAt)
+                .Select(m => new
+                {
+                    id = m.Id,
+                    url = $"/media/{userId}/{m.StoredFileName}",
+                    name = m.OriginalName,
+                    contentType = m.ContentType,
+                    sizeBytes = m.SizeBytes,
+                    uploadedAt = m.UploadedAt,
+                })
+                .ToListAsync();
+            return Json(items);
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Upload(IFormFile file)
+        {
+            if (file == null || file.Length == 0)
+            {
+                TempData["Error"] = "Файл не выбран.";
+                return RedirectToAction(nameof(Index));
+            }
+
+            // Размер + MIME + расширение — три уровня проверки.
+            if (file.Length > MaxBytes)
+            {
+                TempData["Error"] = $"Файл больше {MaxBytes / 1024 / 1024} МБ.";
+                return RedirectToAction(nameof(Index));
+            }
+            var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
+            if (!AllowedExtensions.Contains(ext))
+            {
+                TempData["Error"] = "Допустимы только " + string.Join(", ", AllowedExtensions);
+                return RedirectToAction(nameof(Index));
+            }
+            if (string.IsNullOrEmpty(file.ContentType) || !file.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
+            {
+                TempData["Error"] = "Файл должен быть изображением.";
+                return RedirectToAction(nameof(Index));
+            }
+
+            // Сжимаем сервером: ресайз до 1920px, JPEG q82 (либо сохраняем PNG/WebP/GIF в их формате).
+            // В буфер сначала, потом через процессор, потом на диск — иначе нельзя гарантировать
+            // что Content-Length формы соответствует реальному файлу.
+            ProcessedImage processed;
+            try
+            {
+                await using var memory = new MemoryStream();
+                await file.CopyToAsync(memory);
+                memory.Position = 0;
+                processed = await _imageProcessor.ProcessAsync(memory, ext);
+            }
+            catch (Exception ex) when (ex is InvalidDataException || ex is UnknownImageFormatException || ex is ImageFormatException)
+            {
+                TempData["Error"] = "Не удалось обработать изображение: " + ex.Message;
+                return RedirectToAction(nameof(Index));
+            }
+
+            var userId = CurrentUserId;
+            // Имя на диске — Guid + расширение от процессора (может отличаться от исходного, напр. .jpeg → .jpg).
+            var storedName = Guid.NewGuid().ToString("N") + processed.Extension;
+            var userDir = Path.Combine(_env.WebRootPath, MediaFolder, userId.ToString());
+            Directory.CreateDirectory(userDir);
+
+            await System.IO.File.WriteAllBytesAsync(Path.Combine(userDir, storedName), processed.Bytes);
+
+            db.MediaAssets.Add(new MediaAsset
+            {
+                UserId = userId,
+                OriginalName = Path.GetFileName(file.FileName),
+                StoredFileName = storedName,
+                ContentType = processed.ContentType,
+                SizeBytes = processed.Bytes.LongLength,
+                UploadedAt = DateTime.UtcNow,
+            });
+            await db.SaveChangesAsync();
+
+            return RedirectToAction(nameof(Index));
+        }
+
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Delete(int id)
+        {
+            var userId = CurrentUserId;
+            // Ownership-check встроена в WHERE — чужой id просто не найдётся.
+            var asset = await db.MediaAssets.FirstOrDefaultAsync(m => m.Id == id && m.UserId == userId);
+            if (asset == null)
+            {
+                return NotFound();
+            }
+
+            var path = Path.Combine(_env.WebRootPath, MediaFolder, userId.ToString(), asset.StoredFileName);
+            if (System.IO.File.Exists(path))
+            {
+                System.IO.File.Delete(path);
+            }
+            db.MediaAssets.Remove(asset);
+            await db.SaveChangesAsync();
+            return RedirectToAction(nameof(Index));
+        }
+    }
+}

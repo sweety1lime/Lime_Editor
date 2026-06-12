@@ -6,7 +6,9 @@
 <!DOCTYPE html>
 <html id="userSpace" lang="en">
 <head>
-    <title id="templateId 3">Coming Soon Template</title>
+    <title>Coming Soon Template</title>
+    <meta name="templateId" content="3">
+    <meta name="X-CSRF-TOKEN" content="@(((Microsoft.AspNetCore.Antiforgery.IAntiforgery)Context.RequestServices.GetService(typeof(Microsoft.AspNetCore.Antiforgery.IAntiforgery))).GetAndStoreTokens(Context).RequestToken)">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <!--===============================================================================================-->
@@ -50,7 +52,7 @@
                 <a href="#" onclick="savPage()" id="del" class="size2 m1-txt1 flex-c-m how-btn1 trans-04">
                     Сохранить
                 </a>
-                <a href="#" onclick="poop" id="del1" class="size2 m1-txt1 flex-c-m how-btn1 trans-04">
+                <a href="#" onclick="downloadSite()" id="del1" class="size2 m1-txt1 flex-c-m how-btn1 trans-04">
                     Скачать
                 </a>
                 <a href="/Home/MySites" id="del2" class="size2 m1-txt1 flex-c-m how-btn1 trans-04">

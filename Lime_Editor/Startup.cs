@@ -1,4 +1,5 @@
 using Lime_Editor.Models;
+using Lime_Editor.Services;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.HttpsPolicy;
@@ -49,6 +50,21 @@ namespace Lime_Editor
 
             services.AddDistributedMemoryCache();
             services.AddSession();
+            // Разрешаем XHR-вызовам присылать токен в заголовке X-CSRF-TOKEN.
+            services.AddAntiforgery(o => o.HeaderName = "X-CSRF-TOKEN");
+            services.AddSingleton<ITemplateExportService, TemplateExportService>();
+            services.AddSingleton<IImageProcessor, ImageSharpProcessor>();
+            // Серверная компиляция JSON-документов движка B (этап 0.2): singleton кэширует
+            // исходник lime-doc.js, Jint-движок создаётся на каждый RenderSite.
+            services.AddSingleton<IDocumentRenderer, JsDocumentRenderer>();
+            // AI-генерация (этап 2): OpenAI-совместимый агрегатор (доступен из РФ),
+            // конфиг через env AI_BASE_URL/AI_API_KEY + appsettings Ai:*.
+            services.AddHttpClient("ai", c => c.Timeout = TimeSpan.FromSeconds(120));
+            services.AddSingleton<IAiProvider, OpenAiCompatibleProvider>();
+            services.AddSingleton<AiContentService>();
+            services.AddHostedService<OrphanMediaCleanupService>();
+            services.AddHealthChecks()
+                .AddDbContextCheck<LimeEditorContext>("database");
             services.AddControllersWithViews();
         }
 
@@ -58,14 +74,15 @@ namespace Lime_Editor
             if (env.IsDevelopment())
             {
                 app.UseDeveloperExceptionPage();
+                // HTTPS-редирект — только локально. В контейнере за reverse-proxy (Caddy/Nginx)
+                // приложение слушает plain HTTP, TLS делает proxy.
+                app.UseHttpsRedirection();
             }
             else
             {
                 app.UseExceptionHandler("/Home/Error");
-                // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
                 app.UseHsts();
             }
-            app.UseHttpsRedirection();
             app.UseStaticFiles();
 
             app.UseRouting();
@@ -76,9 +93,17 @@ namespace Lime_Editor
 
             app.UseEndpoints(endpoints =>
             {
+                endpoints.MapHealthChecks("/health");
+                // Публичный хостинг сайтов: /u/{username}/{slug}[/{page}] → PublishedSiteController.Show.
+                // Префикс "u" выбран чтобы не конфликтовать с {controller}/{action}.
+                // {page?} — страница многостраничного сайта движка B (этап 0.3).
+                endpoints.MapControllerRoute(
+                    name: "publishedSite",
+                    pattern: "u/{username}/{slug}/{page?}",
+                    defaults: new { controller = "PublishedSite", action = "Show" });
                 endpoints.MapControllerRoute(
                     name: "default",
-                    pattern: "{controller=Home}/{action=SignIn}/{id?}");
+                    pattern: "{controller=Home}/{action=Index}/{id?}");
             });
         }
     }

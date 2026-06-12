@@ -6,7 +6,9 @@
 <!DOCTYPE html>
 <html id="userSpace" lang="en">
 <head>
-    <title id="templateId 2">Get from LimeEditor</title>
+    <title>Get from LimeEditor</title>
+    <meta name="templateId" content="2">
+    <meta name="X-CSRF-TOKEN" content="@(((Microsoft.AspNetCore.Antiforgery.IAntiforgery)Context.RequestServices.GetService(typeof(Microsoft.AspNetCore.Antiforgery.IAntiforgery))).GetAndStoreTokens(Context).RequestToken)">
     <meta charset="utf-8">
     <meta name="author" content="pixelhint.com">
     <meta name="description" content="Sublime template from LimeEditor" />
@@ -34,7 +36,7 @@
             <a href="#" id="del" onclick="savPage()">
                 <h3 style=" padding-top: 57px; padding-left: 100px; margin: auto;" class="font-weight-bolder mb-0">Сохранить</h3>
             </a>
-            <a href="#" id="del1" onclick="Sublime">
+            <a href="#" id="del1" onclick="downloadSite()">
                 <h3 style=" padding-top: 57px; padding-left: 100px; margin: auto;" class="font-weight-bolder mb-0">Скачать</h3>
             </a>
             <a id="del2" href="/Home/MySites">

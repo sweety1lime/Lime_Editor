@@ -1,5 +1,9 @@
 ﻿@model Site
+@inject Microsoft.AspNetCore.Antiforgery.IAntiforgery Antiforgery
 @{
     Layout = null;
+    var csrfToken = Antiforgery.GetAndStoreTokens(Context).RequestToken;
 }
 @Html.Raw(Model.Folder)
+@* Токен подкладывается в meta после сохранённого HTML — JS ищет его по селектору и шлёт в X-CSRF-TOKEN. *@
+<meta name="X-CSRF-TOKEN" content="@csrfToken">

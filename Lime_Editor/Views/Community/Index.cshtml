@@ -1,0 +1,85 @@
+@model CommunityViewModel
+@{
+    ViewData["Title"] = "Сообщество";
+    var isAuthed = User?.Identity?.IsAuthenticated == true;
+}
+
+<section class="lime-aurora lime-aurora--subtle" style="padding: var(--space-12) 0 var(--space-8);">
+    <div class="lime-container">
+        <h2 style="margin-bottom: var(--space-2);">Сообщество</h2>
+        <p class="lime-text-muted">Сайты, которые сделали пользователи Lime. Вдохновляйся, лайкай — или возьми любой как шаблон для своего проекта.</p>
+        <div class="lime-flex lime-gap-2 lime-mt-4">
+            <a class="lime-btn lime-btn--sm @(Model.Sort == "new" ? "lime-btn--primary" : "lime-btn--ghost")" href="/Community/Index?sort=new">Новые</a>
+            <a class="lime-btn lime-btn--sm @(Model.Sort == "popular" ? "lime-btn--primary" : "lime-btn--ghost")" href="/Community/Index?sort=popular">Популярные</a>
+        </div>
+    </div>
+</section>
+
+<section class="lime-container" style="padding-bottom: var(--space-16);">
+    @if (Model.Cards.Count == 0)
+    {
+        <div class="lime-empty lime-card lime-card--padded">
+            <div class="lime-empty__icon">🌱</div>
+            <div class="lime-empty__title">В галерее пока пусто</div>
+            <p>Опубликуй свой сайт — он появится здесь первым.</p>
+        </div>
+    }
+    else
+    {
+        <div class="lime-sites">
+            @foreach (var card in Model.Cards)
+            {
+                <div class="lime-site-card">
+                    <a class="lime-site-card__preview" href="@card.PublicUrl" target="_blank" rel="noopener" style="display:block;">
+                        @if (!string.IsNullOrEmpty(card.OgImage))
+                        {
+                            <img src="@card.OgImage" alt="@card.Name" loading="lazy">
+                        }
+                        else
+                        {
+                            <div class="lime-community-placeholder">@(string.IsNullOrEmpty(card.Name) ? "?" : card.Name.Substring(0, 1).ToUpper())</div>
+                        }
+                    </a>
+                    <div class="lime-site-card__body">
+                        <div class="lime-flex lime-items-center" style="justify-content: space-between; gap: var(--space-2);">
+                            <strong style="font-size: var(--text-base); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">@card.Name</strong>
+                            @if (card.IsDocEngine)
+                            {
+                                <span class="lime-badge lime-badge--accent" title="Собран на новом движке">✦</span>
+                            }
+                        </div>
+                        <div class="lime-text-muted" style="font-size: var(--text-xs);">
+                            автор <span class="lime-text-accent">@card.Author</span> · 👁 @card.ViewsCount
+                        </div>
+                        <div class="lime-site-card__actions">
+                            @if (isAuthed)
+                            {
+                                <form asp-action="Like" asp-controller="Community" method="post" style="display:inline;">
+                                    <input type="hidden" name="siteId" value="@card.SiteId">
+                                    <input type="hidden" name="sort" value="@Model.Sort">
+                                    <button type="submit" class="lime-btn lime-btn--sm @(card.LikedByMe ? "lime-btn--primary" : "lime-btn--ghost")"
+                                            title="@(card.LikedByMe ? "Убрать лайк" : "Нравится")">
+                                        ♥ @card.Likes
+                                    </button>
+                                </form>
+                            }
+                            else
+                            {
+                                <span class="lime-btn lime-btn--ghost lime-btn--sm" style="pointer-events:none;">♥ @card.Likes</span>
+                            }
+                            <a class="lime-btn lime-btn--soft lime-btn--sm" href="@card.PublicUrl" target="_blank" rel="noopener">Открыть</a>
+                            @if (isAuthed)
+                            {
+                                <form asp-action="Clone" asp-controller="Community" method="post" style="display:inline;"
+                                      onsubmit="return confirm('Создать копию этого сайта у себя в «Мои сайты»?');">
+                                    <input type="hidden" name="siteId" value="@card.SiteId">
+                                    <button type="submit" class="lime-btn lime-btn--ghost lime-btn--sm" title="Скопировать к себе как черновик">⭐ Как шаблон</button>
+                                </form>
+                            }
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</section>
