@@ -1,0 +1,37 @@
+{
+  "name": "lime_editor",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test:e2e": "playwright test",
+    "test:e2e:headed": "playwright test --headed",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:update": "playwright test --update-snapshots",
+    "test:e2e:smoke": "playwright test tests/smoke.spec.ts",
+    "test:e2e:flow": "playwright test tests/flows --project=chromium-dark",
+    "test:e2e:admin": "playwright test --project=chromium-admin",
+    "test:e2e:visual": "playwright test tests/visual.spec.ts",
+    "test:e2e:a11y": "playwright test tests/a11y.spec.ts",
+    "test:e2e:report": "playwright show-report"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sweety1lime/Lime_Editor.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/sweety1lime/Lime_Editor/issues"
+  },
+  "homepage": "https://github.com/sweety1lime/Lime_Editor#readme",
+  "devDependencies": {
+    "@axe-core/playwright": "^4.11.3",
+    "@playwright/test": "^1.60.0"
+  }
+}
