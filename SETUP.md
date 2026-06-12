@@ -178,4 +178,4 @@ Get-Service postgresql-x64-16 | Select Status   # Running
 $env:PGPASSWORD="postgres"; & "C:\Program Files\PostgreSQL\16\bin\psql.exe" -U postgres -h 127.0.0.1 -p 5432 -d limeeditor -c "SELECT version();"
 ```
 
-Полный план модернизации проекта — см. отдельный файл плана (или попроси Claude показать его).
+Полный план модернизации проекта — см. `docs/ROADMAP.md`.
