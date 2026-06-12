@@ -1,0 +1,144 @@
+/* ============================================================
+   Lime · design tokens — reimagined brand.
+   Signature lime-green over deep ink; violet kept as secondary.
+   DARK-ONLY. Token NAMES are preserved (legacy pages reference
+   --bg/--accent/--border-soft/etc.) and remapped to the new palette,
+   while the new vocabulary (--ink/--lime/--line/--spring/...) is added
+   as the canonical source for the redesigned screens.
+   ============================================================ */
+
+:root {
+    /* ---- spacing scale ---- */
+    --space-1: 4px;
+    --space-2: 8px;
+    --space-3: 12px;
+    --space-4: 16px;
+    --space-5: 20px;
+    --space-6: 24px;
+    --space-8: 32px;
+    --space-10: 40px;
+    --space-12: 48px;
+    --space-16: 64px;
+    --space-24: 96px;
+
+    /* ---- radii (legacy names + new short names) ---- */
+    --radius-sm: 9px;
+    --radius-md: 13px;
+    --radius-lg: 20px;
+    --radius-xl: 28px;
+    --radius-2xl: 28px;
+    --radius-full: 9999px;
+    --r-sm: 9px;
+    --r-md: 13px;
+    --r-lg: 20px;
+    --r-xl: 28px;
+
+    /* ---- typography ---- */
+    --font-display: "Instrument Serif", Georgia, serif;
+    --font-grotesk: "Space Grotesk", system-ui, sans-serif;
+    --font-ui: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    --font-text: var(--font-ui);
+    --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Monaco, Consolas, monospace;
+
+    --text-xs: 12px;
+    --text-sm: 14px;
+    --text-base: 16px;
+    --text-lg: 18px;
+    --text-xl: 24px;
+    --text-2xl: 32px;
+    --text-3xl: 48px;
+    --text-4xl: 64px;
+    --text-5xl: 80px;
+
+    --leading-tight: 1.15;
+    --leading-snug: 1.3;
+    --leading-normal: 1.5;
+    --leading-relaxed: 1.7;
+
+    /* ---- easing / transitions ---- */
+    --ease: cubic-bezier(0.4, 0, 0.2, 1);
+    --spring: cubic-bezier(0.22, 1.2, 0.36, 1);
+    --t-fast: 120ms var(--ease);
+    --t-base: 200ms var(--ease);
+    --t-slow: 400ms var(--ease);
+
+    /* ---- z-stack ---- */
+    --z-base: 1;
+    --z-elev: 10;
+    --z-nav: 100;
+    --z-toolbar: 200;
+    --z-modal: 1000;
+    --z-toast: 2000;
+
+    /* ---- layout ---- */
+    --maxw: 1200px;
+
+    /* ============================================================
+       COLOR — deep ink chrome
+       ============================================================ */
+    --ink: #080a07;
+    --ink-2: #0c0f0a;
+    --ink-3: #11150f;
+    --panel: rgba(20, 25, 18, 0.6);
+    --glass: rgba(255, 255, 255, 0.035);
+    --glass-2: rgba(255, 255, 255, 0.06);
+    --line: rgba(255, 255, 255, 0.08);
+    --line-2: rgba(255, 255, 255, 0.15);
+
+    /* brand */
+    --lime: #c5f24e;
+    --lime-bright: #e2fb92;
+    --lime-deep: #84cc16;
+    --lime-soft: rgba(197, 242, 78, 0.12);
+    --lime-glow: rgba(197, 242, 78, 0.4);
+    --violet: #a78bfa;
+    --violet-soft: rgba(167, 139, 250, 0.14);
+    --teal: #2dd4bf;
+    --rose: #fb7185;
+    --amber: #fbbf24;
+
+    /* text */
+    --fg: #eef1ea;
+    --fg-2: #c2c9b9;
+    --muted: #828c79;
+    --subtle: #5c6553;
+
+    /* status */
+    --danger: #fb7185;
+    --success: #4ade80;
+    --warn: #fbbf24;
+
+    /* shadows */
+    --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.35);
+    --shadow-md: 0 14px 40px rgba(0, 0, 0, 0.4);
+    --shadow-lg: 0 34px 90px rgba(0, 0, 0, 0.55);
+    --shadow-glow: 0 0 48px var(--lime-glow);
+
+    /* ============================================================
+       Legacy aliases — keep older screens (Community / Media / Admin /
+       Profile / Forms) on-brand without rewriting them. They reference
+       these names; we point them at the new palette.
+       ============================================================ */
+    --bg: var(--ink);
+    --bg-elev: var(--ink-2);
+    --bg-overlay: rgba(8, 10, 7, 0.85);
+    --fg-muted: var(--muted);
+    --fg-subtle: var(--subtle);
+
+    --accent: var(--lime);
+    --accent-hover: var(--lime-bright);
+    --accent-soft: var(--lime-soft);
+    --accent-2: var(--violet);
+
+    --surface: var(--ink-3);
+    --surface-elev: var(--panel);
+    --surface-glass: var(--glass);
+    --surface-glass-hover: var(--glass-2);
+
+    --border-soft: var(--line);
+    --border-strong: var(--line-2);
+
+    --aurora-1: var(--lime-deep);
+    --aurora-2: var(--violet);
+    --aurora-3: var(--teal);
+}

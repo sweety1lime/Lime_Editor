@@ -1,0 +1,110 @@
+/* ============================================================
+   Ambient aurora + scroll-reveal.
+   - .aurora-bg : page-wide fixed ambient (lime + violet drift). New screens.
+   - .page      : content wrapper above the aurora.
+   - .reveal    : intro animation; base state is VISIBLE (degrades safely).
+   - .lime-aurora : legacy per-section aurora (kept for older pages).
+   ============================================================ */
+
+/* ---------- page-wide ambient ---------- */
+.aurora-bg {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    overflow: hidden;
+}
+.aurora-bg::before,
+.aurora-bg::after {
+    content: "";
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(90px);
+    opacity: 0.5;
+}
+.aurora-bg::before {
+    width: 60vw; height: 60vw;
+    top: -22vw; left: -12vw;
+    background: radial-gradient(circle, rgba(132, 204, 22, 0.32), transparent 65%);
+    animation: lime-floatA 26s ease-in-out infinite alternate;
+}
+.aurora-bg::after {
+    width: 52vw; height: 52vw;
+    bottom: -22vw; right: -10vw;
+    background: radial-gradient(circle, rgba(167, 139, 250, 0.28), transparent 65%);
+    animation: lime-floatB 30s ease-in-out infinite alternate;
+}
+@keyframes lime-floatA { to { transform: translate(6vw, 4vw) scale(1.15); } }
+@keyframes lime-floatB { to { transform: translate(-5vw, -3vw) scale(1.1); } }
+
+.page { position: relative; z-index: 1; }
+
+/* ---------- scroll reveal (visible base — never strands content) ---------- */
+.reveal { opacity: 1; transform: none; }
+.reveal.is-in { animation: lime-revealIn 0.72s var(--spring); }
+@keyframes lime-revealIn {
+    from { opacity: 0; transform: translateY(24px); }
+    60%  { opacity: 1; }
+    to   { opacity: 1; transform: none; }
+}
+.reveal[data-delay="1"].is-in { animation-delay: 0.07s; }
+.reveal[data-delay="2"].is-in { animation-delay: 0.14s; }
+.reveal[data-delay="3"].is-in { animation-delay: 0.21s; }
+.reveal[data-delay="4"].is-in { animation-delay: 0.28s; }
+
+/* ---------- legacy per-section aurora ---------- */
+.lime-aurora { position: relative; isolation: isolate; overflow: hidden; }
+.lime-aurora::before,
+.lime-aurora::after {
+    content: "";
+    position: absolute;
+    width: 80vw; height: 80vw;
+    border-radius: 50%;
+    filter: blur(100px);
+    opacity: 0.4;
+    z-index: -1;
+    pointer-events: none;
+    will-change: transform;
+    animation: lime-aurora-drift 24s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite alternate;
+}
+.lime-aurora::before {
+    background: radial-gradient(circle at 30% 30%, var(--lime-deep), transparent 65%);
+    top: -30vw; left: -20vw;
+}
+.lime-aurora::after {
+    background: radial-gradient(circle at 70% 70%, var(--violet), transparent 65%);
+    bottom: -30vw; right: -20vw;
+    animation-delay: -12s;
+}
+.lime-aurora--bright::before, .lime-aurora--bright::after { opacity: 0.55; }
+.lime-aurora--subtle::before, .lime-aurora--subtle::after { opacity: 0.22; }
+.lime-aurora--three > .lime-aurora__pink {
+    position: absolute;
+    width: 60vw; height: 60vw;
+    border-radius: 50%;
+    background: radial-gradient(circle, var(--teal), transparent 65%);
+    filter: blur(120px);
+    opacity: 0.3;
+    top: 30%; left: 30%;
+    z-index: -1;
+    pointer-events: none;
+    animation: lime-aurora-drift 30s ease-in-out infinite alternate;
+    animation-delay: -6s;
+}
+@keyframes lime-aurora-drift {
+    0%   { transform: translate(0, 0) scale(1) rotate(0deg); }
+    50%  { transform: translate(10vw, -10vh) scale(1.15) rotate(20deg); }
+    100% { transform: translate(-10vw, 10vh) scale(0.95) rotate(-15deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.001ms !important;
+        transition-duration: 0.001ms !important;
+    }
+    .reveal { opacity: 1; transform: none; }
+    .aurora-bg::before, .aurora-bg::after,
+    .lime-aurora::before, .lime-aurora::after,
+    .lime-aurora--three > .lime-aurora__pink { animation: none; }
+    html { scroll-behavior: auto; }
+}
