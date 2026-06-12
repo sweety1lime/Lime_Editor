@@ -1,0 +1,61 @@
+# Прод-вариант: app + postgres + Caddy (TLS через Let's Encrypt).
+# Переменные читает из .env (см. .env.example).
+# Пример старта: `docker compose -f compose.prod.yml up -d`
+
+services:
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD не задан в .env}
+      POSTGRES_DB: ${POSTGRES_DB:-limeeditor}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-limeeditor}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    image: ${APP_IMAGE:?APP_IMAGE не задан (пример: ghcr.io/sweety1lime/lime_editor:latest)}
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      ConnectionStrings__connect: "Host=postgres;Port=5432;Database=${POSTGRES_DB:-limeeditor};Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD}"
+      ASPNETCORE_ENVIRONMENT: Production
+    expose:
+      - "8080"
+    volumes:
+      # Загруженные юзерами медиа — на хост-volume. В Phase 3 §3.2 плана переезд на S3.
+      - media_data:/app/wwwroot/media
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    environment:
+      DOMAIN: ${DOMAIN:?DOMAIN не задан (пример: lime.example.com)}
+    depends_on:
+      - app
+
+volumes:
+  postgres_data:
+  caddy_data:
+  caddy_config:
+  media_data:
