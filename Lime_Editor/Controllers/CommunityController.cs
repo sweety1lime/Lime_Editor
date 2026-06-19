@@ -126,7 +126,7 @@ namespace Lime_Editor.Controllers
                 clone.TemplateId = TemplateExportConfigs.CustomTemplateId;
                 clone.DocumentJson = source.PublishedDocumentJson;
                 var body = _docRenderer.RenderSite(clone.DocumentJson);
-                clone.Folder = PublishedPageBuilder.WrapCustomHtml(body, clone);
+                clone.Folder = PublishedPageBuilder.WrapCustomHtml(body, clone, clone.DocumentJson);
                 clone.DraftFolder = clone.Folder;
             }
             else

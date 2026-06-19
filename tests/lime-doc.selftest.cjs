@@ -364,8 +364,76 @@ function check(name, cond) {
     check("hover: пустой бакет hover игнорируется", !out.css.includes('[data-block-id="hv3"]:hover'));
 }
 
+// --- 0.1: переиспользуемые style-классы (Webflow-classes) ---
+{
+    const doc = {
+        version: 1,
+        theme: {
+            classes: [
+                { cls: "btnPrimary", name: "Кнопка primary", styles: {
+                    base: { color: "#fff", padding: "12px" }, tablet: { padding: "8px" }, hover: { color: "#84cc16" }
+                } },
+                { cls: "bad name!", name: "Опасный", styles: { base: { color: "#000" } } } // невалидный cls → отброшен
+            ]
+        },
+        blocks: [
+            { id: "cb1", type: "cta", content: { title: "T" }, classes: ["btnPrimary", "unknown"] },
+            { id: "cb2", type: "text", content: { text: "x" }, classes: ["btnPrimary"], styles: { base: { color: "#111" } } }
+        ]
+    };
+    const out = L.render(doc, {});
+    check("classes: css класса .lime-c-btnPrimary (base)", out.css.includes(".lime-c-btnPrimary{color:#fff;padding:12px;}"));
+    check("classes: класс получает media tablet", out.css.includes("@media(max-width:1024px){.lime-c-btnPrimary{padding:8px;}}"));
+    check("classes: класс получает :hover + transition", out.css.includes(".lime-c-btnPrimary:hover{color:#84cc16;}") && out.css.includes(".lime-c-btnPrimary{transition:all .2s ease;}"));
+    check("classes: невалидный cls отброшен (safeCls whitelist)", !out.css.includes("bad name") && out.css.indexOf(".lime-c-bad") === -1);
+    check("classes: блок несёт lime-c-* в class (валидные имена)", out.html.includes('data-block-id="cb1"') && /<section class="lime-block lime-c-btnPrimary lime-c-unknown"/.test(out.html));
+    const danger = L.render({ version: 1, blocks: [{ id: "d1", type: "text", content: { text: "x" }, classes: ['evil" onclick="x'] }] }, {});
+    check("classes: опасный cls в block.classes отброшен (safeCls в renderBlock)", !danger.html.includes("evil") && !danger.html.includes("onclick"));
+    // Каскад: класс эмитится ДО per-block css → свой стиль блока перебивает класс.
+    const ciClass = out.css.indexOf(".lime-c-btnPrimary{color:#fff");
+    const ciBlock = out.css.indexOf('[data-block-id="cb2"]{color:#111;}');
+    check("classes: per-block css идёт после класса (перебивает)", ciClass !== -1 && ciBlock !== -1 && ciBlock > ciClass);
+    check("classes: safeCls API", L.safeCls("ok_-9") === "ok_-9" && L.safeCls("плохо ") === null);
+}
+
+// --- 0.1: расширенные токены (палитра + шкалы) ---
+{
+    const out = L.render({ version: 1, theme: { palette: ["#111111", "#222222"] }, blocks: [] }, {});
+    check("tokens: палитра → --lt-c1/--lt-c2", out.css.includes("--lt-c1:#111111;") && out.css.includes("--lt-c2:#222222;"));
+    check("tokens: спейсинг-шкала --lt-space-*", out.css.includes("--lt-space-4:16px;") && out.css.includes("--lt-space-9:96px;"));
+    check("tokens: типографическая шкала --lt-text-*", out.css.includes("--lt-text-base:1rem;") && out.css.includes("--lt-text-2xl:1.5rem;"));
+    const noPal = L.render({ version: 1, blocks: [] }, {});
+    check("tokens: без palette — нет --lt-c1 (обратная совместимость)", !noPal.css.includes("--lt-c1:"));
+}
+
+// --- 0.1: классы в classesCss напрямую (без блоков) ---
+{
+    const css = L.classesCss({ classes: [{ cls: "card", styles: { base: { borderRadius: "12px" } } }] });
+    check("classesCss: standalone компиляция", css === ".lime-c-card{border-radius:12px;}");
+    check("classesCss: пустая тема → пусто", L.classesCss({}) === "" && L.classesCss(null) === "");
+}
+
+// --- 0.2: глобальный CSS сайта (doc.customCss) ---
+{
+    const doc = {
+        version: 1,
+        theme: { accent: "#abcdef" },
+        customCss: ".lime-block__heading{letter-spacing:-1px}</style><script>alert(1)</script>",
+        blocks: [{ id: "g1", type: "heading", content: { text: "T" }, styles: { base: { color: "#111" } } }]
+    };
+    const out = L.render(doc, {});
+    check("customCss: попадает в style-блок", out.css.includes(".lime-block__heading{letter-spacing:-1px}"));
+    check("customCss: идёт ПОСЛЕ стилей блока (может перебить)", out.css.indexOf('[data-block-id="g1"]{color:#111;}') < out.css.indexOf(".lime-block__heading{letter-spacing"));
+    check("customCss: закрытие </style> вырезано (нельзя выйти из style)", !out.css.includes("</style"));
+    // renderSite (одностраничный) и renderPage тоже несут customCss
+    check("customCss: renderSite несёт глобальный CSS", L.renderSite(doc).includes(".lime-block__heading{letter-spacing:-1px}"));
+    check("customCss: compileDocCss (экспорт) несёт глобальный CSS", L.compileDocCss(doc).includes(".lime-block__heading{letter-spacing:-1px}"));
+    const noCss = L.render({ version: 1, blocks: [] }, {});
+    check("customCss: без поля ничего не добавляется", typeof noCss.css === "string");
+}
+
 if (failed) {
     console.error("\nSELFTEST FAILED: " + failed);
     process.exit(1);
 }
-console.log("\nCHILDREN-RENDER-OK (0.1) + MEDIA-RENDER-OK (0.5) + BG-LAYERS-OK (0.3) + MOTION/LAYERS-OK (2) + HOVER-OK (1.2) + B2/B3 регрессия зелёные");
+console.log("\nCHILDREN-RENDER-OK (0.1) + MEDIA-RENDER-OK (0.5) + BG-LAYERS-OK (0.3) + MOTION/LAYERS-OK (2) + HOVER-OK (1.2) + CLASSES/TOKENS-OK (0.1) + B2/B3 регрессия зелёные");

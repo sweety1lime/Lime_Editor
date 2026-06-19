@@ -10,7 +10,9 @@ namespace Lime_Editor.Services
     {
         // pageTitle — заголовок конкретной страницы многостраничного сайта (этап 0.3):
         // <title> становится «Страница — Сайт». Для главной/одностраничных не передаётся.
-        public static string WrapCustomHtml(string innerHtml, Site site, string pageTitle = null)
+        // documentJson — JSON движка B: из него берётся doc.head (кастомный <head>-код, этап 0.2),
+        // который санитайзится и вставляется в head. customCss уже в body-стиле (его эмитит движок).
+        public static string WrapCustomHtml(string innerHtml, Site site, string documentJson = null, string pageTitle = null)
         {
             var rawTitle = !string.IsNullOrWhiteSpace(site?.MetaTitle) ? site.MetaTitle
                          : (!string.IsNullOrWhiteSpace(site?.Name) ? site.Name : "Мой сайт");
@@ -52,6 +54,8 @@ namespace Lime_Editor.Services
             {
                 animScripts += "<script src=\"/js/lime/lime-pages.js\" defer></script>\n";
             }
+            // Кастомный <head>-код владельца (этап 0.2): meta/link/style после санитайза.
+            var customHead = PublishedHtmlSanitizer.SanitizeHead(ExtractDocHead(documentJson));
             return "<!DOCTYPE html>\n" +
                    "<html lang=\"ru\">\n<head>\n" +
                    "<meta charset=\"utf-8\">\n" +
@@ -69,6 +73,7 @@ namespace Lime_Editor.Services
                    animScripts +
                    // Лёгкий сигнатурный лоск (Фаза 4): прогресс скролла. Без GSAP, на каждой странице.
                    "<script src=\"/js/lime/lime-polish.js\" defer></script>\n" +
+                   customHead +
                    "</head>\n<body class=\"lime-published\">\n" +
                    (innerHtml ?? string.Empty) + "\n" +
                    "</body>\n</html>";
@@ -123,6 +128,25 @@ namespace Lime_Editor.Services
             ("IBM Plex Mono", "IBM+Plex+Mono:wght@400;500;600;700"),
             ("Space Mono", "Space+Mono:wght@400;700"),
         };
+
+        // Достаёт строковое свойство doc.head из JSON движка B (этап 0.2). Любая ошибка
+        // парсинга/отсутствие поля → пустая строка (кастомного head-кода нет).
+        private static string ExtractDocHead(string documentJson)
+        {
+            if (string.IsNullOrWhiteSpace(documentJson)) return string.Empty;
+            try
+            {
+                using var d = System.Text.Json.JsonDocument.Parse(documentJson);
+                if (d.RootElement.ValueKind == System.Text.Json.JsonValueKind.Object &&
+                    d.RootElement.TryGetProperty("head", out var h) &&
+                    h.ValueKind == System.Text.Json.JsonValueKind.String)
+                {
+                    return h.GetString() ?? string.Empty;
+                }
+            }
+            catch (System.Text.Json.JsonException) { /* битый JSON — head нет */ }
+            return string.Empty;
+        }
 
         private static string BuildFontsLink(string innerHtml)
         {

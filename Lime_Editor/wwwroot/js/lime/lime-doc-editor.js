@@ -26,6 +26,7 @@
     if (!doc.version) doc.version = 1;
     if (!doc.components) doc.components = {};
     if (!doc.theme) doc.theme = {};
+    if (!doc.theme.classes) doc.theme.classes = []; // переиспользуемые style-классы (0.1)
     // Нормализация в pages-модель (старый doc.blocks → одна страница «Главная»).
     if (!doc.pages || !doc.pages.length) {
         doc.pages = [{ id: "p0", slug: "", title: "Главная", blocks: (doc.blocks || []) }];
@@ -36,6 +37,7 @@
     var selectedId = null;
     var currentBp = "base";    // base | tablet | mobile
     var currentState = "normal"; // normal | hover — редактируемое состояние блока (1.2)
+    var currentClass = null;   // если задан cls — инспектор правит этот класс, а не блок (0.1)
     var currentInspectorTab = "style"; // style | fx | motion — активная вкладка инспектора
 
     // Версия документа для optimistic concurrency (этап 0.4): Site.UpdatedAt.Ticks.
@@ -87,6 +89,49 @@
         var r = findBlock(id);
         return r ? r.block : null;
     }
+    // ===== Переиспользуемые style-классы (этап 0.1) =====
+    // theme.classes = [{ cls, name, styles:{base,tablet,mobile,hover} }]; блок ссылается
+    // block.classes:["cls"]. cls — CSS-безопасный id (генерим), name — для показа.
+    function classDefs() {
+        if (!doc.theme.classes) doc.theme.classes = [];
+        return doc.theme.classes;
+    }
+    function findClassDef(cls) {
+        var l = classDefs();
+        for (var i = 0; i < l.length; i++) if (l[i].cls === cls) return l[i];
+        return null;
+    }
+    function newClassId() {
+        var cls;
+        do { cls = "c" + Math.random().toString(36).slice(2, 8); } while (findClassDef(cls));
+        return cls;
+    }
+    // Список классов целевого блока (у компонента-инстанса — в определении).
+    function blockClassList(b) {
+        var t = targetBlock(b);
+        if (!t) return [];
+        if (!t.classes) t.classes = [];
+        return t.classes;
+    }
+    function toggleBlockClass(b, cls) {
+        var list = blockClassList(b);
+        var i = list.indexOf(cls);
+        if (i === -1) list.push(cls); else list.splice(i, 1);
+        if (!list.length) delete targetBlock(b).classes; // не плодим пустые массивы
+    }
+    // Эффективные стили всех классов блока на текущем брейкпоинте (для живого превью —
+    // движок на публикации эмитит их через media-queries, а в холсте ширина не меняется).
+    function effectiveClassStyles(b) {
+        var t = targetBlock(b);
+        if (!t || !t.classes || !t.classes.length) return {};
+        var acc = {};
+        for (var i = 0; i < t.classes.length; i++) {
+            var def = findClassDef(t.classes[i]);
+            if (def && def.styles) Object.assign(acc, effective(def.styles, currentBp));
+        }
+        return acc;
+    }
+
     // Новые id для клона и всех его потомков — id обязаны быть уникальны в документе.
     function reid(b) {
         b.id = rid("b");
@@ -164,6 +209,11 @@
     var redoBtn = document.querySelector("[data-doc-redo]");
     if (undoBtn) undoBtn.addEventListener("click", undo);
     if (redoBtn) redoBtn.addEventListener("click", redo);
+    // В текстовых полях/contenteditable горячие клавиши блоков не перехватываем (печать важнее).
+    function isTextField(e) {
+        var t = e.target;
+        return !!(t && (t.isContentEditable || t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT"));
+    }
     document.addEventListener("keydown", function (e) {
         if (!(e.ctrlKey || e.metaKey)) return;
         var k = (e.key || "").toLowerCase();
@@ -171,6 +221,16 @@
         // (фиксация через debounce), нативный undo браузера дал бы рассинхрон с doc.
         if (k === "z" && !e.shiftKey) { e.preventDefault(); undo(); }
         else if (k === "y" || (k === "z" && e.shiftKey)) { e.preventDefault(); redo(); }
+        // Copy/paste/duplicate блока — только когда фокус не в тексте (этап 0.4).
+        else if (k === "c" && !isTextField(e) && selectedId) { e.preventDefault(); copyBlock(); }
+        else if (k === "v" && !isTextField(e) && readClip()) { e.preventDefault(); pasteBlock(); }
+        else if (k === "d" && !isTextField(e) && selectedId) { e.preventDefault(); dupBlock(); }
+    });
+    // Delete — удалить выбранный блок; Esc — снять выбор / закрыть контекст-меню (этап 0.4).
+    document.addEventListener("keydown", function (e) {
+        if (e.ctrlKey || e.metaKey || isTextField(e)) return;
+        if ((e.key === "Delete" || e.key === "Backspace") && selectedId) { e.preventDefault(); delBlock(); }
+        else if (e.key === "Escape") { hideCtxMenu(); if (selectedId) deselect(); }
     });
 
     // ===== RENDER =====
@@ -191,6 +251,7 @@
             if (sel) sel.classList.add("is-selected");
         }
         refreshInspector();
+        refreshLayers(); // дерево слоёв синхронно с холстом (этап 0.4)
         initDnD(); // DOM пересобран — пересоздаём sortable-зоны
         initLayerDrag(); // и навешиваем drag на декор-слои
     }
@@ -266,9 +327,18 @@
             var b = byId(id);
             if (!b) continue;
             var st = targetBlock(b).styles;
-            var decls = effective(st, currentBp);
+            // Классы — база (0.1), свой стиль блока перебивает их.
+            var decls = effectiveClassStyles(b);
+            Object.assign(decls, effective(st, currentBp));
             // При редактировании наведения показываем вид :hover прямо в холсте у выбранного блока.
-            if (currentState === "hover" && id === selectedId && st && st.hover) Object.assign(decls, st.hover);
+            if (currentState === "hover" && id === selectedId) {
+                if (currentClass) {
+                    var cdef = findClassDef(currentClass);
+                    if (cdef && cdef.styles && cdef.styles.hover) Object.assign(decls, cdef.styles.hover);
+                } else if (st && st.hover) {
+                    Object.assign(decls, st.hover);
+                }
+            }
             el.setAttribute("style", declsToCss(decls));
         }
     }
@@ -305,10 +375,29 @@
         if (!sec) return;
         selectedId = sec.getAttribute("data-block-id");
         currentState = "normal"; // редактирование hover включается явно в инспекторе
+        currentClass = null;      // выбор блока выходит из режима правки класса (0.1)
         var all = ws.querySelectorAll(".is-selected");
         for (var i = 0; i < all.length; i++) all[i].classList.remove("is-selected");
         sec.classList.add("is-selected");
         refreshInspector();
+        refreshLayers(); // подсветить выбранный блок в дереве слоёв (0.4)
+    });
+
+    // Дерево слоёв: клик по строке — выбрать соответствующий блок в холсте (0.4).
+    var layersBox = document.getElementById("lime-doc-layers");
+    if (layersBox) {
+        layersBox.addEventListener("click", function (e) {
+            var row = e.target.closest("[data-doc-layer]");
+            if (row) selectById(row.getAttribute("data-doc-layer"));
+        });
+    }
+
+    // Контекстное меню блока (ПКМ, этап 0.4)
+    ws.addEventListener("contextmenu", function (e) {
+        var sec = e.target.closest(".lime-block");
+        if (!sec) return;
+        e.preventDefault();
+        showCtxMenu(sec.getAttribute("data-block-id"), e.clientX, e.clientY);
     });
 
     // ===== MEDIA (этап 0.5: image / gallery / video) =====
@@ -661,6 +750,133 @@
         render(); markDirty();
     }
 
+    // ===== COPY / PASTE (этап 0.4) — через localStorage, чтобы вставлять между страницами/сайтами =====
+    var CLIP_KEY = "lime-doc-clip";
+    var clipboard = null;
+    function copyBlock() {
+        var r = findBlock(selectedId);
+        if (!r) return;
+        clipboard = JSON.parse(JSON.stringify(r.block));
+        try { localStorage.setItem(CLIP_KEY, JSON.stringify(clipboard)); } catch (e) { /* приватный режим */ }
+        setStatus("Блок скопирован", "");
+    }
+    function readClip() {
+        if (clipboard) return clipboard;
+        try { return JSON.parse(localStorage.getItem(CLIP_KEY)); } catch (e) { return null; }
+    }
+    function pasteBlock() {
+        var data = readClip();
+        if (!data) return;
+        var clone = reid(JSON.parse(JSON.stringify(data)));
+        var r = findBlock(selectedId);
+        if (r) r.parent.splice(r.index + 1, 0, clone); // после выбранного
+        else pageBlocks().push(clone);                 // или в конец страницы
+        selectedId = clone.id;
+        render(); markDirty();
+    }
+
+    // ===== ВЫБОР / СНЯТИЕ ВЫБОРА (общая точка для холста, слоёв, контекст-меню) =====
+    function selectById(id) {
+        selectedId = id; currentState = "normal"; currentClass = null;
+        var all = ws.querySelectorAll(".is-selected");
+        for (var i = 0; i < all.length; i++) all[i].classList.remove("is-selected");
+        var sec = ws.querySelector('[data-block-id="' + id + '"]');
+        if (sec) { sec.classList.add("is-selected"); sec.scrollIntoView({ block: "nearest", behavior: "smooth" }); }
+        refreshInspector(); refreshLayers();
+    }
+    function deselect() {
+        selectedId = null; currentClass = null;
+        var all = ws.querySelectorAll(".is-selected");
+        for (var i = 0; i < all.length; i++) all[i].classList.remove("is-selected");
+        refreshInspector(); refreshLayers();
+    }
+
+    // ===== ДЕРЕВО СЛОЁВ (outline-навигатор, этап 0.4) =====
+    var TYPE_LABELS = {
+        heading: "Заголовок", text: "Текст", cover: "Обложка", cta: "Призыв", buttonGroup: "Кнопки",
+        stats: "Цифры", features: "Фичи", navbar: "Навбар", footer: "Подвал", accordion: "FAQ",
+        pricing: "Тарифы", testimonials: "Отзывы", logos: "Логотипы", steps: "Шаги", imageText: "Картинка+текст",
+        socials: "Соцсети", form: "Форма", image: "Картинка", gallery: "Галерея", video: "Видео", embed: "Embed",
+        collectionList: "Список", container: "Контейнер", columns: "Колонки", divider: "Разделитель", spacer: "Отступ"
+    };
+    function blockLabel(b) {
+        if (b.type === "component") return "⊞ " + (doc.components[b.ref] ? doc.components[b.ref].name : "компонент");
+        return TYPE_LABELS[b.type] || b.type;
+    }
+    function refreshLayers() {
+        var box = document.getElementById("lime-doc-layers");
+        if (!box) return;
+        function rows(arr, depth) {
+            return arr.map(function (b) {
+                var t = targetBlock(b);
+                var isCont = t && L.isContainer(t.type);
+                var kids = (t && t.children && t.children.length) ? rows(t.children, depth + 1) : "";
+                return '<div class="lime-doc-layer' + (b.id === selectedId ? " is-active" : "") + '" data-doc-layer="' + b.id + '" style="padding-left:' + (8 + depth * 14) + 'px;">' +
+                    '<span class="lime-doc-layer__ico">' + (isCont ? "▣" : "▪") + '</span>' +
+                    '<span class="lime-doc-layer__name">' + escapeText(blockLabel(b)) + '</span></div>' + kids;
+            }).join("");
+        }
+        box.innerHTML = pageBlocks().length
+            ? rows(pageBlocks(), 0)
+            : '<p class="lime-text-muted" style="font-size:var(--text-xs);">Страница пуста.</p>';
+    }
+
+    // ===== КОНТЕКСТНОЕ МЕНЮ блока (ПКМ, этап 0.4) =====
+    var ctxEl = null;
+    function hideCtxMenu() { if (ctxEl) { ctxEl.remove(); ctxEl = null; } }
+    function showCtxMenu(id, x, y) {
+        hideCtxMenu();
+        selectById(id);
+        var r = findBlock(id);
+        var nested = !!(r && r.parentBlock);
+        var hasClip = !!readClip();
+        var items = [
+            { op: "dup", label: "⎘ Дублировать", hint: "Ctrl+D" },
+            { op: "copy", label: "⧉ Копировать", hint: "Ctrl+C" },
+            { op: "paste", label: "📋 Вставить", hint: "Ctrl+V", disabled: !hasClip },
+            { sep: true },
+            { op: "up", label: "↑ Поднять" },
+            { op: "down", label: "↓ Опустить" }
+        ];
+        if (nested) items.push({ op: "unwrap", label: "⬅ Вынести наружу" });
+        items.push({ sep: true });
+        items.push({ op: "del", label: "✕ Удалить", danger: true, hint: "Del" });
+
+        ctxEl = document.createElement("div");
+        ctxEl.className = "lime-ctx-menu";
+        ctxEl.innerHTML = items.map(function (it) {
+            if (it.sep) return '<div class="lime-ctx-menu__sep"></div>';
+            return '<button type="button" class="lime-ctx-menu__item' + (it.danger ? " is-danger" : "") + '"' +
+                (it.disabled ? " disabled" : "") + ' data-ctx-op="' + it.op + '">' +
+                '<span>' + it.label + '</span>' + (it.hint ? '<kbd>' + it.hint + '</kbd>' : "") + '</button>';
+        }).join("");
+        document.body.appendChild(ctxEl);
+        // Не вылезаем за вьюпорт.
+        var w = ctxEl.offsetWidth, h = ctxEl.offsetHeight;
+        ctxEl.style.left = Math.min(x, window.innerWidth - w - 8) + "px";
+        ctxEl.style.top = Math.min(y, window.innerHeight - h - 8) + "px";
+        ctxEl.addEventListener("click", function (e) {
+            var b = e.target.closest("[data-ctx-op]");
+            if (!b || b.disabled) return;
+            runBlockOp(b.getAttribute("data-ctx-op"));
+            hideCtxMenu();
+        });
+    }
+    document.addEventListener("click", function (e) { if (ctxEl && !e.target.closest(".lime-ctx-menu")) hideCtxMenu(); });
+    document.addEventListener("scroll", hideCtxMenu, true);
+
+    // Единая точка операций над выбранным блоком (контекст-меню + горячие клавиши).
+    function runBlockOp(op) {
+        if (!selectedId) return;
+        if (op === "dup") dupBlock();
+        else if (op === "copy") copyBlock();
+        else if (op === "paste") pasteBlock();
+        else if (op === "up") moveBlock(-1);
+        else if (op === "down") moveBlock(1);
+        else if (op === "unwrap") unwrapBlock();
+        else if (op === "del") delBlock();
+    }
+
     // ===== COMPONENTS =====
     function makeComponent() {
         var r = findBlock(selectedId);
@@ -715,36 +931,84 @@
         var box = document.getElementById("lime-doc-pages");
         if (!box) return;
         box.innerHTML = doc.pages.map(function (p, i) {
-            return '<button type="button" class="lime-doc-page-tab' + (i === active ? " is-active" : "") + '" data-doc-page="' + i + '" title="Двойной клик — переименовать/удалить">' + escapeText(p.title || "Стр.") + '</button>';
+            return '<button type="button" class="lime-doc-page-tab' + (i === active ? " is-active" : "") + '" data-doc-page="' + i + '" title="Двойной клик — управление страницами">' + escapeText(p.title || "Стр.") + '</button>';
         }).join("") +
-            '<button type="button" class="lime-doc-page-tab lime-doc-page-add" data-doc-page-add title="Добавить страницу">+</button>';
+            '<button type="button" class="lime-doc-page-tab lime-doc-page-add" data-doc-page-add title="Добавить страницу">+</button>' +
+            '<button type="button" class="lime-doc-page-tab lime-doc-page-manage" data-doc-pages-open title="Управление страницами">⚙</button>';
+    }
+    // Уникальный непустой слаг (главная — индекс 0 — всегда "").
+    function uniqueSlug(base, exceptIdx) {
+        var s = slugify(base) || "page";
+        var taken = {};
+        doc.pages.forEach(function (p, i) { if (i !== exceptIdx) taken[p.slug || ""] = 1; });
+        var out = s, n = 2;
+        while (taken[out]) { out = s + "-" + (n++); }
+        return out;
     }
     function addPage() {
-        var title = prompt("Название страницы:", "Страница " + (doc.pages.length + 1));
-        if (title === null) return;
-        doc.pages.push({ id: rid("p"), slug: slugify(title) || ("page" + doc.pages.length), title: title || "Страница", blocks: [] });
+        doc.pages.push({ id: rid("p"), slug: uniqueSlug("page" + (doc.pages.length + 1)), title: "Страница " + (doc.pages.length + 1), blocks: [] });
         active = doc.pages.length - 1;
         selectedId = null;
         refreshPages(); render(); markDirty();
+        renderPagesList();
     }
     function switchPage(i) {
         if (i < 0 || i >= doc.pages.length) return;
         active = i; selectedId = null;
         refreshPages(); render();
     }
-    function renameOrDeletePage(i) {
-        var nv = prompt("Название страницы (пусто — удалить):", doc.pages[i].title);
-        if (nv === null) return;
-        if (nv.trim() === "") {
-            if (doc.pages.length <= 1) { alert("Нельзя удалить единственную страницу."); return; }
-            doc.pages.splice(i, 1);
-            if (active >= doc.pages.length) active = doc.pages.length - 1;
-            selectedId = null;
-        } else {
-            doc.pages[i].title = nv;
-            doc.pages[i].slug = i === 0 ? "" : slugify(nv);
-        }
+    function duplicatePage(i) {
+        var src = doc.pages[i];
+        var copy = JSON.parse(JSON.stringify(src));
+        copy.id = rid("p");
+        copy.title = (src.title || "Страница") + " (копия)";
+        copy.slug = uniqueSlug(copy.title, -1);
+        (copy.blocks || []).forEach(function (b) { reid(b); }); // уникальные id блоков в документе
+        doc.pages.splice(i + 1, 0, copy);
+        active = i + 1; selectedId = null;
         refreshPages(); render(); markDirty();
+        renderPagesList();
+    }
+    function deletePage(i) {
+        if (doc.pages.length <= 1) { alert("Нельзя удалить единственную страницу."); return; }
+        if (!confirm("Удалить страницу «" + (doc.pages[i].title || "") + "» со всеми блоками?")) return;
+        doc.pages.splice(i, 1);
+        if (active >= doc.pages.length) active = doc.pages.length - 1;
+        // Гарантия: первая страница — главная (slug "").
+        if (doc.pages[0]) doc.pages[0].slug = "";
+        selectedId = null;
+        refreshPages(); render(); markDirty();
+        renderPagesList();
+    }
+    function setPageTitle(i, val) {
+        doc.pages[i].title = val;
+        var tabs = document.querySelectorAll('#lime-doc-pages [data-doc-page="' + i + '"]');
+        for (var t = 0; t < tabs.length; t++) tabs[t].textContent = val || "Стр.";
+        markDirty();
+    }
+    function setPageSlug(i, val) {
+        if (i === 0) return; // главная всегда ""
+        doc.pages[i].slug = uniqueSlug(val || doc.pages[i].title || "page", i);
+        markDirty();
+        renderPagesList(); // показать нормализованный/уникальный слаг
+    }
+    // Полноценный менеджер страниц (этап 0.3): список с правкой названия/слага, дубль, удаление.
+    function renderPagesList() {
+        var box = document.getElementById("lime-doc-pages-list");
+        if (!box) return;
+        box.innerHTML = doc.pages.map(function (p, i) {
+            var isHome = i === 0;
+            var slugField = isHome
+                ? '<span class="lime-text-muted" style="font-size:var(--text-xs);">главная (/)</span>'
+                : '<input type="text" class="lime-input lime-input--sm" data-doc-page-slug="' + i + '" value="' + escapeText(p.slug || "") + '" placeholder="slug" style="width:140px;">';
+            return '<div class="lime-doc-page-row' + (i === active ? " is-active" : "") + '">' +
+                '<button type="button" class="lime-doc-page-row__open" data-doc-page-goto="' + i + '" title="Открыть страницу">' + (isHome ? "🏠" : "▦") + '</button>' +
+                '<input type="text" class="lime-input lime-input--sm" data-doc-page-title="' + i + '" value="' + escapeText(p.title || "") + '" style="flex:1;">' +
+                slugField +
+                '<button type="button" class="lime-block-toolbar__btn" data-doc-page-dup="' + i + '" title="Дублировать">⎘</button>' +
+                (doc.pages.length > 1 ? '<button type="button" class="lime-block-toolbar__btn lime-block-toolbar__btn--danger" data-doc-page-del="' + i + '" title="Удалить">✕</button>' : '') +
+                '</div>';
+        }).join("");
     }
 
     // ===== BREAKPOINTS =====
@@ -769,6 +1033,12 @@
     var PADS = { "0": "NONE", "8px": "XS", "16px": "SM", "24px": "MD", "48px": "LG", "80px": "XL" };
 
     function curStyle(b) {
+        // Режим правки класса (0.1): инспектор читает/пишет стили класса, а не блока.
+        if (currentClass) {
+            var def = findClassDef(currentClass);
+            var cs = (def && def.styles) || {};
+            return (currentState === "hover" ? cs.hover : cs[currentBp]) || {};
+        }
         var t = targetBlock(b);
         if (!t.styles) return {};
         return (currentState === "hover" ? t.styles.hover : t.styles[currentBp]) || {};
@@ -879,6 +1149,114 @@
     }
     function renderStyleSections(s) {
         return STYLE_REGISTRY.map(function (item) { return sec(item.title, renderControl(item, s)); }).join("");
+    }
+
+    // ----- Панель «Классы» (этап 0.1): назначение/снятие/создание/правка классов блока -----
+    function classesSection(b) {
+        var t = targetBlock(b);
+        var assigned = (t && t.classes) || [];
+        var defs = classDefs();
+        var chips = assigned.map(function (cls) {
+            var def = findClassDef(cls);
+            var nm = def ? (def.name || def.cls) : cls;
+            return '<span class="lime-doc-class-chip">' +
+                '<button type="button" class="lime-doc-class-chip__edit" data-doc-class-edit="' + escapeText(cls) + '" title="Редактировать класс">' + escapeText(nm) + '</button>' +
+                '<button type="button" class="lime-doc-class-chip__x" data-doc-class-remove="' + escapeText(cls) + '" title="Снять с блока">✕</button>' +
+                '</span>';
+        }).join("");
+        var avail = defs.filter(function (d) { return assigned.indexOf(d.cls) === -1; });
+        var sel = avail.length
+            ? '<select class="lime-select" data-doc-class-add style="flex:1;">' +
+                '<option value="">+ применить класс…</option>' +
+                avail.map(function (d) { return '<option value="' + escapeText(d.cls) + '">' + escapeText(d.name || d.cls) + '</option>'; }).join("") +
+                '</select>'
+            : '';
+        var body =
+            (chips
+                ? '<div class="lime-doc-class-chips">' + chips + '</div>'
+                : '<div class="lime-inspector__hint">Класс — набор стилей для многих блоков. Меняешь класс — меняются все блоки с ним.</div>') +
+            '<div class="lime-flex lime-gap-2" style="margin-top:6px;align-items:center;">' + sel +
+                '<button type="button" class="lime-btn lime-btn--ghost lime-btn--sm" data-doc-class-new title="Создать класс из текущих стилей блока">＋ Из стилей</button>' +
+            '</div>';
+        return sec("Классы", body);
+    }
+    function classEditBanner() {
+        var def = findClassDef(currentClass);
+        var nm = def ? (def.name || def.cls) : currentClass;
+        return sec("Класс «" + escapeText(nm) + "»",
+            '<div class="lime-doc-comp-banner">✎ Правишь класс — изменения применяются ко всем блокам с ним.</div>' +
+            '<div class="lime-flex lime-gap-2" style="margin-top:6px;align-items:center;">' +
+                '<button type="button" class="lime-btn lime-btn--ghost lime-btn--sm" data-doc-class-rename title="Переименовать">✎ Имя</button>' +
+                '<button type="button" class="lime-block-toolbar__btn lime-block-toolbar__btn--danger" data-doc-class-delete title="Удалить класс">🗑</button>' +
+                '<button type="button" class="lime-btn lime-btn--sm" data-doc-class-done style="margin-left:auto;">Готово</button>' +
+            '</div>');
+    }
+
+    // Обход всех блоков документа (страницы + определения компонентов, рекурсивно по children).
+    function walkAllBlocks(fn) {
+        function rec(arr) {
+            for (var i = 0; i < arr.length; i++) {
+                fn(arr[i]);
+                var t = targetBlock(arr[i]);
+                if (t && t.children) rec(t.children);
+            }
+        }
+        doc.pages.forEach(function (p) { rec(p.blocks || []); });
+        Object.keys(doc.components).forEach(function (k) {
+            var cb = doc.components[k] && doc.components[k].block;
+            if (cb) { fn(cb); if (cb.children) rec(cb.children); }
+        });
+    }
+    function stripClassEverywhere(cls) {
+        walkAllBlocks(function (b) {
+            if (b.classes) {
+                var i = b.classes.indexOf(cls);
+                if (i !== -1) b.classes.splice(i, 1);
+                if (!b.classes.length) delete b.classes;
+            }
+        });
+    }
+    function applyClassToBlock(cls) {
+        var b = byId(selectedId); if (!b || !cls) return;
+        if (blockClassList(b).indexOf(cls) === -1) toggleBlockClass(b, cls);
+        render(); markDirty();
+    }
+    function removeClassFromBlock(cls) {
+        var b = byId(selectedId); if (!b) return;
+        var list = blockClassList(b);
+        var i = list.indexOf(cls); if (i !== -1) list.splice(i, 1);
+        if (!list.length) delete targetBlock(b).classes;
+        render(); markDirty();
+    }
+    function createClassFromBlock() {
+        var b = byId(selectedId); if (!b) return;
+        var t = targetBlock(b);
+        var name = (window.prompt("Название класса:", "Мой класс") || "").trim();
+        if (!name) return;
+        var cls = newClassId();
+        // Снимок текущих стилей блока становится стилями класса (Webflow «extract to class»):
+        // свои стили блока убираем — теперь вид задаёт класс, и его можно менять для всех.
+        var styles = t.styles ? JSON.parse(JSON.stringify(t.styles)) : {};
+        classDefs().push({ cls: cls, name: name, styles: styles });
+        if (!t.classes) t.classes = [];
+        t.classes.push(cls);
+        delete t.styles;
+        currentClass = cls; currentState = "normal"; // сразу правим созданный класс
+        render(); markDirty();
+    }
+    function editClass(cls) { currentClass = cls; currentState = "normal"; render(); }
+    function exitClassEdit() { currentClass = null; render(); }
+    function deleteClass(cls) {
+        if (!window.confirm("Удалить класс? Он снимется со всех блоков.")) return;
+        var l = classDefs();
+        for (var i = 0; i < l.length; i++) if (l[i].cls === cls) { l.splice(i, 1); break; }
+        stripClassEverywhere(cls);
+        currentClass = null; render(); markDirty();
+    }
+    function renameClass(cls) {
+        var def = findClassDef(cls); if (!def) return;
+        var name = (window.prompt("Новое имя класса:", def.name || "") || "").trim();
+        if (name) { def.name = name; refreshInspector(); markDirty(); }
     }
 
     // ----- Многослойные тени (1.2). box-shadow — список слоёв через запятую; пишем
@@ -1030,9 +1408,15 @@
             '<button type="button" class="' + (currentState === "normal" ? "is-active" : "") + '" data-doc-state="normal">Обычное</button>' +
             '<button type="button" class="' + (currentState === "hover" ? "is-active" : "") + '" data-doc-state="hover">Наведение</button>' +
             '</div>' + (currentState === "hover" ? '<div class="lime-inspector__hint" style="margin-top:6px;">Стили применяются при наведении курсора. В холсте показан вид наведения.</div>' : ''));
-        var styleBody = (currentState === "hover")
-            ? stateSeg + renderStyleSections(s)
-            : containerHint + colsSec + contentExtras(t) + bgInspector(b, s) + stateSeg + renderStyleSections(s);
+        var styleBody;
+        if (currentClass) {
+            // Режим правки класса: только баннер + переключатель состояния + стили (контент/фон/колонки — это про блок).
+            styleBody = classEditBanner() + stateSeg + renderStyleSections(s);
+        } else if (currentState === "hover") {
+            styleBody = classesSection(b) + stateSeg + renderStyleSections(s);
+        } else {
+            styleBody = classesSection(b) + containerHint + colsSec + contentExtras(t) + bgInspector(b, s) + stateSeg + renderStyleSections(s);
+        }
         var fxBody = fxInspector(t) + animInspector(t);
         var motionBody = motionInspector(t) + sceneInspector(t) + layersInspector(t);
 
@@ -1322,6 +1706,7 @@
     }
 
     function setStyle(prop, val) {
+        if (currentClass) { setClassStyle(prop, val); return; } // правим класс, не блок (0.1)
         var b = targetBlock(byId(selectedId));
         if (!b) return;
         if (!b.styles) b.styles = {};
@@ -1330,6 +1715,20 @@
         if (val === "" || val == null) delete b.styles[bucket][prop];
         else b.styles[bucket][prop] = val;
         if (!Object.keys(b.styles[bucket]).length) delete b.styles[bucket]; // не плодим пустые бакеты
+        applyPreviewStyles();
+        markDirty();
+    }
+    // Запись стиля в определение класса (0.1): живое превью через applyPreviewStyles
+    // обновит ВСЕ блоки с этим классом без полного ре-рендера (ползунок не теряет фокус).
+    function setClassStyle(prop, val) {
+        var def = findClassDef(currentClass);
+        if (!def) return;
+        if (!def.styles) def.styles = {};
+        var bucket = currentState === "hover" ? "hover" : currentBp;
+        if (!def.styles[bucket]) def.styles[bucket] = {};
+        if (val === "" || val == null) delete def.styles[bucket][prop];
+        else def.styles[bucket][prop] = val;
+        if (!Object.keys(def.styles[bucket]).length) delete def.styles[bucket];
         applyPreviewStyles();
         markDirty();
     }
@@ -1551,6 +1950,8 @@
                 }
             } else if (t.hasAttribute("data-doc-collection")) {
                 setContentFlag("collection", t.value || null);
+            } else if (t.hasAttribute("data-doc-class-add")) {
+                if (t.value) applyClassToBlock(t.value); // <select> применить класс (0.1)
             }
         });
         inspectorEl.addEventListener("click", function (e) {
@@ -1569,6 +1970,13 @@
                 applyPreviewStyles(); // показать/убрать вид наведения в холсте
                 return;
             }
+            // Классы (0.1)
+            if ((el = e.target.closest("[data-doc-class-edit]"))) { editClass(el.dataset.docClassEdit); return; }
+            if ((el = e.target.closest("[data-doc-class-remove]"))) { removeClassFromBlock(el.dataset.docClassRemove); return; }
+            if (e.target.closest("[data-doc-class-new]")) { createClassFromBlock(); return; }
+            if (e.target.closest("[data-doc-class-done]")) { exitClassEdit(); return; }
+            if (e.target.closest("[data-doc-class-delete]")) { deleteClass(currentClass); return; }
+            if (e.target.closest("[data-doc-class-rename]")) { renameClass(currentClass); return; }
             if (e.target.closest("[data-doc-shadow-add]")) { addShadow(); return; }
             if ((el = e.target.closest("[data-doc-shadow-del]"))) { delShadow(parseInt(el.dataset.docShadowDel, 10)); return; }
             if ((el = e.target.closest("[data-doc-style]")) && el.tagName === "BUTTON") {
@@ -1966,17 +2374,65 @@
         if (themeModal && e.target.closest("[data-doc-theme-close]")) themeModal.classList.remove("is-open");
     });
 
+    // ===== КОД САЙТА (этап 0.2): глобальный CSS + кастомный head =====
+    var codeModal = document.getElementById("lime-doc-code-modal");
+    var cssArea = document.getElementById("lime-doc-custom-css");
+    var headArea = document.getElementById("lime-doc-custom-head");
+    var codeOpen = document.querySelector("[data-doc-code-open]");
+    if (codeOpen && codeModal) {
+        codeOpen.addEventListener("click", function () {
+            if (cssArea) cssArea.value = doc.customCss || "";
+            if (headArea) headArea.value = doc.head || "";
+            codeModal.classList.add("is-open");
+        });
+    }
+    // CSS правим живьём — render() обновляет холст; head только сохраняем (на холст не влияет).
+    if (cssArea) cssArea.addEventListener("input", function () {
+        doc.customCss = cssArea.value;
+        if (!doc.customCss) delete doc.customCss;
+        render(); markDirty();
+    });
+    if (headArea) headArea.addEventListener("input", function () {
+        doc.head = headArea.value;
+        if (!doc.head) delete doc.head;
+        markDirty();
+    });
+    document.addEventListener("click", function (e) {
+        if (codeModal && e.target.closest("[data-doc-code-close]")) codeModal.classList.remove("is-open");
+    });
+
     // ===== PAGES / COMPONENTS UI =====
     var pagesBox = document.getElementById("lime-doc-pages");
+    var pagesModal = document.getElementById("lime-doc-pages-modal");
+    function openPagesModal() { if (pagesModal) { renderPagesList(); pagesModal.classList.add("is-open"); } }
     if (pagesBox) {
         pagesBox.addEventListener("click", function (e) {
+            if (e.target.closest("[data-doc-pages-open]")) { openPagesModal(); return; }
             if (e.target.closest("[data-doc-page-add]")) { addPage(); return; }
             var tab = e.target.closest("[data-doc-page]");
             if (tab) switchPage(parseInt(tab.getAttribute("data-doc-page"), 10));
         });
         pagesBox.addEventListener("dblclick", function (e) {
-            var tab = e.target.closest("[data-doc-page]");
-            if (tab) renameOrDeletePage(parseInt(tab.getAttribute("data-doc-page"), 10));
+            if (e.target.closest("[data-doc-page]")) openPagesModal();
+        });
+    }
+    if (pagesModal) {
+        pagesModal.addEventListener("click", function (e) {
+            var el;
+            if (e.target.closest("[data-doc-pages-close]")) { pagesModal.classList.remove("is-open"); return; }
+            if (e.target.closest("[data-doc-page-add-modal]")) { addPage(); return; }
+            if ((el = e.target.closest("[data-doc-page-goto]"))) { switchPage(parseInt(el.dataset.docPageGoto, 10)); renderPagesList(); return; }
+            if ((el = e.target.closest("[data-doc-page-dup]"))) { duplicatePage(parseInt(el.dataset.docPageDup, 10)); return; }
+            if ((el = e.target.closest("[data-doc-page-del]"))) { deletePage(parseInt(el.dataset.docPageDel, 10)); return; }
+        });
+        pagesModal.addEventListener("input", function (e) {
+            var el;
+            if ((el = e.target.closest("[data-doc-page-title]"))) setPageTitle(parseInt(el.dataset.docPageTitle, 10), el.value);
+        });
+        // Слаг нормализуем по уходу из поля (на каждый ввод дёргать uniqueSlug мешает печатать).
+        pagesModal.addEventListener("change", function (e) {
+            var el;
+            if ((el = e.target.closest("[data-doc-page-slug]"))) setPageSlug(parseInt(el.dataset.docPageSlug, 10), el.value);
         });
     }
     var compBox = document.getElementById("lime-doc-components");

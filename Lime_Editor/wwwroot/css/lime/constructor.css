@@ -1181,6 +1181,87 @@
 .lime-doc-page-tab.is-active { background: var(--surface); color: var(--accent); }
 .lime-doc-page-add { color: var(--fg-muted); font-weight: 700; }
 .lime-doc-page-add:hover { color: var(--accent); }
+.lime-doc-page-manage { color: var(--fg-muted); }
+.lime-doc-page-manage:hover { color: var(--accent); }
+
+/* Менеджер страниц (этап 0.3) */
+.lime-input--sm { padding: 6px 8px !important; font-size: var(--text-sm); }
+.lime-doc-page-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--border-soft);
+}
+.lime-doc-page-row.is-active { background: var(--accent-soft); border-radius: var(--radius-sm); padding: 6px; }
+.lime-doc-page-row__open {
+    background: none;
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius-sm);
+    padding: 4px 8px;
+    cursor: pointer;
+    color: var(--fg);
+}
+.lime-doc-page-row__open:hover { border-color: var(--accent); }
+
+/* Дерево слоёв (outline-навигатор, этап 0.4) */
+.lime-doc-layers { max-height: 240px; overflow-y: auto; }
+.lime-doc-layer {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 8px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-size: var(--text-sm);
+    color: var(--fg-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.lime-doc-layer:hover { background: var(--surface-glass); color: var(--fg); }
+.lime-doc-layer.is-active { background: var(--accent-soft); color: var(--accent); }
+.lime-doc-layer__ico { opacity: .6; flex: none; }
+.lime-doc-layer__name { overflow: hidden; text-overflow: ellipsis; }
+
+/* Контекстное меню блока (ПКМ, этап 0.4) */
+.lime-ctx-menu {
+    position: fixed;
+    z-index: 1000;
+    min-width: 200px;
+    background: var(--surface);
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius-md);
+    box-shadow: 0 12px 32px rgba(0,0,0,.4);
+    padding: 4px;
+}
+.lime-ctx-menu__item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    width: 100%;
+    padding: 7px 10px;
+    border: none;
+    background: none;
+    border-radius: var(--radius-sm);
+    color: var(--fg);
+    font-size: var(--text-sm);
+    cursor: pointer;
+    text-align: left;
+}
+.lime-ctx-menu__item:hover:not([disabled]) { background: var(--accent-soft); }
+.lime-ctx-menu__item[disabled] { opacity: .4; cursor: default; }
+.lime-ctx-menu__item.is-danger:hover:not([disabled]) { background: rgba(229,72,77,.15); color: var(--danger, #e5484d); }
+.lime-ctx-menu__item kbd {
+    font-size: var(--text-xs);
+    color: var(--muted);
+    background: var(--surface-glass);
+    border: 1px solid var(--border-soft);
+    border-radius: 4px;
+    padding: 1px 5px;
+}
+.lime-ctx-menu__sep { height: 1px; background: var(--border-soft); margin: 4px 2px; }
 
 .lime-doc-comp-banner {
     background: var(--accent-soft);
@@ -1194,6 +1275,41 @@
     gap: var(--space-2);
     align-items: flex-start;
 }
+
+/* Переиспользуемые style-классы (этап 0.1): чипы в инспекторе */
+.lime-doc-class-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+.lime-doc-class-chip {
+    display: inline-flex;
+    align-items: center;
+    background: var(--accent-soft);
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    font-size: var(--text-xs);
+}
+.lime-doc-class-chip__edit {
+    background: none;
+    border: none;
+    color: var(--fg);
+    padding: 4px 8px;
+    cursor: pointer;
+    font-size: inherit;
+}
+.lime-doc-class-chip__edit:hover { background: var(--accent-soft); text-decoration: underline; }
+.lime-doc-class-chip__x {
+    background: none;
+    border: none;
+    border-left: 1px solid var(--border-soft);
+    color: var(--muted);
+    padding: 4px 6px;
+    cursor: pointer;
+    line-height: 1;
+}
+.lime-doc-class-chip__x:hover { color: var(--danger, #e5484d); }
 
 /* Навигация многостраничного сайта (публичная страница) */
 .lime-doc-nav {

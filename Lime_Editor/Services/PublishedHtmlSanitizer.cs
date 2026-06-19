@@ -100,6 +100,51 @@ namespace Lime_Editor.Services
             return body != null ? body.InnerHtml : doc.DocumentNode.InnerHtml;
         }
 
+        // Кастомный код в <head> (этап 0.2): владелец вставляет верификации, мета-теги, шрифты,
+        // глобальные <style>/<link>. Пока публикации живут на одном origin с Identity-cookie
+        // (отдельный домен публикаций — этап 0.6), произвольный <script> = stored-XSS, поэтому
+        // здесь whitelist БЕЗОПАСНЫХ тегов: meta, link, style. Скрипты/iframe/base и on*-атрибуты
+        // вырезаются. Аналитика-скрипты разблокируются после 0.6.
+        private static readonly System.Collections.Generic.HashSet<string> HeadAllowedTags =
+            new(System.StringComparer.OrdinalIgnoreCase) { "meta", "link", "style" };
+
+        public static string SanitizeHead(string headHtml)
+        {
+            if (string.IsNullOrWhiteSpace(headHtml))
+            {
+                return string.Empty;
+            }
+
+            var doc = new HtmlDocument { OptionWriteEmptyNodes = true };
+            doc.LoadHtml(headHtml);
+
+            var sb = new System.Text.StringBuilder();
+            foreach (var node in doc.DocumentNode.ChildNodes)
+            {
+                if (node.NodeType != HtmlNodeType.Element) continue;
+                if (!HeadAllowedTags.Contains(node.Name)) continue;
+
+                // Снимаем on*-обработчики на разрешённых тегах (на <style> их нет, но <link>/<meta> могут нести).
+                var onAttrs = node.Attributes
+                    .Where(a => a.Name.StartsWith("on", System.StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+                foreach (var a in onAttrs) a.Remove();
+
+                // <link> только безопасных видов: rel должен быть из набора (никаких import как вектор).
+                if (node.Name.Equals("link", System.StringComparison.OrdinalIgnoreCase))
+                {
+                    var rel = node.GetAttributeValue("rel", "").ToLowerInvariant();
+                    var okRel = rel.Contains("stylesheet") || rel.Contains("preconnect") ||
+                                rel.Contains("dns-prefetch") || rel.Contains("preload") ||
+                                rel.Contains("icon") || rel.Contains("manifest");
+                    if (!okRel) continue;
+                }
+
+                sb.Append(node.OuterHtml).Append('\n');
+            }
+            return sb.ToString();
+        }
+
         // Делает формы-блоки (`<form data-lime-form>`) рабочими на опубликованной странице:
         //  - проставляет action="/Form/Submit" и method="post";
         //  - вставляет скрытый __siteId (привязка заявки к сайту) и lime_ts (метка времени для timetrap).

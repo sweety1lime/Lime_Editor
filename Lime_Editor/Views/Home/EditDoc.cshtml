@@ -54,6 +54,7 @@
                 <span class="lime-text-muted" data-doc-status style="font-size: var(--text-xs); margin-right: var(--space-2);"></span>
                 <button type="button" class="lime-btn lime-btn--violet lime-btn--sm" data-doc-ai-open title="Сгенерировать страницу по описанию">✨ AI заново</button>
                 <button type="button" class="lime-btn lime-btn--ghost lime-btn--sm" data-doc-theme-open title="Тема сайта">🎨 Тема</button>
+                <button type="button" class="lime-btn lime-btn--ghost lime-btn--sm" data-doc-code-open title="Глобальный CSS и код в head">&lt;/&gt; Код</button>
                 <button type="button" class="lime-btn lime-btn--primary lime-btn--sm" data-doc-save data-site-id="@(Model.SiteId?.ToString() ?? "")">
                     @(isEdit ? "Обновить" : "Опубликовать")
                 </button>
@@ -120,6 +121,11 @@
                 <h3>Готовые секции</h3>
                 <div id="lime-doc-presets" class="lime-editor__tiles"></div>
             </div>
+            <div class="lime-editor__sidebar-section">
+                <h3>Слои</h3>
+                <div id="lime-doc-layers" class="lime-doc-layers"></div>
+            </div>
+
             <div class="lime-editor__sidebar-section">
                 <h3>Компоненты</h3>
                 <div id="lime-doc-components"></div>
@@ -222,6 +228,53 @@
                 </select>
                 <div class="lime-flex lime-gap-2" style="justify-content:flex-end; margin-top: var(--space-3);">
                     <button type="button" class="lime-btn lime-btn--primary lime-btn--sm" data-doc-theme-close>Готово</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Менеджер страниц (этап 0.3) -->
+    <div id="lime-doc-pages-modal" class="lime-modal-backdrop">
+        <div class="lime-modal" style="max-width: 560px;">
+            <div class="lime-modal__head">
+                <h3 style="margin:0;">Страницы сайта</h3>
+                <button type="button" class="lime-modal__close" data-doc-pages-close aria-label="Закрыть">×</button>
+            </div>
+            <div class="lime-modal__body">
+                <p class="lime-text-muted" style="font-size: var(--text-xs); margin-bottom: var(--space-3);">
+                    Первая страница — главная (адрес сайта). У остальных адрес = слаг: <code>/u/user/slug/страница</code>.
+                </p>
+                <div id="lime-doc-pages-list"></div>
+                <button type="button" class="lime-btn lime-btn--soft lime-btn--sm" data-doc-page-add-modal style="margin-top: var(--space-3);">＋ Добавить страницу</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Код сайта (этап 0.2): глобальный CSS + кастомный head -->
+    <div id="lime-doc-code-modal" class="lime-modal-backdrop">
+        <div class="lime-modal" style="max-width: 640px;">
+            <div class="lime-modal__head">
+                <h3 style="margin:0;">&lt;/&gt; Код сайта</h3>
+                <button type="button" class="lime-modal__close" data-doc-code-close aria-label="Закрыть">×</button>
+            </div>
+            <div class="lime-modal__body">
+                <label style="display:block; font-size: var(--text-xs); color: var(--muted); margin-bottom: 6px;">
+                    Глобальный CSS <span class="lime-text-muted">— применяется ко всему сайту, идёт после стилей блоков (может их перебить)</span>
+                </label>
+                <textarea id="lime-doc-custom-css" class="lime-textarea" rows="8" spellcheck="false"
+                          style="width:100%; font-family: var(--font-mono, monospace); font-size: var(--text-sm);"
+                          placeholder=".lime-block__heading { letter-spacing: -.02em }&#10;a { transition: color .2s }"></textarea>
+                <label style="display:block; font-size: var(--text-xs); color: var(--muted); margin: var(--space-3) 0 6px;">
+                    Код в &lt;head&gt; <span class="lime-text-muted">— мета-теги, верификации, шрифты, &lt;link&gt;/&lt;style&gt;</span>
+                </label>
+                <textarea id="lime-doc-custom-head" class="lime-textarea" rows="6" spellcheck="false"
+                          style="width:100%; font-family: var(--font-mono, monospace); font-size: var(--text-sm);"
+                          placeholder='&lt;meta name="yandex-verification" content="..."&gt;&#10;&lt;link rel="stylesheet" href="https://..."&gt;'></textarea>
+                <div class="lime-editor__hint" style="margin-top: var(--space-2);">
+                    В целях безопасности &lt;script&gt; в head пока вырезается на публикации (разблокируется после выноса публикаций на отдельный домен). Разрешены meta, link, style.
+                </div>
+                <div class="lime-flex lime-gap-2" style="justify-content:flex-end; margin-top: var(--space-3);">
+                    <button type="button" class="lime-btn lime-btn--primary lime-btn--sm" data-doc-code-close>Готово</button>
                 </div>
             </div>
         </div>

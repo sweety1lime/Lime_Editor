@@ -22,6 +22,35 @@ namespace Lime.Tests.Services
         }
 
         [Fact]
+        public void SanitizeHead_AllowsSafeTags_StripsScriptsAndHandlers()
+        {
+            // Этап 0.2: кастомный <head>-код — whitelist meta/link/style, без script/on*/iframe/base.
+            var head = "<meta name=\"yandex-verification\" content=\"abc\">" +
+                       "<link rel=\"stylesheet\" href=\"https://cdn/x.css\">" +
+                       "<style>.x{color:red}</style>" +
+                       "<script>steal(document.cookie)</script>" +
+                       "<base href=\"https://evil/\">" +
+                       "<link rel=\"import\" href=\"https://evil/x.html\">" +
+                       "<meta http-equiv=\"refresh\" content=\"0;url=https://evil\" onload=\"x()\">";
+            var clean = PublishedHtmlSanitizer.SanitizeHead(head);
+
+            Assert.Contains("yandex-verification", clean);
+            Assert.Contains("stylesheet", clean);
+            Assert.Contains(".x{color:red}", clean);
+            Assert.DoesNotContain("steal", clean);            // <script> вырезан
+            Assert.DoesNotContain("<base", clean);            // <base> не в whitelist
+            Assert.DoesNotContain("rel=\"import\"", clean);   // опасный rel у link
+            Assert.DoesNotContain("onload", clean);           // on*-атрибуты сняты
+        }
+
+        [Fact]
+        public void SanitizeHead_EmptyOrNull_ReturnsEmpty()
+        {
+            Assert.Equal(string.Empty, PublishedHtmlSanitizer.SanitizeHead(null));
+            Assert.Equal(string.Empty, PublishedHtmlSanitizer.SanitizeHead("   "));
+        }
+
+        [Fact]
         public void Strips_SaveTemplateScript()
         {
             var html = @"<html><body><h1>X</h1><script src=""/js/saveTemplate.js""></script></body></html>";

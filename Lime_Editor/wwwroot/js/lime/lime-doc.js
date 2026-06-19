@@ -16,9 +16,14 @@
  *           "hover":  { "color": "#84cc16" }  // опц. стили на :hover (1.2), вне брейкпоинтов
  *         },
  *         "css": "h2 { letter-spacing: 1px }", // опц. свой CSS (auto-scoped к блоку)
+ *         "classes": ["c1ab2cd"],             // опц. переиспользуемые style-классы (этап 0.1)
  *         "children": []                      // опц. вложенные блоки (контейнеры, этап 0.1/1.1)
  *       }
- *     ]
+ *     ],
+ *     "theme": {                              // токены сайта (этап 0.1):
+ *       "accent": "#84cc16", "palette": ["#..."],   // палитра → --lt-c1..cN
+ *       "classes": [ { "cls": "c1ab2cd", "name": "Кнопка", "styles": { "base": {...}, "hover": {...} } } ]
+ *     }
  *   }
  *
  * Один рендерер используется и для превью в редакторе (opts.editable), и для
@@ -61,14 +66,76 @@
         { key: "muted", label: "Приглушённый", var: "--lt-muted" }
     ];
 
+    // Фиксированные шкалы дизайн-системы (этап 0.1): спейсинг и типографика как CSS-переменные,
+    // чтобы классы/блоки/AI ссылались на var(--lt-space-*) / var(--lt-text-*), а не на «магические px».
+    var SPACE_SCALE = { 1: "4px", 2: "8px", 3: "12px", 4: "16px", 5: "24px", 6: "32px", 7: "48px", 8: "64px", 9: "96px" };
+    var TEXT_SCALE = { xs: ".75rem", sm: ".875rem", base: "1rem", lg: "1.125rem", xl: "1.25rem", "2xl": "1.5rem", "3xl": "2rem", "4xl": "2.5rem", "5xl": "3.25rem" };
+
+    function scaleVars(prefix, scale) {
+        return Object.keys(scale).map(function (k) { return "--lt-" + prefix + "-" + k + ":" + scale[k] + ";"; }).join("");
+    }
+
     function themeCss(theme) {
         var t = {};
         Object.assign(t, DEFAULT_THEME, theme || {});
+        // Дополнительная палитра (этап 0.1): theme.palette = ["#hex", ...] → --lt-c1..cN.
+        var palette = "";
+        if (t.palette && t.palette.length) {
+            for (var pi = 0; pi < t.palette.length; pi++) palette += "--lt-c" + (pi + 1) + ":" + t.palette[pi] + ";";
+        }
         return ":root{" +
             "--lt-accent:" + t.accent + ";--lt-accent2:" + t.accent2 + ";" +
             "--lt-bg:" + t.bg + ";--lt-fg:" + t.fg + ";--lt-muted:" + t.muted + ";" +
-            "--lt-font:" + t.font + ";}" +
+            "--lt-font:" + t.font + ";" + palette +
+            scaleVars("space", SPACE_SCALE) + scaleVars("text", TEXT_SCALE) + "}" +
             ".lime-doc-page{background:var(--lt-bg);color:var(--lt-fg);font-family:var(--lt-font);}";
+    }
+
+    // CSS-идентификатор класса должен быть безопасен (документ может быть подделан) —
+    // пропускаем только [A-Za-z0-9_-], как whitelist FX. Имя класса для показа хранится
+    // отдельно (theme.classes[].name), а ссылки идут по theme.classes[].cls.
+    function safeCls(cls) {
+        return (typeof cls === "string" && /^[A-Za-z0-9_-]+$/.test(cls)) ? cls : null;
+    }
+
+    // Стили по бакетам (base + media tablet/mobile + hover) для произвольного селектора —
+    // общая логика блока и переиспользуемого класса (этап 0.1).
+    function bucketsCss(sel, s) {
+        var css = "";
+        if (s.base) css += sel + "{" + styleDecls(s.base) + "}";
+        if (s.tablet) css += "@media(max-width:" + BREAKPOINTS.tablet + "px){" + sel + "{" + styleDecls(s.tablet) + "}}";
+        if (s.mobile) css += "@media(max-width:" + BREAKPOINTS.mobile + "px){" + sel + "{" + styleDecls(s.mobile) + "}}";
+        // Состояние наведения (1.2): отдельный бакет styles.hover, вне брейкпоинтов.
+        if (s.hover && Object.keys(s.hover).length) {
+            css += sel + "{transition:all .2s ease;}";
+            css += sel + ":hover{" + styleDecls(s.hover) + "}";
+        }
+        return css;
+    }
+
+    // Переиспользуемые style-классы сайта (этап 0.1, аналог Webflow classes): один набор
+    // стилей, на который ссылаются много блоков (block.classes:["cls"]). Меняешь класс —
+    // меняются все блоки с ним. Эмитится ПОСЛЕ темы и ДО per-block css, чтобы свой стиль
+    // блока перебивал класс при равной специфичности.
+    function classesCss(theme) {
+        var list = (theme && theme.classes) || [];
+        var css = "";
+        for (var i = 0; i < list.length; i++) {
+            var c = list[i];
+            var cls = c && safeCls(c.cls);
+            if (!cls || !c.styles) continue;
+            css += bucketsCss(".lime-c-" + cls, c.styles);
+        }
+        return css;
+    }
+
+    // Глобальный CSS сайта (этап 0.2): сырой CSS владельца, применяется ко всему сайту.
+    // Идёт ПОСЛЕДНИМ в style-блоке → может перебить любой блок (escape hatch). Единственная
+    // защита — нельзя закрыть <style> изнутри (вырезаем последовательность "</style").
+    function customCssOf(doc) {
+        var c = doc && doc.customCss;
+        if (typeof c !== "string" || !c) return "";
+        return "\n" + c.replace(/<\/style/gi, "");
     }
 
     function escHtml(s) {
@@ -107,17 +174,7 @@
     // CSS блока: base + media(tablet) + media(mobile) + свой scoped css + рекурсивно children.
     function compileBlockCss(block, components, depth) {
         var sel = '[data-block-id="' + block.id + '"]';
-        var s = block.styles || {};
-        var css = "";
-        if (s.base) css += sel + "{" + styleDecls(s.base) + "}";
-        if (s.tablet) css += "@media(max-width:" + BREAKPOINTS.tablet + "px){" + sel + "{" + styleDecls(s.tablet) + "}}";
-        if (s.mobile) css += "@media(max-width:" + BREAKPOINTS.mobile + "px){" + sel + "{" + styleDecls(s.mobile) + "}}";
-        // Состояние наведения (1.2): отдельный бакет styles.hover, применяется на :hover
-        // независимо от брейкпоинта. Плавный переход добавляем только когда hover задан.
-        if (s.hover && Object.keys(s.hover).length) {
-            css += sel + "{transition:all .2s ease;}";
-            css += sel + ":hover{" + styleDecls(s.hover) + "}";
-        }
+        var css = bucketsCss(sel, block.styles || {});
         if (block.css) css += scopeCss(block.css, sel);
         if ((depth || 0) < MAX_DEPTH) {
             (block.children || []).forEach(function (ch) {
@@ -615,6 +672,14 @@
                 if (FX_KEYS[block.fx[fi]]) fxCls += " lime-fx-" + block.fx[fi];
             }
         }
+        // Переиспользуемые style-классы (этап 0.1): lime-c-* по белому списку safeCls.
+        var userCls = "";
+        if (block.classes && block.classes.length) {
+            for (var uci = 0; uci < block.classes.length; uci++) {
+                var sc = safeCls(block.classes[uci]);
+                if (sc) userCls += " lime-c-" + sc;
+            }
+        }
         // Макет (Фаза 6.2): boxed — контент в колонку по центру (фон остаётся full-bleed); bento — плотная сетка.
         var layout = "";
         if (block.content) {
@@ -623,7 +688,7 @@
         }
         // Грип перетаскивания — только в редакторе.
         var grip = (opts && opts.editable) ? '<span class="lime-block-grip" title="Перетащить">⠿</span>' : "";
-        return '<section class="lime-block' + fxCls + '" data-block-type="' + escAttr(block.type) + '" data-block-id="' + escAttr(block.id) + '"' + cols + anim + motion + layout + ">" +
+        return '<section class="lime-block' + fxCls + userCls + '" data-block-type="' + escAttr(block.type) + '" data-block-id="' + escAttr(block.id) + '"' + cols + anim + motion + layout + ">" +
             bgLayersHtml(block) +
             layersHtml(block, opts) +
             grip +
@@ -640,7 +705,8 @@
                 id: block.id, type: c.type, content: c.content, styles: c.styles, css: c.css,
                 anim: c.anim, animDelay: c.animDelay, animDuration: c.animDuration,
                 parallax: c.parallax, sticky: c.sticky, stickyOffset: c.stickyOffset,
-                marquee: c.marquee, scene: c.scene, layers: c.layers, fx: c.fx, children: c.children
+                marquee: c.marquee, scene: c.scene, layers: c.layers, fx: c.fx,
+                classes: c.classes, children: c.children
             };
         }
         return block;
@@ -658,7 +724,7 @@
     function render(doc, opts) {
         doc = doc || {};
         var r = renderBlocks(doc.blocks || [], doc.components || {}, opts);
-        var css = themeCss(doc.theme) + "\n" + r.css;
+        var css = themeCss(doc.theme) + "\n" + classesCss(doc.theme) + "\n" + r.css + customCssOf(doc);
         var html = '<div class="lime-doc-page">' + r.html + "</div>";
         return { css: css, html: html, body: '<style data-lime-doc-css>' + css + "</style>\n" + html };
     }
@@ -698,7 +764,7 @@
         }
         // Прокидываем данные коллекций (opts.data) в рендереры блоков (collectionList).
         var r = renderBlocks(page.blocks, doc.components || {}, { data: opts.data });
-        var css = themeCss(doc.theme) + "\n" + r.css;
+        var css = themeCss(doc.theme) + "\n" + classesCss(doc.theme) + "\n" + r.css + customCssOf(doc);
         return {
             title: page.title || "",
             body: '<style data-lime-doc-css>' + css + "</style>\n" + nav +
@@ -715,17 +781,18 @@
 
         if (pages.length <= 1) {
             var one = renderBlocks(pages[0] ? pages[0].blocks : [], comps, {});
-            var css1 = themeCss(doc.theme) + "\n" + one.css;
+            var css1 = themeCss(doc.theme) + "\n" + classesCss(doc.theme) + "\n" + one.css + customCssOf(doc);
             return '<style data-lime-doc-css>' + css1 + "</style>\n<div class=\"lime-doc-page\">" + one.html + "</div>";
         }
 
-        var cssParts = [themeCss(doc.theme)];
+        var cssParts = [themeCss(doc.theme), classesCss(doc.theme)];
         var nav = '<nav class="lime-doc-nav">' + pages.map(function (p) {
             return '<a href="#' + escAttr(p.slug) + '" data-lime-page-link="' + escAttr(p.slug) + '">' + escHtml(p.title || p.slug || "Стр.") + "</a>";
         }).join("") + "</nav>";
         var wraps = pages.map(function (p, i) {
             var r = renderBlocks(p.blocks, comps, {});
             cssParts.push(r.css);
+            if (i === pages.length - 1) cssParts.push(customCssOf(doc)); // глобальный CSS — после всех блоков
             return '<div class="lime-doc-page lime-doc-page-wrap" data-lime-page="' + escAttr(p.slug) + '"' + (i > 0 ? " hidden" : "") + ">" + r.html + "</div>";
         }).join("\n");
         return '<style data-lime-doc-css>' + cssParts.join("\n") + "</style>\n" +
@@ -738,12 +805,13 @@
         doc = doc || {};
         var comps = doc.components || {};
         var pages = pagesOf(doc);
-        var css = themeCss(doc.theme);
+        var css = themeCss(doc.theme) + "\n" + classesCss(doc.theme);
         pages.forEach(function (p) {
             (p.blocks || []).forEach(function (b) {
                 css += "\n" + compileBlockCss(resolve(b, comps), comps);
             });
         });
+        css += customCssOf(doc); // глобальный CSS сайта — и в Next-экспорт (этап 0.2)
         return css;
     }
 
@@ -763,6 +831,8 @@
         compileBlockCss: compileBlockCss,
         compileDocCss: compileDocCss,
         themeCss: themeCss,
+        classesCss: classesCss,
+        safeCls: safeCls,
         scopeCss: scopeCss,
         styleDecls: styleDecls
     };

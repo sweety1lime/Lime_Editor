@@ -42,7 +42,7 @@ namespace Lime_Editor.Controllers
                 try
                 {
                     var body = _docRenderer.RenderSite(site.PublishedDocumentJson);
-                    site.Folder = Services.PublishedPageBuilder.WrapCustomHtml(body, site);
+                    site.Folder = Services.PublishedPageBuilder.WrapCustomHtml(body, site, site.PublishedDocumentJson);
                     ok++;
                 }
                 catch

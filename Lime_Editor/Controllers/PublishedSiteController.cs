@@ -68,7 +68,7 @@ namespace Lime_Editor.Controllers
             }
             // Для главной title сайта, для внутренних — «Страница — Сайт».
             var pageTitle = string.IsNullOrEmpty(page) ? null : rendered.Title;
-            var html = PublishedPageBuilder.WrapCustomHtml(rendered.Body, site, pageTitle);
+            var html = PublishedPageBuilder.WrapCustomHtml(rendered.Body, site, site.PublishedDocumentJson, pageTitle);
             html = PublishedHtmlSanitizer.InjectFormEndpoints(html, site.IdSite ?? 0);
             return Content(html, "text/html");
         }

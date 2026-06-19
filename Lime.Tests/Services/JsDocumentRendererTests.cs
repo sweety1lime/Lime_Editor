@@ -74,6 +74,41 @@ namespace Lime.Tests.Services
         }
 
         [Fact]
+        public void RenderSite_CompilesReusableClassesAndTokens()
+        {
+            // Этап 0.1: переиспользуемые style-классы и расширенные токены должны компилироваться
+            // и на сервере (Jint исполняет тот же lime-doc.js) — инвариант «один рендер везде».
+            var renderer = new JsDocumentRenderer(EnginePath());
+            var doc = /*lang=json*/ @"{
+                ""version"": 1,
+                ""theme"": {
+                    ""palette"": [ ""#112233"", ""#445566"" ],
+                    ""classes"": [
+                        { ""cls"": ""btnX"", ""name"": ""Кнопка"", ""styles"": {
+                            ""base"": { ""color"": ""#fff"", ""padding"": ""12px"" },
+                            ""hover"": { ""color"": ""#84cc16"" }
+                        } },
+                        { ""cls"": ""bad name"", ""styles"": { ""base"": { ""color"": ""#000"" } } }
+                    ]
+                },
+                ""blocks"": [
+                    { ""id"": ""bc1"", ""type"": ""cta"", ""content"": { ""title"": ""T"" }, ""classes"": [ ""btnX"" ] }
+                ]
+            }";
+            var html = renderer.RenderSite(doc);
+
+            Assert.Contains(".lime-c-btnX{color:#fff;padding:12px;}", html);
+            Assert.Contains(".lime-c-btnX:hover{color:#84cc16;}", html);
+            Assert.Contains("class=\"lime-block lime-c-btnX\"", html);
+            // Невалидный cls (с пробелом) отброшен whitelist'ом safeCls.
+            Assert.DoesNotContain("bad name", html);
+            // Расширенные токены: палитра + фиксированные шкалы.
+            Assert.Contains("--lt-c1:#112233;", html);
+            Assert.Contains("--lt-space-4:16px;", html);
+            Assert.Contains("--lt-text-2xl:1.5rem;", html);
+        }
+
+        [Fact]
         public void RenderSite_NullAndEmptyDoc_DoNotThrow()
         {
             var renderer = new JsDocumentRenderer(EnginePath());

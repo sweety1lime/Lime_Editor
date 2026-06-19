@@ -307,7 +307,7 @@ namespace Lime_Editor.Controllers
         // Wrap для сохранения Folder в БД вынесен в Services.PublishedPageBuilder (этап 0.2) —
         // он нужен и Publish здесь, и RepublishAll в админке.
         private static string WrapCustomHtml(string innerHtml, Site site)
-            => Services.PublishedPageBuilder.WrapCustomHtml(innerHtml, site);
+            => Services.PublishedPageBuilder.WrapCustomHtml(innerHtml, site, site.DocumentJson);
 
         private async Task<string> GenerateUniqueSlugAsync(int userId, string baseName)
         {
@@ -406,7 +406,7 @@ namespace Lime_Editor.Controllers
             {
                 target.PublishedDocumentJson = target.DocumentJson;
                 var body = _docRenderer.RenderSite(target.PublishedDocumentJson);
-                target.Folder = PublishedPageBuilder.WrapCustomHtml(body, target);
+                target.Folder = PublishedPageBuilder.WrapCustomHtml(body, target, target.PublishedDocumentJson);
             }
             target.IsPublished = true;
             target.PublishedAt = DateTime.UtcNow;
