@@ -20,6 +20,7 @@ namespace Lime_Editor.Controllers
         private const string HoneypotField = "lime_hp";
         private const string SiteIdField = "__siteId";
         private const string TimestampField = "lime_ts";
+        private const string CollectionField = "__collection";
 
         private readonly LimeEditorContext db;
         private readonly UserManager<ApplicationUser> _userManager;
@@ -72,7 +73,7 @@ namespace Lime_Editor.Controllers
             var data = new Dictionary<string, string>();
             foreach (var kv in form)
             {
-                if (kv.Key == HoneypotField || kv.Key == SiteIdField || kv.Key == TimestampField)
+                if (kv.Key == HoneypotField || kv.Key == SiteIdField || kv.Key == TimestampField || kv.Key == CollectionField)
                 {
                     continue;
                 }
@@ -81,6 +82,26 @@ namespace Lime_Editor.Controllers
             if (data.Count == 0)
             {
                 return BackToSite(form, sent: false);
+            }
+
+            // Фуллстак: если форма нацелена на коллекцию данных сайта — пишем запись туда.
+            var collectionSlug = form[CollectionField].ToString();
+            if (!string.IsNullOrEmpty(collectionSlug))
+            {
+                var collection = await db.Collections
+                    .FirstOrDefaultAsync(c => c.SiteId == siteId && c.Slug == collectionSlug);
+                if (collection != null)
+                {
+                    db.CollectionRecords.Add(new CollectionRecord
+                    {
+                        CollectionId = collection.Id,
+                        DataJson = JsonConvert.SerializeObject(data),
+                        CreatedAt = DateTime.UtcNow,
+                    });
+                    await db.SaveChangesAsync();
+                    return BackToSite(form, sent: true);
+                }
+                // Коллекция не найдена/чужая → не теряем заявку, падаем в обычный инбокс.
             }
 
             db.FormSubmissions.Add(new FormSubmission

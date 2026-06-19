@@ -4,15 +4,13 @@ namespace Lime_Editor.Models
     {
         public int? SiteId { get; set; }
         public string SiteName { get; set; }
-        // Готовый innerHTML #lime-workspace для повторного редактирования. Пустая строка для новой страницы.
-        public string BodyHtml { get; set; }
 
         // SEO-мета (правится в редакторе, прокидывается в head опубликованной страницы).
         public string MetaTitle { get; set; }
         public string MetaDescription { get; set; }
         public string OgImage { get; set; }
 
-        // JSON-документ нового движка (Трек B). null → редактируем legacy DOM-блоб.
+        // JSON-документ движка B — источник правды страницы.
         public string DocumentJson { get; set; }
 
         // Версия документа (Site.UpdatedAt.Ticks) для optimistic concurrency (этап 0.4):

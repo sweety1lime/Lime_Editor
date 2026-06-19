@@ -34,8 +34,15 @@ namespace Lime_Editor.Services
                 seo += $"<meta property=\"og:image\" content=\"{safeOg}\">\n";
             }
 
-            // GSAP + рантайм scroll-анимаций подключаем только если в контенте есть блоки с data-anim.
-            var animScripts = (innerHtml != null && innerHtml.Contains("data-anim"))
+            // GSAP + рантайм scroll-движения подключаем, если в контенте есть любой маркер
+            // движения: reveal (data-anim), параллакс, sticky или бегущая строка.
+            var hasMotion = innerHtml != null && (
+                innerHtml.Contains("data-anim") ||
+                innerHtml.Contains("data-parallax") ||
+                innerHtml.Contains("data-sticky") ||
+                innerHtml.Contains("data-marquee") ||
+                innerHtml.Contains("data-scene"));
+            var animScripts = hasMotion
                 ? "<script src=\"https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js\" defer></script>\n" +
                   "<script src=\"https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js\" defer></script>\n" +
                   "<script src=\"/js/lime/lime-animate.js\" defer></script>\n"
@@ -54,15 +61,86 @@ namespace Lime_Editor.Services
                    seo +
                    "<link rel=\"preconnect\" href=\"https://fonts.googleapis.com\">\n" +
                    "<link rel=\"preconnect\" href=\"https://fonts.gstatic.com\" crossorigin>\n" +
-                   "<link href=\"https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap\" rel=\"stylesheet\">\n" +
+                   BuildFontsLink(innerHtml) +
                    "<link rel=\"stylesheet\" href=\"/css/lime/tokens.css\">\n" +
                    "<link rel=\"stylesheet\" href=\"/css/lime/base.css\">\n" +
                    "<link rel=\"stylesheet\" href=\"/css/lime/components.css\">\n" +
                    "<link rel=\"stylesheet\" href=\"/css/lime/constructor.css\">\n" +
                    animScripts +
-                   "</head>\n<body>\n" +
+                   // Лёгкий сигнатурный лоск (Фаза 4): прогресс скролла. Без GSAP, на каждой странице.
+                   "<script src=\"/js/lime/lime-polish.js\" defer></script>\n" +
+                   "</head>\n<body class=\"lime-published\">\n" +
                    (innerHtml ?? string.Empty) + "\n" +
                    "</body>\n</html>";
+        }
+
+        // Курируемые Google Fonts → их css2-параметры. Inter грузим всегда (базовый),
+        // остальные — только если семейство реально используется в контенте, чтобы
+        // страница оставалась лёгкой. ВАЖНО: список ИМЁН обязан совпадать с
+        // wwwroot/js/lime/lime-fonts.js (там же UI-пикер и live-загрузка в редакторе).
+        private static readonly (string Name, string Param)[] FontFamilies =
+        {
+            // Без засечек
+            ("Roboto", "Roboto:wght@400;500;700;900"),
+            ("Open Sans", "Open+Sans:wght@400;500;600;700;800"),
+            ("Montserrat", "Montserrat:wght@400;500;600;700;800"),
+            ("Poppins", "Poppins:wght@400;500;600;700;800"),
+            ("Manrope", "Manrope:wght@400;500;600;700;800"),
+            ("Lato", "Lato:wght@400;700;900"),
+            ("Nunito", "Nunito:wght@400;600;700;800"),
+            ("Raleway", "Raleway:wght@400;500;600;700;800"),
+            ("Work Sans", "Work+Sans:wght@400;500;600;700;800"),
+            ("DM Sans", "DM+Sans:wght@400;500;700"),
+            ("Space Grotesk", "Space+Grotesk:wght@400;500;600;700"),
+            ("Onest", "Onest:wght@400;500;600;700;800"),
+            ("Rubik", "Rubik:wght@400;500;600;700;800"),
+            ("Mulish", "Mulish:wght@400;600;700;800"),
+            ("Plus Jakarta Sans", "Plus+Jakarta+Sans:wght@400;500;600;700;800"),
+            // С засечками
+            ("Playfair Display", "Playfair+Display:wght@400;500;600;700;800"),
+            ("Merriweather", "Merriweather:wght@400;700;900"),
+            ("Lora", "Lora:wght@400;500;600;700"),
+            ("PT Serif", "PT+Serif:wght@400;700"),
+            ("Cormorant Garamond", "Cormorant+Garamond:wght@400;500;600;700"),
+            ("EB Garamond", "EB+Garamond:wght@400;500;600;700"),
+            ("Bitter", "Bitter:wght@400;500;600;700;800"),
+            ("Instrument Serif", "Instrument+Serif:ital@0;1"),
+            // Дисплейные
+            ("Unbounded", "Unbounded:wght@400;500;600;700;800"),
+            ("Bebas Neue", "Bebas+Neue"),
+            ("Oswald", "Oswald:wght@400;500;600;700"),
+            ("Archivo", "Archivo:wght@400;500;600;700;800"),
+            ("Comfortaa", "Comfortaa:wght@400;500;600;700"),
+            ("Righteous", "Righteous"),
+            // Рукописные
+            ("Caveat", "Caveat:wght@400;500;600;700"),
+            ("Dancing Script", "Dancing+Script:wght@400;500;600;700"),
+            ("Pacifico", "Pacifico"),
+            ("Lobster", "Lobster"),
+            // Моноширинные
+            ("JetBrains Mono", "JetBrains+Mono:wght@400;500;600;700"),
+            ("Fira Code", "Fira+Code:wght@400;500;600;700"),
+            ("IBM Plex Mono", "IBM+Plex+Mono:wght@400;500;600;700"),
+            ("Space Mono", "Space+Mono:wght@400;700"),
+        };
+
+        private static string BuildFontsLink(string innerHtml)
+        {
+            var families = new System.Collections.Generic.List<string> { "Inter:wght@400;500;600;700;800" };
+            if (!string.IsNullOrEmpty(innerHtml))
+            {
+                foreach (var f in FontFamilies)
+                {
+                    // Ищем имя в кавычках ('Lobster'), как оно выходит в font-family/--lt-font —
+                    // чтобы не сработать на случайное слово в тексте страницы.
+                    if (innerHtml.Contains("'" + f.Name + "'", System.StringComparison.OrdinalIgnoreCase))
+                    {
+                        families.Add(f.Param);
+                    }
+                }
+            }
+            var query = string.Join("&family=", families);
+            return "<link href=\"https://fonts.googleapis.com/css2?family=" + query + "&display=swap\" rel=\"stylesheet\">\n";
         }
     }
 }

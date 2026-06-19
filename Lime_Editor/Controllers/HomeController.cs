@@ -170,8 +170,8 @@ namespace Lime_Editor.Controllers
             {
                 return Forbid();
             }
-            HttpContext.Session.SetString("SiteData", controlModel.Site);
-            return RedirectToAction("PageToEdit", "Template");
+            // Движок A удалён: редактирование существующего сайта идёт в EditDoc (Движок B).
+            return RedirectToAction("EditDoc", new { siteId = site.IdSite });
         }
 
         [Authorize]
@@ -191,10 +191,11 @@ namespace Lime_Editor.Controllers
         }
 
         [Authorize]
-        public async Task<IActionResult> Templates()
+        public IActionResult Templates()
         {
-            var templates = await db.Templates.ToListAsync();
-            return View(templates);
+            // Витрина — клиентский грид шаблонов Движка B (lime-templates.js). Легаси
+            // DB-шаблоны (Движок A) удалены.
+            return View();
         }
 
         // Новый редактор на JSON-движке (Трек B). Strangler: рядом со старым EditTemplates.
@@ -321,80 +322,6 @@ namespace Lime_Editor.Controllers
         }
 
         [Authorize]
-        public async Task<IActionResult> EditTemplates(int? siteId)
-        {
-            var vm = new ConstructorViewModel
-            {
-                SiteId = null,
-                SiteName = "Новый сайт",
-                BodyHtml = string.Empty,
-            };
-            if (siteId.HasValue)
-            {
-                var userId = CurrentUserId;
-                var site = await db.Sites.FirstOrDefaultAsync(s => s.IdSite == siteId.Value && s.UserId == userId);
-                if (site == null)
-                {
-                    return Forbid();
-                }
-                if (site.TemplateId != TemplateExportConfigs.CustomTemplateId)
-                {
-                    // Не Custom — отправляем в legacy-редактор через UpdateSite-flow (через сессию).
-                    HttpContext.Session.SetString("SiteData", Newtonsoft.Json.JsonConvert.SerializeObject(site));
-                    return RedirectToAction("PageToEdit", "Template");
-                }
-                vm.SiteId = site.IdSite;
-                vm.SiteName = site.Name;
-                vm.MetaTitle = site.MetaTitle;
-                vm.MetaDescription = site.MetaDescription;
-                vm.OgImage = site.OgImage;
-                vm.DocumentJson = site.DocumentJson;
-                // Редактируем черновик (если есть), иначе опубликованный снапшот.
-                var editSource = string.IsNullOrEmpty(site.DraftFolder) ? site.Folder : site.DraftFolder;
-                vm.BodyHtml = Services.PublishedHtmlSanitizer.ExtractBodyForEditor(editSource);
-            }
-            return View(vm);
-        }
-
-        [Authorize]
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        public IActionResult EditTemplates(string name)
-        {
-            var imageModel = new ImageModel { UrlImage = "/images/cover-1.jpg" };
-            if (HttpContext.Request.Form.Files != null && HttpContext.Request.Form.Files.Count > 0)
-            {
-                var file = HttpContext.Request.Form.Files.First();
-                if (file.Length > 0)
-                {
-                    // Валидация загрузки: только изображения и ограничение размера.
-                    const long maxBytes = 5 * 1024 * 1024; // 5 МБ
-                    var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif", ".webp" };
-                    var rawName = ContentDispositionHeaderValue.Parse(file.ContentDisposition).FileName.Trim('"');
-                    var extension = Path.GetExtension(rawName).ToLowerInvariant();
-
-                    if (file.Length > maxBytes || !allowedExtensions.Contains(extension)
-                        || !file.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
-                    {
-                        return BadRequest("Допустимы только изображения до 5 МБ.");
-                    }
-
-                    var myUniqueFileName = Convert.ToString(Guid.NewGuid());
-                    string newFileName = myUniqueFileName + extension;
-                    var savePath = Path.Combine(_environment.WebRootPath, "demoimages", newFileName);
-
-                    using (FileStream fs = System.IO.File.Create(savePath))
-                    {
-                        file.CopyTo(fs);
-                        fs.Flush();
-                    }
-                    imageModel.UrlImage = $"/demoimages/{newFileName}";
-                }
-            }
-            return View(imageModel);
-        }
-
-        [Authorize]
         public async Task<IActionResult> Profile()
         {
             var user = await _userManager.GetUserAsync(User);
@@ -459,30 +386,6 @@ namespace Lime_Editor.Controllers
         [Authorize]
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> SavetoUser(string html, int templateId)
-        {
-            var name = "Новый сайт";
-            var slug = await GenerateUniqueSlugAsync(CurrentUserId, name);
-            var currentHtml = "<!DOCTYPE html> \n " +
-                "<html id=\"userSpace\" lang=\"ru_RU\"> " +
-                html + "\n" +
-                "</html>";
-            db.Sites.Add(new Site
-            {
-                Name = name,
-                UserId = CurrentUserId,
-                Folder = currentHtml,
-                TemplateId = templateId,
-                Slug = slug,
-                IsPublished = false,
-            });
-            await db.SaveChangesAsync();
-            return RedirectToAction("MySites", "Home");
-        }
-
-        [Authorize]
-        [HttpPost]
-        [ValidateAntiForgeryToken]
         public async Task<IActionResult> Publish(int idSite)
         {
             if (!await UserOwnsSiteAsync(idSite))
@@ -496,19 +399,14 @@ namespace Lime_Editor.Controllers
             {
                 target.Slug = await GenerateUniqueSlugAsync(CurrentUserId, target.Name);
             }
+            // Движок B: сервер компилирует publish-HTML из JSON тем же lime-doc.js, что и клиент.
+            // Снапшот JSON фиксируем отдельно — DocumentJson дальше живёт как черновик автосейва,
+            // а republish идёт из снапшота. (Движок A удалён — legacy-ветки DraftFolder больше нет.)
             if (!string.IsNullOrEmpty(target.DocumentJson))
             {
-                // Движок B (этап 0.2): сервер сам компилирует publish-HTML из JSON тем же
-                // lime-doc.js, что и клиент. Снапшот JSON фиксируем отдельно — DocumentJson
-                // дальше живёт как черновик автосейва, а republish идёт из снапшота.
                 target.PublishedDocumentJson = target.DocumentJson;
                 var body = _docRenderer.RenderSite(target.PublishedDocumentJson);
                 target.Folder = PublishedPageBuilder.WrapCustomHtml(body, target);
-            }
-            else if (!string.IsNullOrEmpty(target.DraftFolder))
-            {
-                // Legacy-путь: промоут клиентского черновика в опубликованный снапшот.
-                target.Folder = target.DraftFolder;
             }
             target.IsPublished = true;
             target.PublishedAt = DateTime.UtcNow;

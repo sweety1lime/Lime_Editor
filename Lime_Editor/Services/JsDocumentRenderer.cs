@@ -30,13 +30,14 @@ namespace Lime_Editor.Services
             return result.AsString();
         }
 
-        public DocumentPage RenderPage(string documentJson, string pageSlug, string baseUrl)
+        public DocumentPage RenderPage(string documentJson, string pageSlug, string baseUrl, string dataJson = null)
         {
             var engine = CreateEngine(documentJson);
             engine.SetValue("__slug", pageSlug ?? "");
             engine.SetValue("__base", baseUrl ?? "");
+            engine.SetValue("__data", dataJson ?? "null");
             var result = engine.Evaluate(
-                "module.exports.renderPage(JSON.parse(__docJson), __slug, { baseUrl: __base })");
+                "module.exports.renderPage(JSON.parse(__docJson), __slug, { baseUrl: __base, data: JSON.parse(__data) })");
             if (result.IsNull() || result.IsUndefined())
             {
                 return null;
@@ -45,6 +46,13 @@ namespace Lime_Editor.Services
             return new DocumentPage(
                 obj.Get("title").AsString(),
                 obj.Get("body").AsString());
+        }
+
+        public string CompileCss(string documentJson)
+        {
+            var engine = CreateEngine(documentJson);
+            var result = engine.Evaluate("module.exports.compileDocCss(JSON.parse(__docJson))");
+            return result.AsString();
         }
 
         private Engine CreateEngine(string documentJson)

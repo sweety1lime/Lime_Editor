@@ -53,6 +53,7 @@ namespace Lime_Editor
             // Разрешаем XHR-вызовам присылать токен в заголовке X-CSRF-TOKEN.
             services.AddAntiforgery(o => o.HeaderName = "X-CSRF-TOKEN");
             services.AddSingleton<ITemplateExportService, TemplateExportService>();
+            services.AddSingleton<NextExportService>(); // «eject» в Next.js (Итерация 4)
             services.AddSingleton<IImageProcessor, ImageSharpProcessor>();
             // Серверная компиляция JSON-документов движка B (этап 0.2): singleton кэширует
             // исходник lime-doc.js, Jint-движок создаётся на каждый RenderSite.
@@ -62,6 +63,9 @@ namespace Lime_Editor
             services.AddHttpClient("ai", c => c.Timeout = TimeSpan.FromSeconds(120));
             services.AddSingleton<IAiProvider, OpenAiCompatibleProvider>();
             services.AddSingleton<AiContentService>();
+            // Прокси фотостока (Фаза 1): ключ через env STOCK_PEXELS_KEY. Сервер ходит
+            // в Pexels, отдаёт фронту тот же формат, что /Media/ApiList.
+            services.AddHttpClient("stock", c => c.Timeout = TimeSpan.FromSeconds(20));
             services.AddHostedService<OrphanMediaCleanupService>();
             services.AddHealthChecks()
                 .AddDbContextCheck<LimeEditorContext>("database");

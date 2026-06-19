@@ -15,6 +15,11 @@ namespace Lime_Editor.Services
 
         // Рендер одной страницы с реальными URL в навигации (/u/user/slug/page).
         // null — страницы с таким slug в документе нет (→ 404).
-        DocumentPage RenderPage(string documentJson, string pageSlug, string baseUrl);
+        // dataJson — JSON-карта данных коллекций { "<slug>": { fields, records } } для
+        // блока collectionList (фуллстак). null/пусто — динамических блоков нет.
+        DocumentPage RenderPage(string documentJson, string pageSlug, string baseUrl, string dataJson = null);
+
+        // Весь CSS документа (тема + стили всех блоков) — для идиоматичного экспорта в Next.js.
+        string CompileCss(string documentJson);
     }
 }

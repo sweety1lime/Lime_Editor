@@ -24,6 +24,8 @@ namespace Lime_Editor.Models
         public virtual DbSet<FormSubmission> FormSubmissions { get; set; }
         public virtual DbSet<AiUsage> AiUsages { get; set; }
         public virtual DbSet<SiteLike> SiteLikes { get; set; }
+        public virtual DbSet<Collection> Collections { get; set; }
+        public virtual DbSet<CollectionRecord> CollectionRecords { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -161,6 +163,32 @@ namespace Lime_Editor.Models
                 entity.HasOne<ApplicationUser>()
                     .WithMany()
                     .HasForeignKey(e => e.UserId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            // Коллекции данных (фуллстак). Принадлежат сайту; каскад при удалении сайта.
+            modelBuilder.Entity<Collection>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Name).IsRequired().HasMaxLength(100);
+                entity.Property(e => e.Slug).IsRequired().HasMaxLength(120);
+                entity.Property(e => e.SchemaJson).IsRequired();
+                // У одного сайта slug коллекции уникален.
+                entity.HasIndex(e => new { e.SiteId, e.Slug }).IsUnique();
+                entity.HasOne<Site>()
+                    .WithMany()
+                    .HasForeignKey(e => e.SiteId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<CollectionRecord>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.DataJson).IsRequired();
+                entity.HasIndex(e => e.CollectionId);
+                entity.HasOne<Collection>()
+                    .WithMany()
+                    .HasForeignKey(e => e.CollectionId)
                     .OnDelete(DeleteBehavior.Cascade);
             });
 

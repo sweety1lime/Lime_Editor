@@ -10,6 +10,7 @@ using SixLabors.ImageSharp;
 using System;
 using System.IO;
 using System.Linq;
+using System.Net.Http;
 using System.Threading.Tasks;
 
 namespace Lime_Editor.Controllers
@@ -25,17 +26,20 @@ namespace Lime_Editor.Controllers
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly IWebHostEnvironment _env;
         private readonly IImageProcessor _imageProcessor;
+        private readonly IHttpClientFactory _httpFactory;
 
         public MediaController(
             LimeEditorContext context,
             UserManager<ApplicationUser> userManager,
             IWebHostEnvironment env,
-            IImageProcessor imageProcessor)
+            IImageProcessor imageProcessor,
+            IHttpClientFactory httpFactory)
         {
             db = context;
             _userManager = userManager;
             _env = env;
             _imageProcessor = imageProcessor;
+            _httpFactory = httpFactory;
         }
 
         private int CurrentUserId => int.Parse(_userManager.GetUserId(User));
@@ -71,6 +75,54 @@ namespace Lime_Editor.Controllers
                 })
                 .ToListAsync();
             return Json(items);
+        }
+
+        // Прокси поиска фотостока (Pexels). Ключ — env STOCK_PEXELS_KEY; без него
+        // фронту приходит { configured:false } и вкладка «Сток» показывает подсказку.
+        // Отдаём только URL картинок (хотлинк) — тот же контракт, что у ApiList.
+        [HttpGet]
+        [Produces("application/json")]
+        public async Task<IActionResult> Stock(string q, int page = 1)
+        {
+            var key = Environment.GetEnvironmentVariable("STOCK_PEXELS_KEY") ?? "";
+            if (string.IsNullOrEmpty(key))
+            {
+                return Json(new { configured = false });
+            }
+            if (string.IsNullOrWhiteSpace(q))
+            {
+                return Json(new { configured = true, items = Array.Empty<object>() });
+            }
+            try
+            {
+                var http = _httpFactory.CreateClient("stock");
+                var url = "https://api.pexels.com/v1/search?per_page=24&page=" + page +
+                          "&query=" + Uri.EscapeDataString(q);
+                using var req = new HttpRequestMessage(HttpMethod.Get, url);
+                req.Headers.TryAddWithoutValidation("Authorization", key);
+                using var resp = await http.SendAsync(req);
+                if (!resp.IsSuccessStatusCode)
+                {
+                    return Json(new { configured = true, items = Array.Empty<object>(), error = (int)resp.StatusCode });
+                }
+                var body = await resp.Content.ReadAsStringAsync();
+                var json = Newtonsoft.Json.Linq.JObject.Parse(body);
+                var photos = json["photos"] as Newtonsoft.Json.Linq.JArray ?? new Newtonsoft.Json.Linq.JArray();
+                var items = photos
+                    .Select(p => new
+                    {
+                        url = (string)(p["src"]?["large"]) ?? (string)(p["src"]?["original"]),
+                        thumb = (string)(p["src"]?["medium"]) ?? (string)(p["src"]?["large"]),
+                        name = (string)(p["alt"]) ?? "Pexels",
+                    })
+                    .Where(x => !string.IsNullOrEmpty(x.url))
+                    .ToArray();
+                return Json(new { configured = true, items });
+            }
+            catch
+            {
+                return Json(new { configured = true, items = Array.Empty<object>(), error = -1 });
+            }
         }
 
         [HttpPost]
