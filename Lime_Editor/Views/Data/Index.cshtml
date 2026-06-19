@@ -1,0 +1,63 @@
+@model List<Lime_Editor.Models.Collection>
+@{
+    ViewData["Title"] = "Данные";
+    var siteName = ViewBag.SiteName as string;
+    var siteId = (int)ViewBag.SiteId;
+    var counts = ViewBag.Counts as Dictionary<int, int> ?? new Dictionary<int, int>();
+}
+
+<section class="lime-aurora lime-aurora--subtle" style="padding: var(--space-12) 0 var(--space-8);">
+    <div class="lime-container">
+        <div class="lime-flex lime-gap-2 lime-items-center lime-wrap" style="justify-content: space-between;">
+            <div>
+                <h2 style="margin-bottom: var(--space-2);">Данные · @siteName</h2>
+                <p class="lime-text-muted">Коллекции — это «таблицы» данных сайта. Формы пишут сюда, блок «Список из коллекции» — показывает их на страницах.</p>
+            </div>
+            <a class="lime-btn lime-btn--ghost" href="/Home/MySites">← К сайтам</a>
+        </div>
+    </div>
+</section>
+
+<section class="lime-container" style="padding-bottom: var(--space-16);">
+    <form asp-action="Create" asp-controller="Data" method="post" class="lime-card lime-card--padded" style="margin-bottom: var(--space-6);">
+        <input type="hidden" name="siteId" value="@siteId">
+        <label style="display:block; font-size: var(--text-sm); color: var(--fg-muted); margin-bottom: 6px;">Новая коллекция</label>
+        <div class="lime-flex lime-gap-2">
+            <input name="name" placeholder="Например: Товары, Посты, Отзывы" required
+                   style="flex:1; padding:10px 14px; border:1px solid var(--border-soft); border-radius: var(--radius-md); background: var(--bg-elev); color: var(--fg);">
+            <button type="submit" class="lime-btn lime-btn--primary">Создать</button>
+        </div>
+    </form>
+
+    @if (Model.Count == 0)
+    {
+        <div class="lime-empty lime-card lime-card--padded">
+            <div class="lime-empty__icon">🗃</div>
+            <div class="lime-empty__title">Пока нет коллекций</div>
+            <p>Создай первую коллекцию выше — задай поля, наполни записями, и выводи их на сайте.</p>
+        </div>
+    }
+    else
+    {
+        <div class="lime-flex lime-gap-3" style="flex-direction: column;">
+            @foreach (var col in Model)
+            {
+                var cnt = counts.ContainsKey(col.Id) ? counts[col.Id] : 0;
+                <div class="lime-card lime-card--padded lime-flex lime-gap-2 lime-items-center lime-wrap" style="justify-content: space-between;">
+                    <div>
+                        <div style="font-weight:700;">@col.Name <span class="lime-text-muted" style="font-weight:400; font-size: var(--text-sm);">· @col.Slug</span></div>
+                        <div class="lime-text-muted" style="font-size: var(--text-sm);">Записей: @cnt</div>
+                    </div>
+                    <div class="lime-flex lime-gap-2 lime-items-center">
+                        <a class="lime-btn lime-btn--soft lime-btn--sm" asp-action="Records" asp-route-id="@col.Id">Записи (@cnt)</a>
+                        <a class="lime-btn lime-btn--ghost lime-btn--sm" asp-action="Edit" asp-route-id="@col.Id">Поля</a>
+                        <form asp-action="DeleteCollection" method="post" style="display:inline;" onsubmit="return confirm('Удалить коллекцию и все её записи?');">
+                            <input type="hidden" name="id" value="@col.Id">
+                            <button type="submit" class="lime-btn lime-btn--danger lime-btn--sm">✕</button>
+                        </form>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</section>

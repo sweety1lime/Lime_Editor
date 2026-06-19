@@ -111,6 +111,9 @@
                         <a class="lime-btn lime-btn--ghost lime-btn--sm" href="/Form/Inbox?siteId=@site.IdSite">
                             📨 Заявки@(unreadLeads > 0 ? $" ({unreadLeads})" : "")
                         </a>
+                        <a class="lime-btn lime-btn--ghost lime-btn--sm" href="/Data?siteId=@site.IdSite">🗃 Данные</a>
+                        <a class="lime-btn lime-btn--ghost lime-btn--sm" href="/Export/Nextjs?siteId=@site.IdSite" title="Next.js-проект (движок рендерит)">⬇ Код (Next.js)</a>
+                        <a class="lime-btn lime-btn--ghost lime-btn--sm" href="/Export/Nextjs?siteId=@site.IdSite&style=jsx" title="Next.js с настоящими React-компонентами">⬇ Код (React)</a>
                         @if (site.IsPublished)
                         {
                             <form asp-action="ToggleGallery" asp-controller="Community" method="post" style="display:inline;">

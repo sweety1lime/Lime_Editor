@@ -6,6 +6,9 @@
     var isEdit = Model.SiteId.HasValue;
     // Защита от закрытия </script> в пользовательском контенте при инлайне JSON.
     var seedJson = (Model.DocumentJson ?? "null").Replace("</", "<\\/");
+    // Стартовый шаблон (Фаза 3.2) — только для нового документа; ключ санитайзим.
+    var templateKey = isEdit ? "" : System.Text.RegularExpressions.Regex.Replace(
+        Context.Request.Query["template"].ToString() ?? "", "[^a-zA-Z0-9_-]", "");
 }<!DOCTYPE html>
 <html lang="ru" data-theme="dark">
 <head>
@@ -15,7 +18,7 @@
     <title>Конструктор · Lime</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&family=Unbounded:wght@400;500;600;700;800&family=Montserrat:wght@400;500;600;700;800&family=Onest:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="~/css/lime/tokens.css" asp-append-version="true">
     <link rel="stylesheet" href="~/css/lime/base.css" asp-append-version="true">
     <link rel="stylesheet" href="~/css/lime/components.css" asp-append-version="true">
@@ -24,6 +27,7 @@
     <script>
         window.__LIME_DOC__ = @Html.Raw(seedJson);
         window.__LIME_DOC_VERSION__ = @Model.DocVersion; // Site.UpdatedAt.Ticks — optimistic concurrency
+        window.__LIME_TEMPLATE__ = @Html.Raw(string.IsNullOrEmpty(templateKey) ? "null" : "\"" + templateKey + "\"");
     </script>
 </head>
 <body>
@@ -44,6 +48,7 @@
                     <button type="button" class="lime-device-toggle__btn" data-doc-bp="tablet" title="Планшет">📊</button>
                     <button type="button" class="lime-device-toggle__btn" data-doc-bp="mobile" title="Мобайл">📱</button>
                 </div>
+                <button type="button" class="lime-btn lime-btn--ghost lime-btn--sm" data-doc-anim-preview style="margin-left: var(--space-3);" title="Проиграть анимации появления">▶ Превью</button>
             </div>
             <div class="lime-editor__topbar-right">
                 <span class="lime-text-muted" data-doc-status style="font-size: var(--text-xs); margin-right: var(--space-2);"></span>
@@ -58,22 +63,62 @@
         <aside class="lime-editor__sidebar">
             <div class="lime-editor__sidebar-section">
                 <h3>Блоки</h3>
-                <div class="lime-editor__tiles">
-                    <button type="button" class="lime-block-tile" data-doc-add="cover"><span class="lime-block-tile__icon">▢</span><span>Обложка</span></button>
-                    <button type="button" class="lime-block-tile" data-doc-add="features"><span class="lime-block-tile__icon">✦</span><span>Фичи</span></button>
-                    <button type="button" class="lime-block-tile" data-doc-add="stats"><span class="lime-block-tile__icon">#</span><span>Цифры</span></button>
-                    <button type="button" class="lime-block-tile" data-doc-add="gallery"><span class="lime-block-tile__icon">▦</span><span>Галерея</span></button>
-                    <button type="button" class="lime-block-tile" data-doc-add="cta"><span class="lime-block-tile__icon">◉</span><span>Призыв</span></button>
-                    <button type="button" class="lime-block-tile" data-doc-add="heading"><span class="lime-block-tile__icon">T</span><span>Заголовок</span></button>
-                    <button type="button" class="lime-block-tile" data-doc-add="text"><span class="lime-block-tile__icon">¶</span><span>Текст</span></button>
-                    <button type="button" class="lime-block-tile" data-doc-add="buttonGroup"><span class="lime-block-tile__icon">⬚</span><span>Кнопки</span></button>
-                    <button type="button" class="lime-block-tile" data-doc-add="image"><span class="lime-block-tile__icon">🖼</span><span>Картинка</span></button>
-                    <button type="button" class="lime-block-tile" data-doc-add="video"><span class="lime-block-tile__icon">▶</span><span>Видео</span></button>
-                    <button type="button" class="lime-block-tile" data-doc-add="container"><span class="lime-block-tile__icon">▣</span><span>Контейнер</span></button>
-                    <button type="button" class="lime-block-tile" data-doc-add="columns"><span class="lime-block-tile__icon">⫼</span><span>Колонки</span></button>
-                    <button type="button" class="lime-block-tile" data-doc-add="divider"><span class="lime-block-tile__icon">—</span><span>Разделитель</span></button>
-                    <button type="button" class="lime-block-tile" data-doc-add="spacer"><span class="lime-block-tile__icon">↕</span><span>Отступ</span></button>
-                </div>
+                <input type="search" id="lime-block-search" class="lime-sidebar-search" placeholder="Поиск блока…" autocomplete="off">
+                <details class="lime-tile-group" open>
+                    <summary>Структура</summary>
+                    <div class="lime-editor__tiles">
+                        <button type="button" class="lime-block-tile" data-doc-add="navbar"><span class="lime-block-tile__icon">≣</span><span>Навбар</span></button>
+                        <button type="button" class="lime-block-tile" data-doc-add="footer"><span class="lime-block-tile__icon">▭</span><span>Подвал</span></button>
+                        <button type="button" class="lime-block-tile" data-doc-add="container"><span class="lime-block-tile__icon">▣</span><span>Контейнер</span></button>
+                        <button type="button" class="lime-block-tile" data-doc-add="columns"><span class="lime-block-tile__icon">⫼</span><span>Колонки</span></button>
+                    </div>
+                </details>
+                <details class="lime-tile-group" open>
+                    <summary>Контент</summary>
+                    <div class="lime-editor__tiles">
+                        <button type="button" class="lime-block-tile" data-doc-add="cover"><span class="lime-block-tile__icon">▢</span><span>Обложка</span></button>
+                        <button type="button" class="lime-block-tile" data-doc-add="heading"><span class="lime-block-tile__icon">T</span><span>Заголовок</span></button>
+                        <button type="button" class="lime-block-tile" data-doc-add="text"><span class="lime-block-tile__icon">¶</span><span>Текст</span></button>
+                        <button type="button" class="lime-block-tile" data-doc-add="features"><span class="lime-block-tile__icon">✦</span><span>Фичи</span></button>
+                        <button type="button" class="lime-block-tile" data-doc-add="stats"><span class="lime-block-tile__icon">#</span><span>Цифры</span></button>
+                        <button type="button" class="lime-block-tile" data-doc-add="steps"><span class="lime-block-tile__icon">⇉</span><span>Шаги</span></button>
+                        <button type="button" class="lime-block-tile" data-doc-add="testimonials"><span class="lime-block-tile__icon">❝</span><span>Отзывы</span></button>
+                        <button type="button" class="lime-block-tile" data-doc-add="accordion"><span class="lime-block-tile__icon">▾</span><span>FAQ</span></button>
+                        <button type="button" class="lime-block-tile" data-doc-add="logos"><span class="lime-block-tile__icon">◫</span><span>Логотипы</span></button>
+                        <button type="button" class="lime-block-tile" data-doc-add="imageText"><span class="lime-block-tile__icon">◧</span><span>Картинка+текст</span></button>
+                        <button type="button" class="lime-block-tile" data-doc-add="collectionList"><span class="lime-block-tile__icon">🗃</span><span>Список (данные)</span></button>
+                    </div>
+                </details>
+                <details class="lime-tile-group">
+                    <summary>Медиа</summary>
+                    <div class="lime-editor__tiles">
+                        <button type="button" class="lime-block-tile" data-doc-add="image"><span class="lime-block-tile__icon">🖼</span><span>Картинка</span></button>
+                        <button type="button" class="lime-block-tile" data-doc-add="gallery"><span class="lime-block-tile__icon">▦</span><span>Галерея</span></button>
+                        <button type="button" class="lime-block-tile" data-doc-add="video"><span class="lime-block-tile__icon">▶</span><span>Видео</span></button>
+                        <button type="button" class="lime-block-tile" data-doc-add="embed"><span class="lime-block-tile__icon">◈</span><span>3D / Embed</span></button>
+                    </div>
+                </details>
+                <details class="lime-tile-group">
+                    <summary>Конверсия</summary>
+                    <div class="lime-editor__tiles">
+                        <button type="button" class="lime-block-tile" data-doc-add="cta"><span class="lime-block-tile__icon">◉</span><span>Призыв</span></button>
+                        <button type="button" class="lime-block-tile" data-doc-add="form"><span class="lime-block-tile__icon">✉</span><span>Форма</span></button>
+                        <button type="button" class="lime-block-tile" data-doc-add="pricing"><span class="lime-block-tile__icon">₽</span><span>Тарифы</span></button>
+                        <button type="button" class="lime-block-tile" data-doc-add="buttonGroup"><span class="lime-block-tile__icon">⬚</span><span>Кнопки</span></button>
+                        <button type="button" class="lime-block-tile" data-doc-add="socials"><span class="lime-block-tile__icon">@@</span><span>Соцсети</span></button>
+                    </div>
+                </details>
+                <details class="lime-tile-group">
+                    <summary>Разметка</summary>
+                    <div class="lime-editor__tiles">
+                        <button type="button" class="lime-block-tile" data-doc-add="divider"><span class="lime-block-tile__icon">—</span><span>Разделитель</span></button>
+                        <button type="button" class="lime-block-tile" data-doc-add="spacer"><span class="lime-block-tile__icon">↕</span><span>Отступ</span></button>
+                    </div>
+                </details>
+            </div>
+            <div class="lime-editor__sidebar-section">
+                <h3>Готовые секции</h3>
+                <div id="lime-doc-presets" class="lime-editor__tiles"></div>
             </div>
             <div class="lime-editor__sidebar-section">
                 <h3>Компоненты</h3>
@@ -140,6 +185,9 @@
                 <p class="lime-text-muted" style="font-size: var(--text-xs); margin-bottom: var(--space-3);">
                     Токены применяются ко всему сайту. Поменяешь раз — обновится везде, где блок ссылается на токен (свотчи под цветами в инспекторе).
                 </p>
+                <label style="display:block; font-size: var(--text-xs); color: var(--muted); margin-bottom: 6px;">Готовые палитры</label>
+                <div id="lime-theme-palettes" class="lime-theme-palettes"></div>
+                <div style="height:1px; background: var(--line); margin: var(--space-3) 0;"></div>
                 <div class="lime-flex lime-items-center" style="justify-content: space-between; margin-bottom: var(--space-2);">
                     <span class="lime-text-muted" style="font-size: var(--text-sm);">Акцент</span>
                     <input type="color" id="lime-theme-accent" class="lime-color-input">
@@ -163,8 +211,12 @@
                 <label style="display:block; font-size: var(--text-xs); color: var(--muted); margin-bottom: 4px;">Шрифт</label>
                 <select id="lime-theme-font" class="lime-select" style="width:100%;">
                     <option value="'Inter', system-ui, sans-serif">Inter</option>
-                    <option value="'Instrument Serif', Georgia, serif">Instrument Serif</option>
                     <option value="'Space Grotesk', system-ui, sans-serif">Space Grotesk</option>
+                    <option value="'Manrope', system-ui, sans-serif">Manrope</option>
+                    <option value="'Unbounded', system-ui, sans-serif">Unbounded (дисплейный)</option>
+                    <option value="'Montserrat', system-ui, sans-serif">Montserrat</option>
+                    <option value="'Onest', system-ui, sans-serif">Onest</option>
+                    <option value="'Instrument Serif', Georgia, serif">Instrument Serif</option>
                     <option value="system-ui, -apple-system, sans-serif">Системный</option>
                     <option value="Georgia, 'Times New Roman', serif">Georgia</option>
                 </select>
@@ -209,6 +261,18 @@
                 </div>
             </div>
             <div class="lime-modal__body">
+                <div class="lime-flex lime-gap-2" style="margin-bottom: var(--space-3);">
+                    <button type="button" class="lime-btn lime-btn--soft lime-btn--sm is-active" data-media-tab="mine">Мои</button>
+                    <button type="button" class="lime-btn lime-btn--ghost lime-btn--sm" data-media-tab="stock">Сток (фото)</button>
+                </div>
+                <form id="lime-stock-search" style="display:none; margin-bottom: var(--space-3);">
+                    <div class="lime-flex lime-gap-2">
+                        <input id="lime-stock-q" type="text" placeholder="Поиск фото: coffee, office, nature…"
+                               style="flex:1; padding:8px 12px; border:1px solid var(--line); border-radius: var(--radius-md); background: var(--ink-2); color: var(--fg);">
+                        <button type="submit" class="lime-btn lime-btn--primary lime-btn--sm">Найти</button>
+                    </div>
+                    <div class="lime-text-muted" style="font-size: var(--text-xs); margin-top: 6px;">Фото с Pexels. По клику вставляется по прямой ссылке.</div>
+                </form>
                 <div id="lime-media-status" class="lime-text-muted" style="display:none; margin-bottom: var(--space-3);"></div>
                 <div id="lime-media-grid" class="lime-picker-grid">
                     <div class="lime-text-muted">Загрузка...</div>
@@ -217,6 +281,13 @@
         </div>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js" defer></script>
+    <script src="~/js/lime/lime-animate.js" asp-append-version="true" defer></script>
+    <script src="~/js/lime/lime-assets.js" asp-append-version="true"></script>
+    <script src="~/js/lime/lime-fonts.js" asp-append-version="true"></script>
+    <script src="~/js/lime/lime-presets.js" asp-append-version="true"></script>
+    <script src="~/js/lime/lime-templates.js" asp-append-version="true"></script>
     <script src="~/js/lime/lime-doc.js" asp-append-version="true"></script>
     <script src="~/js/lime/lime-doc-editor.js" asp-append-version="true" defer></script>
 </body>

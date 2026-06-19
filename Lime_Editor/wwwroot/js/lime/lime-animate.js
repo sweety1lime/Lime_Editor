@@ -50,8 +50,83 @@
         return isNaN(d) ? 0 : d / 1000;
     }
 
-    // Публичная страница: reveal каждого блока при входе в вьюпорт (одноразово).
+    // Параллакс: секции и декор-слои с data-parallax едут по скроллу на свою глубину.
+    function initParallax() {
+        if (!window.gsap || !window.ScrollTrigger || reduced()) return;
+        Array.prototype.forEach.call(document.querySelectorAll("[data-parallax]"), function (el) {
+            var depth = parseFloat(el.getAttribute("data-parallax")) || 0;
+            if (!depth) return;
+            var trigger = el.closest(".lime-block") || el;
+            gsap.to(el, {
+                yPercent: -depth * 100,
+                ease: "none",
+                scrollTrigger: { trigger: trigger, start: "top bottom", end: "bottom top", scrub: true }
+            });
+        });
+    }
+
+    // Бегущая строка: дублируем ряд и крутим бесконечно. data-marquee="<px/сек>".
+    function initMarquee(scope) {
+        if (!window.gsap || reduced()) return;
+        var root = scope || document;
+        Array.prototype.forEach.call(root.querySelectorAll("[data-marquee]"), function (el) {
+            if (el.getAttribute("data-marquee-init") === "1") return;
+            el.setAttribute("data-marquee-init", "1");
+            var speed = parseFloat(el.getAttribute("data-marquee")) || 40;
+            var reverse = el.getAttribute("data-marquee-reverse") === "1";
+            el.innerHTML = el.innerHTML + el.innerHTML; // вторая копия для бесшовной петли
+            var dist = el.scrollWidth / 2;
+            if (!dist) return;
+            gsap.fromTo(el, { x: reverse ? -dist : 0 }, {
+                x: reverse ? 0 : -dist, duration: dist / speed, ease: "none", repeat: -1
+            });
+        });
+    }
+
+    // Sticky — это CSS (position:sticky), JS лишь проставляет смещение сверху.
+    function initSticky() {
+        Array.prototype.forEach.call(document.querySelectorAll("[data-sticky]"), function (el) {
+            var off = parseFloat(el.getAttribute("data-sticky-offset"));
+            if (!isNaN(off)) el.style.top = off + "px";
+        });
+    }
+
+    // Scrollytelling (этап 8.2): закреплённые сцены, анимируемые по прогрессу скролла.
+    // horizontal — пин секции + горизонтальный проезд внутреннего ряда; steps — пошаговое
+    // появление детей; pin — просто пин на N экранов, пока играют reveal'ы.
+    function initScenes() {
+        if (!window.gsap || !window.ScrollTrigger || reduced()) return;
+        Array.prototype.forEach.call(document.querySelectorAll("[data-scene]"), function (sec) {
+            var mode = sec.getAttribute("data-scene");
+            var len = Math.max(1, parseFloat(sec.getAttribute("data-scene-length")) || 2);
+            if (mode === "horizontal") {
+                var track = sec.querySelector(".lime-block__children--scene");
+                if (!track) return;
+                var dist = track.scrollWidth - sec.clientWidth;
+                if (dist <= 0) return;
+                gsap.to(track, {
+                    x: -dist, ease: "none",
+                    scrollTrigger: { trigger: sec, start: "top top", end: "+=" + (dist), scrub: true, pin: true, anticipatePin: 1 }
+                });
+            } else if (mode === "steps") {
+                var kids = sec.querySelectorAll(".lime-block__children > .lime-block");
+                if (!kids.length) return;
+                gsap.set(kids, { opacity: 0.25, y: 30 });
+                var tl = gsap.timeline({
+                    scrollTrigger: { trigger: sec, start: "top top", end: "+=" + (len * window.innerHeight), scrub: true, pin: true, anticipatePin: 1 }
+                });
+                Array.prototype.forEach.call(kids, function (k) {
+                    tl.to(k, { opacity: 1, y: 0, duration: 1 });
+                });
+            } else { // pin
+                ScrollTrigger.create({ trigger: sec, start: "top top", end: "+=" + (len * window.innerHeight), pin: true, anticipatePin: 1 });
+            }
+        });
+    }
+
+    // Публичная страница: reveal каждого блока при входе в вьюпорт (одноразово) + движение.
     function initScroll() {
+        initSticky(); // не зависит от gsap
         if (!window.gsap || !window.ScrollTrigger) return;
         gsap.registerPlugin(ScrollTrigger);
         if (reduced()) return;
@@ -66,6 +141,9 @@
             });
             gsap.from(el, vars);
         });
+        initParallax();
+        initMarquee(document);
+        initScenes();
     }
 
     // Редактор: одноразовое превью всех анимаций в области (со ступенчатым стартом).
@@ -84,7 +162,10 @@
         });
     }
 
-    window.LimeAnim = { PRESETS: PRESETS, initScroll: initScroll, play: play };
+    window.LimeAnim = {
+        PRESETS: PRESETS, initScroll: initScroll, play: play,
+        initParallax: initParallax, initMarquee: initMarquee, initSticky: initSticky, initScenes: initScenes
+    };
 
     // Авто-старт reveal только вне редактора (на публичной странице .lime-editor отсутствует).
     if (!document.querySelector(".lime-editor")) {

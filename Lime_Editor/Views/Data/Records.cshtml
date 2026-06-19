@@ -1,0 +1,119 @@
+@model Lime_Editor.Models.Collection
+@using Newtonsoft.Json.Linq
+@{
+    ViewData["Title"] = "Записи коллекции";
+    var fields = ViewBag.Fields as List<Lime_Editor.Controllers.DataController.FieldDef> ?? new List<Lime_Editor.Controllers.DataController.FieldDef>();
+    var records = ViewBag.Records as List<Lime_Editor.Models.CollectionRecord> ?? new List<Lime_Editor.Models.CollectionRecord>();
+
+    JObject DataOf(string json)
+    {
+        try { return JObject.Parse(json ?? "{}"); } catch { return new JObject(); }
+    }
+}
+
+<section class="lime-aurora lime-aurora--subtle" style="padding: var(--space-12) 0 var(--space-8);">
+    <div class="lime-container">
+        <div class="lime-flex lime-gap-2 lime-items-center lime-wrap" style="justify-content: space-between;">
+            <div>
+                <h2 style="margin-bottom: var(--space-2);">Записи · @Model.Name</h2>
+                <p class="lime-text-muted">Всего: @records.Count. Эти данные выводятся блоком «Список из коллекции» на сайте.</p>
+            </div>
+            <div class="lime-flex lime-gap-2">
+                <a class="lime-btn lime-btn--ghost" asp-action="Edit" asp-route-id="@Model.Id">Поля</a>
+                <a class="lime-btn lime-btn--ghost" asp-action="Index" asp-route-siteId="@Model.SiteId">← К данным</a>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="lime-container" style="padding-bottom: var(--space-16);">
+    @if (fields.Count == 0)
+    {
+        <div class="lime-empty lime-card lime-card--padded">
+            <div class="lime-empty__icon">🧩</div>
+            <div class="lime-empty__title">Сначала задай поля</div>
+            <p>В коллекции нет полей — <a class="lime-text-accent" asp-action="Edit" asp-route-id="@Model.Id">добавь поля</a>, потом сюда можно вносить записи.</p>
+        </div>
+    }
+    else
+    {
+        <form asp-action="AddRecord" method="post" class="lime-card lime-card--padded" style="margin-bottom: var(--space-5);">
+            <input type="hidden" name="id" value="@Model.Id">
+            <h3 style="margin-bottom: var(--space-3);">Новая запись</h3>
+            <div class="lime-flex lime-gap-3 lime-wrap">
+                @foreach (var f in fields)
+                {
+                    <div style="flex:1; min-width:180px;">
+                        <label style="display:block; font-size: var(--text-sm); color: var(--fg-muted); margin-bottom:4px;">@f.Label</label>
+                        @if (f.Type == "longtext")
+                        {
+                            <textarea name="f_@f.Name" rows="3" style="width:100%; padding:9px 12px; border:1px solid var(--border-soft); border-radius: var(--radius-md); background: var(--bg-elev); color: var(--fg);"></textarea>
+                        }
+                        else if (f.Type == "bool")
+                        {
+                            <select name="f_@f.Name" class="lime-select" style="width:100%;"><option value="">—</option><option value="true">Да</option><option value="false">Нет</option></select>
+                        }
+                        else
+                        {
+                            var inputType = f.Type == "number" ? "number" : f.Type == "date" ? "date" : "text";
+                            <input type="@inputType" name="f_@f.Name" placeholder="@(f.Type == "image" ? "https://…" : "")"
+                                   style="width:100%; padding:9px 12px; border:1px solid var(--border-soft); border-radius: var(--radius-md); background: var(--bg-elev); color: var(--fg);">
+                        }
+                    </div>
+                }
+            </div>
+            <div style="margin-top: var(--space-3);"><button type="submit" class="lime-btn lime-btn--primary">Добавить запись</button></div>
+        </form>
+
+        @if (records.Count == 0)
+        {
+            <div class="lime-empty lime-card lime-card--padded">
+                <div class="lime-empty__icon">📄</div>
+                <div class="lime-empty__title">Записей пока нет</div>
+                <p>Добавь первую через форму выше — или собери на сайте форму, пишущую в эту коллекцию.</p>
+            </div>
+        }
+        else
+        {
+            <div class="lime-card lime-card--padded" style="overflow-x:auto;">
+                <table style="width:100%; border-collapse: collapse; white-space: nowrap;">
+                    <tr style="text-align:left; color: var(--fg-muted); font-size: var(--text-sm);">
+                        @foreach (var f in fields)
+                        {
+                            <th style="padding:6px 16px 6px 0;">@f.Label</th>
+                        }
+                        <th style="padding:6px 16px 6px 0;">Создана</th>
+                        <th></th>
+                    </tr>
+                    @foreach (var rec in records)
+                    {
+                        var data = DataOf(rec.DataJson);
+                        <tr style="border-top:1px solid var(--border-soft);">
+                            @foreach (var f in fields)
+                            {
+                                var val = data[f.Name]?.ToString() ?? "";
+                                <td style="padding:8px 16px 8px 0; max-width:280px; overflow:hidden; text-overflow:ellipsis;">
+                                    @if (f.Type == "image" && !string.IsNullOrEmpty(val))
+                                    {
+                                        <img src="@val" alt="" style="height:36px; border-radius:6px; vertical-align:middle;">
+                                    }
+                                    else
+                                    {
+                                        @val
+                                    }
+                                </td>
+                            }
+                            <td style="padding:8px 16px 8px 0; color: var(--fg-muted); font-size: var(--text-sm);">@rec.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
+                            <td style="padding:8px 0; text-align:right;">
+                                <form asp-action="DeleteRecord" method="post" style="display:inline;" onsubmit="return confirm('Удалить запись?');">
+                                    <input type="hidden" name="id" value="@rec.Id">
+                                    <button type="submit" class="lime-btn lime-btn--danger lime-btn--sm">✕</button>
+                                </form>
+                            </td>
+                        </tr>
+                    }
+                </table>
+            </div>
+        }
+    }
+</section>

@@ -1,0 +1,88 @@
+@model Lime_Editor.Models.Collection
+@{
+    ViewData["Title"] = "Поля коллекции";
+    var fields = ViewBag.Fields as List<Lime_Editor.Controllers.DataController.FieldDef> ?? new List<Lime_Editor.Controllers.DataController.FieldDef>();
+    var types = ViewBag.FieldTypes as string[] ?? new string[0];
+    var typeLabels = new Dictionary<string, string> {
+        { "text", "Строка" }, { "longtext", "Текст (многострочный)" }, { "number", "Число" },
+        { "date", "Дата" }, { "bool", "Да/Нет" }, { "image", "Картинка (URL)" }
+    };
+}
+
+<section class="lime-aurora lime-aurora--subtle" style="padding: var(--space-12) 0 var(--space-8);">
+    <div class="lime-container">
+        <div class="lime-flex lime-gap-2 lime-items-center lime-wrap" style="justify-content: space-between;">
+            <div>
+                <h2 style="margin-bottom: var(--space-2);">Поля · @Model.Name</h2>
+                <p class="lime-text-muted">Slug коллекции: <b>@Model.Slug</b> — его выбирают в блоке формы и «Список из коллекции».</p>
+            </div>
+            <div class="lime-flex lime-gap-2">
+                <a class="lime-btn lime-btn--soft" asp-action="Records" asp-route-id="@Model.Id">Записи →</a>
+                <a class="lime-btn lime-btn--ghost" asp-action="Index" asp-route-siteId="@Model.SiteId">← К данным</a>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="lime-container" style="padding-bottom: var(--space-16);">
+    <div class="lime-card lime-card--padded" style="margin-bottom: var(--space-5);">
+        <h3 style="margin-bottom: var(--space-3);">Поля</h3>
+        @if (fields.Count == 0)
+        {
+            <p class="lime-text-muted">Полей пока нет. Добавь первое ниже (например, «Название» — строка).</p>
+        }
+        else
+        {
+            <table style="width:100%; border-collapse: collapse;">
+                <tr style="text-align:left; color: var(--fg-muted); font-size: var(--text-sm);">
+                    <th style="padding:6px 12px 6px 0;">Метка</th>
+                    <th style="padding:6px 12px 6px 0;">Имя (slug)</th>
+                    <th style="padding:6px 12px 6px 0;">Тип</th>
+                    <th></th>
+                </tr>
+                @foreach (var f in fields)
+                {
+                    <tr style="border-top:1px solid var(--border-soft);">
+                        <td style="padding:8px 12px 8px 0;">@f.Label</td>
+                        <td style="padding:8px 12px 8px 0; color: var(--fg-muted);"><code>@f.Name</code></td>
+                        <td style="padding:8px 12px 8px 0;">@(typeLabels.ContainsKey(f.Type) ? typeLabels[f.Type] : f.Type)</td>
+                        <td style="padding:8px 0; text-align:right;">
+                            <form asp-action="RemoveField" method="post" style="display:inline;" onsubmit="return confirm('Удалить поле «@f.Label»?');">
+                                <input type="hidden" name="id" value="@Model.Id">
+                                <input type="hidden" name="fieldName" value="@f.Name">
+                                <button type="submit" class="lime-btn lime-btn--danger lime-btn--sm">✕</button>
+                            </form>
+                        </td>
+                    </tr>
+                }
+            </table>
+        }
+    </div>
+
+    <form asp-action="AddField" method="post" class="lime-card lime-card--padded">
+        <input type="hidden" name="id" value="@Model.Id">
+        <h3 style="margin-bottom: var(--space-3);">Добавить поле</h3>
+        <div class="lime-flex lime-gap-2 lime-wrap lime-items-end">
+            <div style="flex:1; min-width:160px;">
+                <label style="display:block; font-size: var(--text-sm); color: var(--fg-muted); margin-bottom:4px;">Метка (как видит человек)</label>
+                <input name="fieldLabel" placeholder="Название" required
+                       style="width:100%; padding:9px 12px; border:1px solid var(--border-soft); border-radius: var(--radius-md); background: var(--bg-elev); color: var(--fg);">
+            </div>
+            <div style="flex:1; min-width:140px;">
+                <label style="display:block; font-size: var(--text-sm); color: var(--fg-muted); margin-bottom:4px;">Имя поля (латиницей)</label>
+                <input name="fieldName" placeholder="title" required
+                       style="width:100%; padding:9px 12px; border:1px solid var(--border-soft); border-radius: var(--radius-md); background: var(--bg-elev); color: var(--fg);">
+            </div>
+            <div style="min-width:160px;">
+                <label style="display:block; font-size: var(--text-sm); color: var(--fg-muted); margin-bottom:4px;">Тип</label>
+                <select name="fieldType" class="lime-select" style="width:100%;">
+                    @foreach (var t in types)
+                    {
+                        <option value="@t">@(typeLabels.ContainsKey(t) ? typeLabels[t] : t)</option>
+                    }
+                </select>
+            </div>
+            <button type="submit" class="lime-btn lime-btn--primary">Добавить</button>
+        </div>
+    </form>
+</section>

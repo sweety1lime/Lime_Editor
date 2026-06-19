@@ -1,10 +1,5 @@
-@model List<Lime_Editor.Models.Template>
 @{
     ViewData["Title"] = "Шаблоны";
-    // Custom (Id=4) — внутренний "пустой" шаблон, в галерее его не показываем.
-    var publicTemplates = (Model ?? new List<Lime_Editor.Models.Template>())
-        .Where(t => t.IdTemplate != 4)
-        .ToList();
 }
 
 <section class="lime-container lime-band">
@@ -15,45 +10,62 @@
     </div>
 </section>
 
-<section class="lime-container" style="padding:34px 0 60px;">
-    @if (publicTemplates.Count == 0)
-    {
-        <div class="lime-empty lime-card">
-            <div class="lime-empty__title">Шаблонов пока нет</div>
-            <p>Зайди позже или собери сайт с нуля.</p>
-            <a class="lime-btn lime-btn--primary lime-mt-4" href="/Home/EditDoc">Создать с нуля</a>
-        </div>
-    }
-    else
-    {
-        <div class="lime-tpl-grid">
-            @{ var li = 0; }
-            @foreach (var t in publicTemplates)
-            {
-                <div class="lime-tpl reveal" data-delay="@((li++ % 3) + 1)">
-                    <div class="lime-tpl__preview">
-                        @if (!string.IsNullOrEmpty(t.FolderPreview))
-                        {
-                            <img src="@t.FolderPreview" alt="@t.Name" loading="lazy">
-                        }
-                        else
-                        {
-                            <div class="lime-shot lime-shot-@(((li) % 6) + 1)"><div class="lime-shot__ui"><div class="lime-shot__bar" style="width:54%"></div><div class="lime-shot__bar dim" style="width:76%"></div><div class="lime-shot__chip"></div><div class="lime-shot__row"><div class="lime-shot__sq"></div><div class="lime-shot__sq"></div><div class="lime-shot__sq"></div></div></div></div>
-                        }
-                        <span class="lime-tpl__tag lime-badge lime-badge--muted">Шаблон</span>
-                    </div>
-                    <div class="lime-tpl__body">
-                        <div><div class="lime-tpl__name">@t.Name</div><div class="lime-tpl__type">Готовый шаблон</div></div>
-                        <div class="lime-tpl__actions">
-                            <a class="lime-btn lime-btn--soft lime-btn--sm" href="@Url.Action($"Template_{t.IdTemplate}", "Template")">Открыть →</a>
-                            <a class="lime-btn lime-btn--ghost lime-btn--sm" href="@Url.Action($"Template_{t.IdTemplate}_Preview", "Template")" target="_blank" rel="noopener">Превью</a>
-                        </div>
-                    </div>
-                </div>
-            }
-        </div>
-    }
+<section class="lime-container" style="padding:10px 0 20px;">
+    <div class="reveal">
+        <div class="lime-eyebrow">Дизайн-шаблоны</div>
+        <h2 style="font-size:clamp(24px,3vw,34px);margin-bottom:8px;">Готовые сайты — бери и меняй контент</h2>
+        <p style="margin:0;">Целый сайт с палитрой, секциями и анимацией. Открывается в конструкторе — правь текст и картинки.</p>
+    </div>
+    <div id="lime-tpl-filter" class="lime-tpl-filter" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:18px;"></div>
+    <div id="lime-tpl-b-grid" class="lime-tpl-grid" style="margin-top:20px;"></div>
 </section>
+<script src="~/js/lime/lime-presets.js" asp-append-version="true"></script>
+<script src="~/js/lime/lime-templates.js" asp-append-version="true"></script>
+<script>
+    (function () {
+        var box = document.getElementById("lime-tpl-b-grid");
+        var filterBox = document.getElementById("lime-tpl-filter");
+        if (!box || !window.LimeTemplates) return;
+        var list = window.LimeTemplates;
+
+        // Фильтр по стилю.
+        var styles = ["Все"];
+        list.forEach(function (t) { if (t.style && styles.indexOf(t.style) < 0) styles.push(t.style); });
+        if (filterBox) {
+            filterBox.innerHTML = styles.map(function (s, i) {
+                return '<button type="button" class="lime-btn lime-btn--sm ' + (i === 0 ? "lime-btn--primary" : "lime-btn--ghost") + '" data-style="' + s + '">' + s + '</button>';
+            }).join("");
+            filterBox.addEventListener("click", function (e) {
+                var btn = e.target.closest("[data-style]");
+                if (!btn) return;
+                var s = btn.getAttribute("data-style");
+                filterBox.querySelectorAll("[data-style]").forEach(function (b) {
+                    b.className = "lime-btn lime-btn--sm " + (b === btn ? "lime-btn--primary" : "lime-btn--ghost");
+                });
+                box.querySelectorAll("[data-tpl-style]").forEach(function (card) {
+                    card.style.display = (s === "Все" || card.getAttribute("data-tpl-style") === s) ? "" : "none";
+                });
+            });
+        }
+
+        box.innerHTML = list.map(function (t) {
+            var chips = (t.sections || []).slice(0, 8).map(function (s) {
+                return '<span class="lime-badge lime-badge--muted" style="font-size:10px;">' + s + '</span>';
+            }).join(" ");
+            var grad = "linear-gradient(135deg," + t.theme.accent + "," + t.theme.accent2 + ")";
+            return '<div class="lime-tpl reveal" data-tpl-style="' + (t.style || "") + '">' +
+                '<div class="lime-tpl__preview" style="background:' + t.theme.bg + ';display:flex;align-items:center;justify-content:center;">' +
+                '<div style="width:72%;height:58%;border-radius:16px;background:' + grad + ';box-shadow:0 18px 50px rgba(0,0,0,.35);"></div>' +
+                '<span class="lime-tpl__tag lime-badge lime-badge--muted">' + (t.style || "Движок B") + '</span></div>' +
+                '<div class="lime-tpl__body">' +
+                '<div><div class="lime-tpl__name">' + t.name + '</div><div class="lime-tpl__type">' + t.desc + '</div>' +
+                '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:8px;">' + chips + '</div></div>' +
+                '<div class="lime-tpl__actions" style="margin-top:12px;">' +
+                '<a class="lime-btn lime-btn--primary lime-btn--sm" href="/Home/EditDoc?template=' + t.key + '">Взять шаблон →</a></div>' +
+                '</div></div>';
+        }).join("");
+    })();
+</script>
 
 <section class="lime-container" style="padding-bottom:90px;">
     <div class="lime-finalcta reveal" style="padding:56px 48px;">
