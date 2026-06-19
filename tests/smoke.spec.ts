@@ -63,7 +63,7 @@ const SCREENS: Screen[] = [
   },
   {
     name: "editor-new",
-    path: "/Home/EditTemplates",
+    path: "/Home/EditDoc",
     authed: true,
     assert: async (p) => {
       await expect(p.locator("#lime-workspace")).toBeVisible();

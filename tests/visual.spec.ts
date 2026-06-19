@@ -14,7 +14,7 @@ const PAGES = [
   { name: "mysites", path: "/Home/MySites" },
   { name: "templates", path: "/Home/Templates" },
   { name: "profile", path: "/Home/Profile" },
-  { name: "editor-new", path: "/Home/EditTemplates" },
+  { name: "editor-new", path: "/Home/EditDoc" },
   { name: "editor-b", path: "/Home/EditDoc" },
   { name: "community", path: "/Community/Index" },
   { name: "media", path: "/Media/Index" },

@@ -202,8 +202,170 @@ function check(name, cond) {
     check("pages: обе страницы в выдаче", html.includes("Стр1") && html.includes("Стр2"));
 }
 
+// --- Фаза 0.3: фон-слои секции (видео + затемнение) ---
+{
+    const doc = {
+        version: 1,
+        blocks: [{
+            id: "bg1", type: "heading", content: {
+                text: "Над фоном",
+                bg: { videoSrc: '/media/u1/clip.mp4"x', poster: "/media/u1/p.jpg", overlay: "rgba(10,6,18,0.55)", blur: "6px" }
+            }
+        }]
+    };
+    const pub = L.render(doc, {});
+    check("bg: видео-фон с экранированным src", pub.html.includes("lime-block__bgvideo") && pub.html.includes("/media/u1/clip.mp4&quot;x"));
+    check("bg: poster проброшен", pub.html.includes('poster="/media/u1/p.jpg"'));
+    check("bg: overlay-слой с фоном и блюром", pub.html.includes("lime-block__overlay") && pub.html.includes("rgba(10,6,18,0.55)") && pub.html.includes("backdrop-filter:blur(6px)"));
+    // Фон-слои — прямые дети секции (до .lime-block__inner), и идентичны в редакторе.
+    const secIdx = pub.html.indexOf('data-block-id="bg1"');
+    const innerIdx = pub.html.indexOf("lime-block__inner", secIdx);
+    const ovIdx = pub.html.indexOf("lime-block__overlay", secIdx);
+    check("bg: слои перед .lime-block__inner", ovIdx !== -1 && ovIdx < innerIdx);
+    const ed = L.render(doc, { editable: true });
+    check("bg: видео/overlay рендерятся и в редакторе", ed.html.includes("lime-block__bgvideo") && ed.html.includes("lime-block__overlay"));
+    // Без content.bg — никаких фон-слоёв.
+    const plain = L.render({ version: 1, blocks: [{ id: "p1", type: "text", content: { text: "x" } }] }, {});
+    check("bg: без bg нет слоёв", !plain.html.includes("lime-block__overlay") && !plain.html.includes("lime-block__bgvideo"));
+}
+
+// --- Фаза 2: движение (parallax/sticky/marquee) + декор-слои ---
+{
+    const doc = {
+        version: 1,
+        blocks: [
+            { id: "m1", type: "heading", content: { text: "Парал" }, parallax: "0.3", sticky: true, stickyOffset: "20" },
+            {
+                id: "m2", type: "columns", content: { cols: 2 }, marquee: { speed: 50, reverse: true },
+                children: [{ id: "mc1", type: "text", content: { text: "A" } }]
+            },
+            {
+                id: "m3", type: "cover", content: { title: "Hero" }, layers: [
+                    { id: "l1", kind: "shape", shape: "blob", color: "#a78bfa", x: 70, y: 10, w: 200, z: 2, depth: 0.4 },
+                    { id: "l2", kind: "image", src: '/media/u/cloud.png"x', x: 10, y: 40, w: 160, z: -1 }
+                ]
+            }
+        ]
+    };
+    const pub = L.render(doc, {});
+    check("motion: data-parallax на секции", pub.html.includes('data-block-id="m1"') && pub.html.includes('data-parallax="0.3"'));
+    check("motion: data-sticky + offset", pub.html.includes('data-sticky="1"') && pub.html.includes('data-sticky-offset="20"'));
+    check("motion: marquee на children-обёртке", pub.html.includes("lime-block__children--marquee") && pub.html.includes('data-marquee="50"') && pub.html.includes('data-marquee-reverse="1"'));
+    check("layers: контейнер слоёв и фигура-blob", pub.html.includes("lime-block__layers") && pub.html.includes("lime-block__layer--blob"));
+    check("layers: позиция/размер/z инлайном", pub.html.includes("left:70%") && pub.html.includes("width:200px") && pub.html.includes("z-index:2"));
+    check("layers: картинка-слой с экранированным src", pub.html.includes("/media/u/cloud.png&quot;x"));
+    check("layers: depth → data-parallax у слоя", pub.html.includes('data-parallax="0.4"'));
+    check("layers: в publish нет data-layer-id (drag только в редакторе)", !pub.html.includes("data-layer-id"));
+    const ed = L.render(doc, { editable: true });
+    check("layers: в редакторе есть data-layer-id для драга", ed.html.includes('data-layer-id="l1"'));
+}
+
+// --- Фаза 6.1: широта блоков (navbar/footer/accordion/pricing/.../form) ---
+{
+    const types = ["navbar", "footer", "accordion", "pricing", "testimonials", "logos", "steps", "imageText", "socials", "form"];
+    const blocks = types.map(function (t, i) { return Object.assign(L.createBlock(t), { id: "n" + i }); });
+    const pub = L.render({ version: 1, blocks: blocks }, {});
+    const ed = L.render({ version: 1, blocks: blocks }, { editable: true });
+    const classByType = {
+        navbar: "lime-block__navbar", footer: "lime-block__footer", accordion: "lime-block__accordion",
+        pricing: "lime-block__pricing", testimonials: "lime-block__testimonials", logos: "lime-block__logos",
+        steps: "lime-block__steps", imageText: "lime-block__imagetext", socials: "lime-block__socials", form: "lime-block__form"
+    };
+    types.forEach(function (t) {
+        check("breadth: " + t + " рендерит свою разметку", pub.html.indexOf(classByType[t]) >= 0);
+    });
+    check("breadth: pricing помечает featured-план", pub.html.includes("is-featured"));
+    check("breadth: accordion использует details/summary", pub.html.includes("<details") && pub.html.includes("<summary"));
+    check("breadth: form несёт data-lime-form (для InjectFormEndpoints)", pub.html.includes("data-lime-form"));
+    check("breadth: form honeypot lime_hp", pub.html.includes('name="lime_hp"'));
+    check("breadth: publish без contenteditable", pub.html.indexOf("contenteditable") === -1);
+    check("breadth: editor добавляет data-field для inline-правки", ed.html.includes('data-field="brand"') && ed.html.includes('data-field="plans.0.name"'));
+    // createBlock материализует контент по умолчанию (списки не пустые)
+    check("breadth: createBlock наполняет content (pricing.plans)", L.createBlock("pricing").content.plans.length === 3);
+}
+
+// --- Фаза 6.2/6.3: макет (boxed/bento) + универсальные эффекты (fx) ---
+{
+    const doc = {
+        version: 1,
+        blocks: [
+            { id: "fx1", type: "heading", content: { text: "T", width: "boxed" }, fx: ["glass", "glow", "gradient-text"] },
+            { id: "bn1", type: "columns", content: { cols: 3, layout: "bento" }, children: [{ id: "c1", type: "text", content: { text: "x" } }] },
+            { id: "ev1", type: "heading", content: { text: "T" }, fx: ["evil\" onload=alert(1)"] } // не в белом списке
+        ]
+    };
+    const pub = L.render(doc, {});
+    check("fx: классы lime-fx-* на секции", pub.html.includes("lime-fx-glass") && pub.html.includes("lime-fx-glow") && pub.html.includes("lime-fx-gradient-text"));
+    check("fx: неизвестный/опасный ключ отфильтрован (whitelist)", !pub.html.includes("evil") && !pub.html.includes("onload=alert"));
+    check("layout: boxed → data-width", pub.html.includes('data-width="boxed"'));
+    check("layout: bento → data-bento", pub.html.includes('data-bento="1"'));
+}
+
+// --- Фаза 8: embed/3D + scrollytelling ---
+{
+    const doc = {
+        version: 1,
+        blocks: [
+            { id: "em1", type: "embed", content: { embedUrl: "https://my.spline.design/scene\"x" } },
+            { id: "em2", type: "embed", content: { embedUrl: "javascript:alert(1)" } }, // не-https → не рендерим
+            { id: "sc1", type: "columns", content: { cols: 3 }, scene: { mode: "horizontal", length: 3 },
+              children: [{ id: "k1", type: "text", content: { text: "A" } }, { id: "k2", type: "text", content: { text: "B" } }] }
+        ]
+    };
+    const pub = L.render(doc, {});
+    check("embed: sandbox-iframe для https", pub.html.includes("lime-block__embed") && pub.html.includes("<iframe") && pub.html.includes('sandbox="allow-scripts'));
+    check("embed: src экранирован", pub.html.includes("https://my.spline.design/scene&quot;x"));
+    check("embed: не-https не рендерит iframe", (pub.html.match(/<iframe/g) || []).length === 1);
+    check("embed: publish без хука data-doc-embed", !pub.html.includes("data-doc-embed"));
+    const ed = L.render(doc, { editable: true });
+    check("embed: пустой/невалидный в редакторе — плейсхолдер", ed.html.includes("data-doc-embed"));
+    check("scene: data-scene + length на секции", pub.html.includes('data-scene="horizontal"') && pub.html.includes('data-scene-length="3"'));
+    check("scene: горизонтальный трек на обёртке", pub.html.includes("lime-block__children--scene"));
+}
+
+// --- Фуллстак (B3): блок collectionList читает opts.data[slug] = { fields, records } ---
+{
+    const doc = { version: 1, blocks: [{ id: "cl1", type: "collectionList", content: { collection: "goods" } }] };
+    const data = {
+        goods: {
+            fields: [{ name: "title", label: "Название", type: "text" }, { name: "img", label: "Фото", type: "image" }],
+            records: [{ title: "Гаджет", img: 'https://x/a.jpg"x' }, { title: "Штука" }]
+        }
+    };
+    const pub = L.render(doc, { data: data });
+    check("collectionList: карточки записей из данных", pub.html.includes("lime-block__collection") && pub.html.includes("Гаджет") && pub.html.includes("Штука"));
+    check("collectionList: image-поле как <img> с экранированием", pub.html.includes('class="lime-cl-img" src="https://x/a.jpg&quot;x"'));
+    check("collectionList: метка поля из схемы", pub.html.includes("Название"));
+    const emptyPub = L.render(doc, {});
+    check("collectionList: публикация без данных — пусто (не показываем контейнер)", emptyPub.html.indexOf("lime-block__collection") === -1);
+    const ed = L.render(doc, { editable: true });
+    check("collectionList: в редакторе — превью-подсказка", ed.html.includes("lime-doc-drop-hint"));
+    const noSlug = L.render({ version: 1, blocks: [{ id: "cl2", type: "collectionList", content: {} }] }, { editable: true });
+    check("collectionList: без коллекции — подсказка выбрать", noSlug.html.includes("выбери источник"));
+}
+
+// --- 1.2: hover-состояние компилируется в :hover-правило + transition ---
+{
+    const doc = {
+        version: 1,
+        blocks: [
+            { id: "hv1", type: "cta", content: { title: "Кнопка" }, styles: {
+                base: { color: "#fff" }, hover: { color: "#84cc16", boxShadow: "0 8px 24px rgba(0,0,0,.3)" }
+            } },
+            { id: "hv2", type: "text", content: { text: "Без hover" }, styles: { base: { color: "#abc" } } },
+            { id: "hv3", type: "text", content: { text: "Пустой hover" }, styles: { base: {}, hover: {} } }
+        ]
+    };
+    const out = L.render(doc, {});
+    check("hover: :hover-правило с пропсами", out.css.includes('[data-block-id="hv1"]:hover{color:#84cc16;box-shadow:0 8px 24px rgba(0,0,0,.3);}'));
+    check("hover: transition добавлен только при наличии hover", out.css.includes('[data-block-id="hv1"]{transition:all .2s ease;}'));
+    check("hover: base-правило не сломано", out.css.includes('[data-block-id="hv1"]{color:#fff;}'));
+    check("hover: блок без hover — без :hover и без transition", !out.css.includes('[data-block-id="hv2"]:hover') && !out.css.includes('[data-block-id="hv2"]{transition'));
+    check("hover: пустой бакет hover игнорируется", !out.css.includes('[data-block-id="hv3"]:hover'));
+}
+
 if (failed) {
     console.error("\nSELFTEST FAILED: " + failed);
     process.exit(1);
 }
-console.log("\nCHILDREN-RENDER-OK (0.1) + MEDIA-RENDER-OK (0.5) + B2/B3 регрессия зелёные");
+console.log("\nCHILDREN-RENDER-OK (0.1) + MEDIA-RENDER-OK (0.5) + BG-LAYERS-OK (0.3) + MOTION/LAYERS-OK (2) + HOVER-OK (1.2) + B2/B3 регрессия зелёные");

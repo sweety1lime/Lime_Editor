@@ -29,7 +29,7 @@ namespace Lime.Tests.Integration
             return user;
         }
 
-        private async Task SeedSiteAsync(int userId, string name, string slug, bool published, bool inGallery)
+        private async Task SeedSiteAsync(int userId, string name, string slug, bool published, bool inGallery, string publishedDocJson = null)
         {
             using var scope = _factory.Services.CreateScope();
             var db = scope.ServiceProvider.GetRequiredService<LimeEditorContext>();
@@ -38,10 +38,11 @@ namespace Lime.Tests.Integration
                 Name = name,
                 Folder = "<html><body>x</body></html>",
                 UserId = userId,
-                TemplateId = 1,
+                TemplateId = 4,
                 Slug = slug,
                 IsPublished = published,
                 ShowInGallery = inGallery,
+                PublishedDocumentJson = publishedDocJson,
             });
             await db.SaveChangesAsync();
         }
@@ -94,7 +95,8 @@ namespace Lime.Tests.Integration
         public async Task PublishedSiteView_IncrementsViewsCounter()
         {
             var user = await CreateUserAsync("vera");
-            await SeedSiteAsync(user.Id, "Счётчик", "counter", published: true, inGallery: true);
+            await SeedSiteAsync(user.Id, "Счётчик", "counter", published: true, inGallery: true,
+                publishedDocJson: "{\"version\":1,\"blocks\":[{\"id\":\"x\",\"type\":\"heading\",\"content\":{\"text\":\"Hi\"}}]}");
 
             var client = _factory.CreateClient();
             (await client.GetAsync("/u/vera/counter")).EnsureSuccessStatusCode();

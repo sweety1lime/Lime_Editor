@@ -2,6 +2,7 @@ using Lime_Editor.Models;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
 using Xunit;
@@ -52,40 +53,22 @@ namespace Lime.Tests.Integration
             ]
         }";
 
+        // Одностраничный документ движка B.
+        private const string SinglePageDoc =
+            "{\"version\":1,\"blocks\":[{\"id\":\"x\",\"type\":\"heading\",\"content\":{\"text\":\"Hello\"}}]}";
+
         [Fact]
         public async Task PublishedSite_ReturnsHtml_WhenPublished()
         {
             var user = await CreateUserAsync("alice");
-            await SeedSiteAsync(user.Id, "my-page", isPublished: true, body: "<html><body><h1>Hello</h1></body></html>");
+            await SeedSiteAsync(user.Id, "my-page", isPublished: true, body: "<html><body>legacy</body></html>", publishedDocJson: SinglePageDoc);
 
             var client = _factory.CreateClient();
             var response = await client.GetAsync("/u/alice/my-page");
             response.EnsureSuccessStatusCode();
             Assert.Equal("text/html", response.Content.Headers.ContentType?.MediaType);
             var body = await response.Content.ReadAsStringAsync();
-            Assert.Contains("<h1>Hello</h1>", body);
-        }
-
-        [Fact]
-        public async Task PublishedSite_StripsEditorControls()
-        {
-            var user = await CreateUserAsync("dave");
-            var folder = @"<html><body>
-                <a id=""del"" onclick=""savPage()"">Сохранить</a>
-                <a id=""del1"" onclick=""downloadSite()"">Скачать</a>
-                <h1>Public content</h1>
-                <script src=""/js/saveTemplate.js""></script>
-            </body></html>";
-            await SeedSiteAsync(user.Id, "clean", isPublished: true, body: folder);
-
-            var client = _factory.CreateClient();
-            var response = await client.GetAsync("/u/dave/clean");
-            response.EnsureSuccessStatusCode();
-            var body = await response.Content.ReadAsStringAsync();
-            Assert.Contains("<h1>Public content</h1>", body);
-            Assert.DoesNotContain("savPage", body);
-            Assert.DoesNotContain("downloadSite", body);
-            Assert.DoesNotContain("saveTemplate.js", body);
+            Assert.Contains("Hello", body);
         }
 
         [Fact]
@@ -167,6 +150,65 @@ namespace Lime.Tests.Integration
             var client = _factory.CreateClient();
             var response = await client.GetAsync("/u/charlie/no-such-slug");
             Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        }
+
+        // Фуллстак (B3): блок collectionList на опубликованной странице рендерит реальные
+        // записи из БД (per-request), которые сервер подаёт через BuildCollectionDataAsync → RenderPage.
+        private const string CollectionDoc =
+            "{\"version\":1,\"pages\":[{\"slug\":\"\",\"title\":\"Home\",\"blocks\":[" +
+            "{\"id\":\"cl\",\"type\":\"collectionList\",\"content\":{\"collection\":\"goods\"}}]}]}";
+
+        private async Task SeedCollectionAsync(int siteId, string slug, string schemaJson, params string[] recordJsons)
+        {
+            using var scope = _factory.Services.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<LimeEditorContext>();
+            var col = new Collection { SiteId = siteId, Name = slug, Slug = slug, SchemaJson = schemaJson, CreatedAt = System.DateTime.UtcNow };
+            db.Collections.Add(col);
+            await db.SaveChangesAsync();
+            foreach (var rj in recordJsons)
+            {
+                db.CollectionRecords.Add(new CollectionRecord { CollectionId = col.Id, DataJson = rj, CreatedAt = System.DateTime.UtcNow });
+            }
+            await db.SaveChangesAsync();
+        }
+
+        [Fact]
+        public async Task CollectionList_RendersRecordsFromDb_OnPublishedPage()
+        {
+            var user = await CreateUserAsync("iris");
+            await SeedSiteAsync(user.Id, "shop", isPublished: true, body: "<html><body>legacy</body></html>", publishedDocJson: CollectionDoc);
+            // siteId сидированного сайта
+            int siteId;
+            using (var scope = _factory.Services.CreateScope())
+            {
+                var db = scope.ServiceProvider.GetRequiredService<LimeEditorContext>();
+                siteId = await db.Sites.Where(s => s.UserId == user.Id && s.Slug == "shop").Select(s => s.IdSite ?? 0).FirstAsync();
+            }
+            await SeedCollectionAsync(siteId, "goods",
+                "[{\"name\":\"title\",\"type\":\"text\",\"label\":\"Название\"}]",
+                "{\"title\":\"Виджет Про\"}", "{\"title\":\"Штука\"}");
+
+            var client = _factory.CreateClient();
+            var response = await client.GetAsync("/u/iris/shop");
+            response.EnsureSuccessStatusCode();
+            var html = await response.Content.ReadAsStringAsync();
+            Assert.Contains("lime-block__collection", html);
+            Assert.Contains("Виджет Про", html); // реальные данные из БД
+            Assert.Contains("Штука", html);
+            Assert.Contains("Название", html);    // метка поля из схемы
+        }
+
+        [Fact]
+        public async Task CollectionList_EmptyCollection_RendersNoCards_OnPublishedPage()
+        {
+            var user = await CreateUserAsync("jane");
+            await SeedSiteAsync(user.Id, "shop2", isPublished: true, body: "<html><body>legacy</body></html>", publishedDocJson: CollectionDoc);
+            // коллекции нет вовсе → блок пуст, страница отдаётся (200), без карточек
+            var client = _factory.CreateClient();
+            var response = await client.GetAsync("/u/jane/shop2");
+            response.EnsureSuccessStatusCode();
+            var html = await response.Content.ReadAsStringAsync();
+            Assert.DoesNotContain("lime-cl-card", html);
         }
     }
 }

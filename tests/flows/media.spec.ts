@@ -73,7 +73,7 @@ test("constructor: media picker inserts image into gallery block (@flow)", async
   }
 
   // В конструктор → добавляем галерею
-  await page.goto("/Home/EditTemplates");
+  await page.goto("/Home/EditDoc");
   await page.locator('[data-add-block="gallery"]').click();
 
   const firstSlot = page.locator(".lime-block__gallery-item").first();
