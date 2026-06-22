@@ -48,6 +48,12 @@
                     <button type="button" class="lime-device-toggle__btn" data-doc-bp="tablet" title="Планшет">📊</button>
                     <button type="button" class="lime-device-toggle__btn" data-doc-bp="mobile" title="Мобайл">📱</button>
                 </div>
+                <div class="lime-canvas-zoom" data-canvas-controls hidden>
+                    <button type="button" data-canvas-zoom-out title="Уменьшить">−</button>
+                    <button type="button" data-canvas-zoom-label title="100%">100%</button>
+                    <button type="button" data-canvas-zoom-in title="Увеличить">+</button>
+                    <button type="button" data-canvas-fit title="Вместить страницу">Fit</button>
+                </div>
                 <button type="button" class="lime-btn lime-btn--ghost lime-btn--sm" data-doc-anim-preview style="margin-left: var(--space-3);" title="Проиграть анимации появления">▶ Превью</button>
             </div>
             <div class="lime-editor__topbar-right">
@@ -140,7 +146,14 @@
 
         <main class="lime-editor__canvas">
             <div id="lime-doc-pages" class="lime-doc-pages-bar"></div>
-            <div id="lime-doc-workspace" class="lime-workspace" data-device="desktop"></div>
+            <div id="lime-canvas-viewport" class="lime-canvas-viewport">
+                <div id="lime-doc-workspace" class="lime-workspace" data-device="desktop"></div>
+                <div id="lime-selection-overlay" class="lime-selection-overlay" aria-hidden="true">
+                    <div data-selection-boxes></div>
+                    <div class="lime-selection-hover" data-selection-hover hidden></div>
+                    <div class="lime-selection-marquee" data-selection-marquee hidden></div>
+                </div>
+            </div>
 
             <!-- Intro overlay (показывается на пустом документе) -->
             <div class="lime-le-intro" id="lime-doc-intro">
@@ -342,6 +355,13 @@
     <script src="~/js/lime/lime-presets.js" asp-append-version="true"></script>
     <script src="~/js/lime/lime-templates.js" asp-append-version="true"></script>
     <script src="~/js/lime/lime-doc.js" asp-append-version="true"></script>
+    <script src="~/js/lime/lime-design.js" asp-append-version="true"></script>
+    <script src="~/js/lime/lime-viewport.js" asp-append-version="true"></script>
+    <script src="~/js/lime/lime-selection.js" asp-append-version="true"></script>
+    <script src="~/js/lime/lime-layout.js" asp-append-version="true"></script>
+    <script src="~/js/lime/lime-snap.js" asp-append-version="true"></script>
+    @* Editor V2 (D2): command-system + история. Активируется флагом ?cmd=1 в URL редактора. *@
+    <script src="~/js/lime/lime-commands.js" asp-append-version="true"></script>
     <script src="~/js/lime/lime-doc-editor.js" asp-append-version="true" defer></script>
 </body>
 </html>

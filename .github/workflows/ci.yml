@@ -35,6 +35,58 @@ jobs:
           path: ./TestResults/*.trx
           retention-days: 7
 
+  editor-v2-e2e:
+    name: editor v2 browser smoke
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: limeeditor_e2e
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d limeeditor_e2e"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      LIME_E2E_BASE_URL: http://127.0.0.1:5000
+      ConnectionStrings__connect: Host=127.0.0.1;Port=5432;Database=limeeditor_e2e;Username=postgres;Password=postgres
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install JavaScript dependencies
+        run: npm ci
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run Editor V2 browser smoke
+        run: npm run test:e2e:editor-v2
+
+      - name: Upload browser traces
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: editor-v2-playwright-results
+          path: ./test-results
+          if-no-files-found: ignore
+          retention-days: 7
+
   docker:
     name: docker build + push
     needs: build

@@ -39,6 +39,22 @@ namespace Lime.Tests.Services
             ]
         }";
 
+        private const string V2FreeDoc = /*lang=json*/ @"{
+            ""version"": 2, ""theme"": {}, ""components"": {},
+            ""pages"": [{ ""id"": ""p0"", ""slug"": """", ""title"": ""Free"", ""blocks"": [
+                { ""id"": ""free"", ""type"": ""container"", ""content"": {},
+                  ""design"": { ""base"": {
+                    ""layout"": { ""mode"": ""free"", ""padding"": { ""top"": 16, ""right"": 16, ""bottom"": 16, ""left"": 16 } },
+                    ""size"": { ""width"": { ""mode"": ""fill"" }, ""height"": { ""mode"": ""fixed"", ""value"": 480 } }
+                  } },
+                  ""children"": [
+                    { ""id"": ""free-title"", ""type"": ""heading"", ""content"": { ""text"": ""Свободный hero"" },
+                      ""design"": { ""base"": { ""frame"": { ""x"": 40, ""y"": 80, ""width"": 360, ""height"": 100, ""rotation"": 0 } },
+                                      ""mobile"": { ""frame"": { ""x"": 16, ""width"": 280 } } } }
+                  ] }
+            ] }]
+        }";
+
         private static string EnginePath()
         {
             // Lime.Tests/bin/Debug/net8.0 → корень репо → Lime_Editor/wwwroot/js/lime/lime-doc.js
@@ -155,57 +171,103 @@ namespace Lime.Tests.Services
         }
 
         // GOLDEN: сервер (Jint) == клиент (node) байт-в-байт на одном lime-doc.js.
-        // Если node недоступен в окружении — тест тихо проходит (golden гоняется в dev/CI, где node есть).
+        // Это tripwire инварианта «один рендер везде»: ЛЮБАЯ правка движка (включая будущий v2),
+        // меняющая вывод golden-fixture, валит тест. Покрываем оба контракта: publish (renderSite)
+        // и export (compileDocCss). node нет в окружении → тест тихо проходит (golden гоняется в dev/CI).
         [Fact]
         public void RenderSite_MatchesNodeOutput_Golden()
         {
             var enginePath = EnginePath();
-            var docFile = Path.Combine(Path.GetTempPath(), "lime-golden-" + Guid.NewGuid().ToString("N") + ".json");
-            File.WriteAllText(docFile, SampleDoc);
+            var docFile = WriteTempDoc(SampleDoc);
             try
             {
-                var script =
-                    "const L=require(process.argv[1]);" +
-                    "const fs=require('fs');" +
-                    "const doc=JSON.parse(fs.readFileSync(process.argv[2],'utf8'));" +
-                    "process.stdout.write(L.renderSite(doc));";
-                var psi = new ProcessStartInfo
-                {
-                    FileName = "node",
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    UseShellExecute = false,
-                    // node пишет UTF-8; без явной кодировки Windows читает stdout в кодировке консоли (CP866).
-                    StandardOutputEncoding = System.Text.Encoding.UTF8,
-                    StandardErrorEncoding = System.Text.Encoding.UTF8,
-                };
-                psi.ArgumentList.Add("-e");
-                psi.ArgumentList.Add(script);
-                psi.ArgumentList.Add(enginePath);
-                psi.ArgumentList.Add(docFile);
-
-                string nodeHtml;
-                try
-                {
-                    using var proc = Process.Start(psi);
-                    nodeHtml = proc.StandardOutput.ReadToEnd();
-                    proc.WaitForExit(15000);
-                    if (proc.ExitCode != 0)
-                    {
-                        throw new Xunit.Sdk.XunitException("node упал: " + proc.StandardError.ReadToEnd());
-                    }
-                }
-                catch (System.ComponentModel.Win32Exception)
-                {
-                    return; // node не установлен — golden пропускаем
-                }
-
-                var jintHtml = new JsDocumentRenderer(enginePath).RenderSite(SampleDoc);
-                Assert.Equal(nodeHtml, jintHtml);
+                var nodeHtml = TryRunNode(enginePath, docFile, "L.renderSite(doc)");
+                if (nodeHtml == null) return; // node не установлен
+                Assert.Equal(nodeHtml, new JsDocumentRenderer(enginePath).RenderSite(SampleDoc));
             }
-            finally
+            finally { File.Delete(docFile); }
+        }
+
+        [Fact]
+        public void V2Free_RenderAndCss_MatchNodeOutput()
+        {
+            var enginePath = EnginePath();
+            var docFile = WriteTempDoc(V2FreeDoc);
+            try
             {
-                File.Delete(docFile);
+                var nodeHtml = TryRunNode(enginePath, docFile, "L.renderSite(doc)");
+                var nodeCss = TryRunNode(enginePath, docFile, "L.compileDocCss(doc)");
+                if (nodeHtml == null || nodeCss == null) return;
+                var renderer = new JsDocumentRenderer(enginePath);
+                var serverHtml = renderer.RenderSite(V2FreeDoc);
+                var serverCss = renderer.CompileCss(V2FreeDoc);
+                Assert.Equal(nodeHtml, serverHtml);
+                Assert.Equal(nodeCss, serverCss);
+                Assert.Contains("data-design=\"1\"", serverHtml);
+                Assert.Contains("position:absolute;left:40px;top:80px", serverCss);
+                Assert.Contains("@media(max-width:640px)", serverCss);
+            }
+            finally { File.Delete(docFile); }
+        }
+
+        [Fact]
+        public void CompileCss_MatchesNodeOutput_Golden()
+        {
+            var enginePath = EnginePath();
+            var docFile = WriteTempDoc(SampleDoc);
+            try
+            {
+                var nodeCss = TryRunNode(enginePath, docFile, "L.compileDocCss(doc)");
+                if (nodeCss == null) return; // node не установлен
+                Assert.Equal(nodeCss, new JsDocumentRenderer(enginePath).CompileCss(SampleDoc));
+            }
+            finally { File.Delete(docFile); }
+        }
+
+        private static string WriteTempDoc(string json)
+        {
+            var f = Path.Combine(Path.GetTempPath(), "lime-golden-" + Guid.NewGuid().ToString("N") + ".json");
+            File.WriteAllText(f, json);
+            return f;
+        }
+
+        // Запускает node с lime-doc.js и JS-выражением над doc; возвращает stdout.
+        // null — node не установлен (golden пропускаем). Бросает при ненулевом коде выхода.
+        private static string TryRunNode(string enginePath, string docFile, string jsExpr)
+        {
+            var script =
+                "const L=require(process.argv[1]);" +
+                "const fs=require('fs');" +
+                "const doc=JSON.parse(fs.readFileSync(process.argv[2],'utf8'));" +
+                "process.stdout.write(" + jsExpr + ");";
+            var psi = new ProcessStartInfo
+            {
+                FileName = "node",
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                // node пишет UTF-8; без явной кодировки Windows читает stdout в кодировке консоли (CP866).
+                StandardOutputEncoding = System.Text.Encoding.UTF8,
+                StandardErrorEncoding = System.Text.Encoding.UTF8,
+            };
+            psi.ArgumentList.Add("-e");
+            psi.ArgumentList.Add(script);
+            psi.ArgumentList.Add(enginePath);
+            psi.ArgumentList.Add(docFile);
+            try
+            {
+                using var proc = Process.Start(psi);
+                var outp = proc.StandardOutput.ReadToEnd();
+                proc.WaitForExit(15000);
+                if (proc.ExitCode != 0)
+                {
+                    throw new Xunit.Sdk.XunitException("node упал: " + proc.StandardError.ReadToEnd());
+                }
+                return outp;
+            }
+            catch (System.ComponentModel.Win32Exception)
+            {
+                return null; // node не установлен — golden пропускаем
             }
         }
     }

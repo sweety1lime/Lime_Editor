@@ -17,21 +17,16 @@
     var inspectorEl = document.getElementById("lime-doc-inspector");
     var saveBtn = document.querySelector("[data-doc-save]");
     var siteId = saveBtn ? (saveBtn.dataset.siteId || "") : "";
+    var refreshV2SelectionOverlay = function () {};
 
     // ===== STATE =====
     var doc = { version: 1, pages: [], components: {}, theme: {} };
     if (window.__LIME_DOC__ && typeof window.__LIME_DOC__ === "object") {
         doc = window.__LIME_DOC__;
     }
-    if (!doc.version) doc.version = 1;
-    if (!doc.components) doc.components = {};
-    if (!doc.theme) doc.theme = {};
-    if (!doc.theme.classes) doc.theme.classes = []; // переиспользуемые style-классы (0.1)
-    // Нормализация в pages-модель (старый doc.blocks → одна страница «Главная»).
-    if (!doc.pages || !doc.pages.length) {
-        doc.pages = [{ id: "p0", slug: "", title: "Главная", blocks: (doc.blocks || []) }];
-    }
-    delete doc.blocks;
+    // Нормализация/миграция по version — единая точка в движке (browser/Jint/export/self-test).
+    // Поднимает legacy doc.blocks → pages, проставляет дефолты, сохраняет неизвестные поля.
+    doc = L.migrateDoc(doc);
 
     var active = 0;            // индекс активной страницы
     var selectedId = null;
@@ -60,6 +55,19 @@
         if (b && b.type === "component" && doc.components[b.ref]) return doc.components[b.ref].block;
         return b;
     }
+    var INSTANCE_DESIGN_FIELDS = { frame: 1, size: 1, constraints: 1, zIndex: 1 };
+    function designTarget(b, field) {
+        if (b && b.type === "component" && INSTANCE_DESIGN_FIELDS[field]) return b;
+        return targetBlock(b);
+    }
+    function rawBlockDesign(b) {
+        if (b && b.type === "component" && doc.components[b.ref]) {
+            var definition = doc.components[b.ref].block || {};
+            return L.mergeInstanceDesign ? L.mergeInstanceDesign(definition.design, b.design) : (b.design || definition.design || {});
+        }
+        return b && b.design || {};
+    }
+    function resolvedBlockDesign(b, breakpoint) { return L.resolvedDesign(rawBlockDesign(b), breakpoint); }
     function escapeText(s) {
         return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
     }
@@ -148,6 +156,23 @@
         }
         cur[parts[parts.length - 1]] = val;
     }
+    function deleteByPath(obj, path) {
+        var parts = path.split(".");
+        var nodes = [obj];
+        var cur = obj;
+        for (var i = 0; i < parts.length - 1; i++) {
+            if (cur == null || typeof cur !== "object" || !(parts[i] in cur)) return false;
+            cur = cur[parts[i]];
+            nodes.push(cur);
+        }
+        if (cur == null || !Object.prototype.hasOwnProperty.call(cur, parts[parts.length - 1])) return false;
+        delete cur[parts[parts.length - 1]];
+        for (var j = nodes.length - 1; j > 0; j--) {
+            if (Object.keys(nodes[j]).length) break;
+            delete nodes[j - 1][parts[j - 1]];
+        }
+        return true;
+    }
     function kebab(k) { return k.replace(/[A-Z]/g, function (m) { return "-" + m.toLowerCase(); }); }
 
     // Эффективные стили для превью текущего брейкпоинта (каскад base ⊕ tablet ⊕ mobile).
@@ -168,8 +193,23 @@
     var hist = [];
     var histPos = -1;
 
+    // Editor V2 (этап D2): за флагом ?cmd=1 (или window.__LIME_CMD__) бэкендом истории становится
+    // lime-commands. Переведённые мутации пишут точечные op-записи, остальные продолжают писать
+    // state-чекпоинты в тот же стек. Флаг OFF по умолчанию → старое поведение не меняется.
+    var cmdOn = (/[?&]cmd=1\b/.test(location.search) || window.__LIME_CMD__) && !!window.LimeCommands;
+    var canvasOn = /[?&]canvas=1\b/.test(location.search);
+    var cmdStore = cmdOn ? window.LimeCommands.createStore(doc) : null;
+    var cmdPrev = cmdStore ? JSON.stringify(doc) : null; // doc-снапшот предыдущей точки истории
+
     function snapshot() { return JSON.stringify({ doc: doc, active: active }); }
     function pushHistory() {
+        if (cmdStore) {
+            var after = JSON.stringify(doc);
+            cmdStore.recordState(cmdPrev, after); // before===after (в т.ч. после undo) → no-op, без петли
+            cmdPrev = after;
+            updateHistButtons();
+            return;
+        }
         var snap = snapshot();
         if (histPos >= 0 && hist[histPos] === snap) return; // состояние не изменилось
         hist = hist.slice(0, histPos + 1);
@@ -178,6 +218,103 @@
         histPos = hist.length - 1;
         updateHistButtons();
     }
+    // Выполнить точечную команду, если command-store активен и понимает эту структуру.
+    // После dispatch синхронизируем checkpoint-курсор: следующий markDirty не должен записать
+    // поверх op-команды дублирующий полный state-снапшот.
+    function commitPendingCommandEdits() {
+        commitInlineEdit();
+        commitStyleEdit();
+        commitBlockEdit();
+    }
+    // Document-level мутации (class/component/page/theme) пока остаются атомарными state-checkpoint.
+    // Барьер ОБЯЗАН вызываться до изменения doc: иначе открытый debounce-жест и следующая
+    // snapshot-мутация меняют один объект, а их записи попадают в history в обратном порядке.
+    function beginCheckpointMutation() {
+        if (!cmdStore) return;
+        commitPendingCommandEdits();
+        cmdPrev = JSON.stringify(doc);
+    }
+    function runCommand(type, payload) {
+        commitPendingCommandEdits();
+        if (!cmdStore || !cmdStore.dispatch(type, payload)) return false;
+        doc = cmdStore.getDoc();
+        cmdPrev = JSON.stringify(doc);
+        updateHistButtons();
+        return true;
+    }
+    function runCommands(items, label) {
+        commitPendingCommandEdits();
+        if (!cmdStore) return false;
+        cmdStore.begin(label || "batch");
+        var changed = false;
+        for (var i = 0; i < items.length; i++) {
+            if (cmdStore.dispatch(items[i].type, items[i].payload)) changed = true;
+        }
+        cmdStore.commit(label || "batch");
+        doc = cmdStore.getDoc();
+        cmdPrev = JSON.stringify(doc);
+        updateHistButtons();
+        return changed;
+    }
+    // Частый шов для media/content-инспектора. Component definitions пока намеренно идут
+    // snapshot fallback: command engine ищет только реальные блоки в pages.
+    function setContentValue(source, field, value, remove) {
+        var target = targetBlock(source);
+        if (!target) return false;
+        if (cmdStore && target === source) {
+            var changed = runCommand("setContent", {
+                id: source.id, field: field, value: value, remove: !!remove
+            });
+            render();
+            if (changed) scheduleAutosave();
+            return true;
+        }
+        beginCheckpointMutation();
+        if (!target.content) target.content = {};
+        if (remove) deleteByPath(target.content, field);
+        else setByPath(target.content, field, value);
+        render(); markDirty();
+        return true;
+    }
+    function setBlockValue(source, prop, value, remove) {
+        var target = targetBlock(source);
+        if (!target) return false;
+        if (cmdStore && target === source) {
+            var changed = runCommand("setBlockProp", {
+                id: source.id, prop: prop, value: value, remove: !!remove
+            });
+            render();
+            if (changed) scheduleAutosave();
+            return true;
+        }
+        beginCheckpointMutation();
+        if (remove) delete target[prop]; else target[prop] = value;
+        render(); markDirty();
+        return true;
+    }
+    function setDesignValue(source, breakpoint, field, value, remove) {
+        var target = designTarget(source, field);
+        if (!target) return false;
+        if (cmdStore && target === source) {
+            var changed = runCommand("setDesign", {
+                id: source.id, breakpoint: breakpoint, field: field, value: value, remove: !!remove
+            });
+            render();
+            if (changed) scheduleAutosave();
+            return true;
+        }
+        beginCheckpointMutation();
+        if (!target.design) target.design = {};
+        if (!target.design[breakpoint]) target.design[breakpoint] = {};
+        if (remove) delete target.design[breakpoint][field]; else target.design[breakpoint][field] = value;
+        render(); markDirty();
+        return true;
+    }
+    function finishMutation(commandApplied) {
+        render();
+        if (commandApplied) scheduleAutosave();
+        else markDirty();
+    }
     function restoreSnapshot(snap) {
         clearTimeout(editDebounce);
         var s = JSON.parse(snap);
@@ -185,15 +322,46 @@
         active = Math.min(s.active, doc.pages.length - 1);
         selectedId = null;
         refreshPages(); refreshComponents(); render();
+        if (window.__LIME_SELECTION__) window.__LIME_SELECTION__.clear();
         markDirty(); // откат — тоже изменение, его надо автосохранить
     }
+    // Постпроцесс восстановления документа из command-store (D2): rebind doc + перерисовка.
+    function afterCmdRestore() {
+        clearTimeout(editDebounce);
+        doc = cmdStore.getDoc();
+        active = Math.min(active, doc.pages.length - 1);
+        selectedId = null;
+        cmdPrev = JSON.stringify(doc); // markDirty→recordState станет no-op (before===after)
+        refreshPages(); refreshComponents(); render();
+        // Выделение переживает undo/redo (Figma-like): оставляем только выжившие узлы (удалённые
+        // откатом выпадают), затем форсим ре-эмит — subscribe→syncLegacy восстанавливает legacy
+        // selectedId/инспектор, а refresh репозиционирует боксы под свежий DOM. Это и устраняет
+        // прежний рассинхрон (боксы на старых позициях + пустой legacy), но НЕ теряя выбор.
+        if (window.__LIME_SELECTION__) {
+            var keepSel = window.__LIME_SELECTION__.get().ids.filter(function (id) {
+                return !!ws.querySelector('[data-block-id="' + id + '"]');
+            });
+            window.__LIME_SELECTION__.replace([]);
+            window.__LIME_SELECTION__.replace(keepSel);
+        }
+        scheduleAutosave();
+        updateHistButtons();
+    }
     function undo() {
+        commitInlineEdit();
+        commitStyleEdit();
+        commitBlockEdit();
+        if (cmdStore) { if (cmdStore.undo()) afterCmdRestore(); return; }
         if (histPos <= 0) return;
         histPos--;
         restoreSnapshot(hist[histPos]);
         updateHistButtons();
     }
     function redo() {
+        commitInlineEdit();
+        commitStyleEdit();
+        commitBlockEdit();
+        if (cmdStore) { if (cmdStore.redo()) afterCmdRestore(); return; }
         if (histPos >= hist.length - 1) return;
         histPos++;
         restoreSnapshot(hist[histPos]);
@@ -202,6 +370,11 @@
     function updateHistButtons() {
         var u = document.querySelector("[data-doc-undo]");
         var r = document.querySelector("[data-doc-redo]");
+        if (cmdStore) {
+            if (u) u.disabled = !cmdStore.canUndo();
+            if (r) r.disabled = !cmdStore.canRedo();
+            return;
+        }
         if (u) u.disabled = histPos <= 0;
         if (r) r.disabled = histPos >= hist.length - 1;
     }
@@ -254,6 +427,7 @@
         refreshLayers(); // дерево слоёв синхронно с холстом (этап 0.4)
         initDnD(); // DOM пересобран — пересоздаём sortable-зоны
         initLayerDrag(); // и навешиваем drag на декор-слои
+        refreshV2SelectionOverlay();
     }
 
     // ===== DRAG-AND-DROP (полировка: SortableJS на всех уровнях вложенности) =====
@@ -270,6 +444,11 @@
         var t = targetBlock(b);
         if (!t.children) t.children = [];
         return t.children;
+    }
+    function parentIdOfList(listEl) {
+        if (listEl.classList.contains("lime-doc-page")) return null;
+        var sec = listEl.closest(".lime-block");
+        return sec ? sec.getAttribute("data-block-id") : null;
     }
     // Защита от цикла: нельзя бросить контейнер внутрь его собственного поддерева.
     function subtreeOwnsArray(block, arr) {
@@ -288,10 +467,23 @@
         if (evt.from === evt.to && evt.oldIndex === evt.newIndex) return;
         var moved = fromArr[evt.oldIndex];
         if (!moved || subtreeOwnsArray(moved, toArr)) { render(); return; }
-        fromArr.splice(evt.oldIndex, 1);
-        toArr.splice(Math.min(evt.newIndex, toArr.length), 0, moved);
+        var commandApplied = fromArr === toArr
+            ? runCommand("reorderBlock", {
+                id: moved.id,
+                toIndex: Math.min(evt.newIndex, toArr.length - 1)
+            })
+            : runCommand("moveBlock", {
+                id: moved.id,
+                parentId: parentIdOfList(evt.to),
+                pageIndex: active,
+                toIndex: Math.min(evt.newIndex, toArr.length)
+            });
+        if (!commandApplied) {
+            fromArr.splice(evt.oldIndex, 1);
+            toArr.splice(Math.min(evt.newIndex, toArr.length), 0, moved);
+        }
         selectedId = moved.id;
-        render(); markDirty();
+        finishMutation(commandApplied);
     }
     function initDnD() {
         if (!window.Sortable) return;
@@ -320,6 +512,15 @@
 
     // Инлайним эффективные стили текущего брейкпоинта поверх <style> движка — точное превью без iframe.
     function applyPreviewStyles() {
+        if (canvasOn && L.compilePreviewDesignCss && pageBlocks().length) {
+            var designStyle = ws.querySelector("style[data-lime-design-preview]");
+            if (!designStyle) {
+                designStyle = document.createElement("style");
+                designStyle.setAttribute("data-lime-design-preview", "");
+                ws.appendChild(designStyle);
+            }
+            designStyle.textContent = L.compilePreviewDesignCss(pageBlocks(), doc.components, currentBp);
+        }
         var blocks = ws.querySelectorAll(".lime-block");
         for (var i = 0; i < blocks.length; i++) {
             var el = blocks[i];
@@ -356,6 +557,19 @@
 
     // ===== INLINE CONTENT EDIT (без ре-рендера) =====
     var editDebounce;
+    var editTxn = false;
+    var editTxnKey = null;
+    function commitInlineEdit() {
+        clearTimeout(editDebounce);
+        if (!editTxn || !cmdStore) return;
+        cmdStore.commit("inline-content");
+        editTxn = false;
+        editTxnKey = null;
+        doc = cmdStore.getDoc();
+        cmdPrev = JSON.stringify(doc);
+        updateHistButtons();
+        scheduleAutosave();
+    }
     ws.addEventListener("input", function (e) {
         var f = e.target.closest("[data-field]");
         if (!f) return;
@@ -363,7 +577,30 @@
         if (!sec) return;
         var b = byId(sec.getAttribute("data-block-id"));
         if (!b) return;
-        setByPath(targetBlock(b).content, f.getAttribute("data-field"), f.textContent);
+        var field = f.getAttribute("data-field");
+        var value = f.textContent;
+        var directBlock = targetBlock(b) === b; // component definition пока остаётся checkpoint
+        if (cmdStore && directBlock) {
+            commitStyleEdit();
+            commitBlockEdit();
+            var key = b.id + ":" + field;
+            if (editTxn && editTxnKey !== key) commitInlineEdit();
+            if (!editTxn) {
+                cmdStore.begin("inline-content");
+                editTxn = true;
+                editTxnKey = key;
+            }
+            if (cmdStore.dispatch("setContent", { id: b.id, field: field, value: value })) {
+                doc = cmdStore.getDoc();
+                clearTimeout(editDebounce);
+                editDebounce = setTimeout(commitInlineEdit, 600);
+                return;
+            }
+            cmdStore.cancel();
+            editTxn = false;
+            editTxnKey = null;
+        } else beginCheckpointMutation();
+        setByPath(targetBlock(b).content, field, value);
         clearTimeout(editDebounce);
         editDebounce = setTimeout(markDirty, 600);
     });
@@ -388,7 +625,14 @@
     if (layersBox) {
         layersBox.addEventListener("click", function (e) {
             var row = e.target.closest("[data-doc-layer]");
-            if (row) selectById(row.getAttribute("data-doc-layer"));
+            if (!row) return;
+            var control = e.target.closest("[data-node-toggle-hidden],[data-node-toggle-locked],[data-node-rename],[data-node-z]");
+            if (control) {
+                e.preventDefault(); e.stopPropagation();
+                runLayerControl(row.getAttribute("data-doc-layer"), control);
+                return;
+            }
+            selectById(row.getAttribute("data-doc-layer"));
         });
     }
 
@@ -414,9 +658,9 @@
             e.stopPropagation();
             var b = blockOf(el);
             if (b) {
-                var items = targetBlock(b).content.items || [];
+                var items = clone((targetBlock(b).content && targetBlock(b).content.items) || []);
                 items.splice(parseInt(el.getAttribute("data-doc-gallery-del"), 10), 1);
-                render(); markDirty();
+                setContentValue(b, "items", items, false);
             }
             return;
         }
@@ -424,9 +668,9 @@
             var b2 = blockOf(el);
             if (b2) {
                 var t = targetBlock(b2);
-                if (!t.content.items) t.content.items = [];
-                t.content.items.push({ src: "", alt: "" });
-                render(); markDirty();
+                var nextItems = clone((t.content && t.content.items) || []);
+                nextItems.push({ src: "", alt: "" });
+                setContentValue(b2, "items", nextItems, false);
             }
             return;
         }
@@ -582,18 +826,27 @@
                     var tb = targetBlock(b);
                     if (pickCtx.target === "bgimage") {
                         // Фон-картинка секции — это стиль-проп backgroundImage (текущий брейкпоинт).
-                        if (!tb.styles) tb.styles = {};
-                        if (!tb.styles[currentBp]) tb.styles[currentBp] = {};
-                        tb.styles[currentBp].backgroundImage = "url('" + item.dataset.url + "')";
-                        if (!tb.content) tb.content = {};
-                        tb.content.bgMode = "image";
+                        if (cmdStore && tb === b) {
+                            var bgChanged = runCommands([
+                                { type: "setStyle", payload: { id: b.id, breakpoint: currentBp, prop: "backgroundImage", value: "url('" + item.dataset.url + "')" } },
+                                { type: "setContent", payload: { id: b.id, field: "bgMode", value: "image" } }
+                            ], "pick-background");
+                            render(); if (bgChanged) scheduleAutosave();
+                        } else {
+                            if (!tb.styles) tb.styles = {};
+                            if (!tb.styles[currentBp]) tb.styles[currentBp] = {};
+                            tb.styles[currentBp].backgroundImage = "url('" + item.dataset.url + "')";
+                            if (!tb.content) tb.content = {};
+                            tb.content.bgMode = "image";
+                            render(); markDirty();
+                        }
                     } else if (pickCtx.target === "blockpath") {
                         // Путь относительно самого блока (напр. layers.0.src — картинка декор-слоя).
                         setByPath(tb, pickCtx.field, item.dataset.url);
+                        render(); markDirty();
                     } else {
-                        setByPath(tb.content, pickCtx.field, item.dataset.url);
+                        setContentValue(b, pickCtx.field, item.dataset.url, false);
                     }
-                    render(); markDirty();
                 }
             }
             closeMediaPicker();
@@ -608,8 +861,7 @@
         if (!m) { alert("Не распознал ссылку YouTube."); return; }
         var b = byId(blockId);
         if (!b) return;
-        targetBlock(b).content.youtubeId = m[1];
-        render(); markDirty();
+        setContentValue(b, "youtubeId", m[1], false);
     }
     function promptEmbed(blockId) {
         var url = window.prompt("Ссылка на сцену (https — Spline / Rive / Lottie / iframe):", "https://");
@@ -618,8 +870,7 @@
         if (!/^https:\/\//i.test(url)) { alert("Нужна ссылка, начинающаяся с https://"); return; }
         var b = byId(blockId);
         if (!b) return;
-        targetBlock(b).content.embedUrl = url;
-        render(); markDirty();
+        setContentValue(b, "embedUrl", url, false);
     }
 
     // ===== ADD BLOCK =====
@@ -631,15 +882,28 @@
             var b = L.createBlock(this.dataset.docAdd);
             var sel = selectedId ? findBlock(selectedId) : null;
             var t = sel ? targetBlock(sel.block) : null;
-            if (t && L.isContainer(t.type)) {
-                if (!t.children) t.children = [];
-                t.children.push(b);
-            } else {
-                pageBlocks().push(b);
+            var intoContainer = t && L.isContainer(t.type);
+            var commandApplied = runCommand("insertBlock", {
+                block: b,
+                parentId: intoContainer ? sel.block.id : null,
+                pageIndex: active,
+                index: intoContainer ? ((t.children && t.children.length) || 0) : pageBlocks().length
+            });
+            if (!commandApplied) {
+                if (intoContainer) {
+                    if (!t.children) t.children = [];
+                    t.children.push(b);
+                } else {
+                    pageBlocks().push(b);
+                }
             }
             selectedId = b.id;
-            render();
-            markDirty();
+            finishMutation(commandApplied);
+            // V2 (canvas): держим selection-store в синхроне с legacy. Иначе add-block двигает
+            // только legacy selectedId, V2-стор застревает на прежнем блоке, и повторный выбор
+            // того же узла через стор становится no-op (replace при равенстве не эмитит) →
+            // инспектор/overlay не обновляются. Guard: в legacy-режиме (без canvas) ничего не меняется.
+            if (window.__LIME_SELECTION__) window.__LIME_SELECTION__.replace([b.id]);
         });
     }
 
@@ -721,23 +985,33 @@
         if (!r) return;
         var j = r.index + dir;
         if (j < 0 || j >= r.parent.length) return;
-        var tmp = r.parent[r.index]; r.parent[r.index] = r.parent[j]; r.parent[j] = tmp;
-        render(); markDirty();
+        var commandApplied = runCommand("reorderBlock", { id: r.block.id, toIndex: j });
+        if (!commandApplied) {
+            var tmp = r.parent[r.index]; r.parent[r.index] = r.parent[j]; r.parent[j] = tmp;
+        }
+        finishMutation(commandApplied);
     }
     function dupBlock() {
         var r = findBlock(selectedId);
         if (!r) return;
         var clone = reid(JSON.parse(JSON.stringify(r.block)));
-        r.parent.splice(r.index + 1, 0, clone);
+        var commandApplied = runCommand("insertBlock", {
+            block: clone,
+            parentId: r.parentBlock ? r.parentBlock.id : null,
+            pageIndex: active,
+            index: r.index + 1
+        });
+        if (!commandApplied) r.parent.splice(r.index + 1, 0, clone);
         selectedId = clone.id;
-        render(); markDirty();
+        finishMutation(commandApplied);
     }
     function delBlock() {
         var r = findBlock(selectedId);
         if (!r) return;
-        r.parent.splice(r.index, 1);
+        var commandApplied = runCommand("removeBlock", { id: r.block.id });
+        if (!commandApplied) r.parent.splice(r.index, 1);
         selectedId = null;
-        render(); markDirty();
+        finishMutation(commandApplied);
     }
     // «Наружу»: вытащить блок из контейнера на уровень самого контейнера (этап 1).
     function unwrapBlock() {
@@ -745,9 +1019,17 @@
         if (!r || !r.parentBlock) return;
         var rp = findBlock(r.parentBlock.id);
         if (!rp) return;
-        r.parent.splice(r.index, 1);
-        rp.parent.splice(rp.index + 1, 0, r.block);
-        render(); markDirty();
+        var commandApplied = runCommand("moveBlock", {
+            id: r.block.id,
+            parentId: rp.parentBlock ? rp.parentBlock.id : null,
+            pageIndex: active,
+            toIndex: rp.index + 1
+        });
+        if (!commandApplied) {
+            r.parent.splice(r.index, 1);
+            rp.parent.splice(rp.index + 1, 0, r.block);
+        }
+        finishMutation(commandApplied);
     }
 
     // ===== COPY / PASTE (этап 0.4) — через localStorage, чтобы вставлять между страницами/сайтами =====
@@ -769,10 +1051,18 @@
         if (!data) return;
         var clone = reid(JSON.parse(JSON.stringify(data)));
         var r = findBlock(selectedId);
-        if (r) r.parent.splice(r.index + 1, 0, clone); // после выбранного
-        else pageBlocks().push(clone);                 // или в конец страницы
+        var commandApplied = runCommand("insertBlock", {
+            block: clone,
+            parentId: r && r.parentBlock ? r.parentBlock.id : null,
+            pageIndex: active,
+            index: r ? r.index + 1 : pageBlocks().length
+        });
+        if (!commandApplied) {
+            if (r) r.parent.splice(r.index + 1, 0, clone); // после выбранного
+            else pageBlocks().push(clone);                 // или в конец страницы
+        }
         selectedId = clone.id;
-        render(); markDirty();
+        finishMutation(commandApplied);
     }
 
     // ===== ВЫБОР / СНЯТИЕ ВЫБОРА (общая точка для холста, слоёв, контекст-меню) =====
@@ -800,8 +1090,56 @@
         collectionList: "Список", container: "Контейнер", columns: "Колонки", divider: "Разделитель", spacer: "Отступ"
     };
     function blockLabel(b) {
+        if (b.name) return b.name;
         if (b.type === "component") return "⊞ " + (doc.components[b.ref] ? doc.components[b.ref].name : "компонент");
         return TYPE_LABELS[b.type] || b.type;
+    }
+    function applyNodeCommand(type, payload, fallback) {
+        if (cmdStore) {
+            var changed = runCommand(type, payload);
+            if (changed) { render(); scheduleAutosave(); }
+            return changed;
+        }
+        fallback();
+        render(); markDirty();
+        return true;
+    }
+    function runLayerControl(id, control) {
+        var b = byId(id);
+        if (!b) return;
+        if (control.hasAttribute("data-node-toggle-hidden")) {
+            var hidden = !b.hidden;
+            applyNodeCommand("setNodeHidden", { id: id, value: hidden }, function () {
+                if (hidden) b.hidden = true; else delete b.hidden;
+            });
+            return;
+        }
+        if (control.hasAttribute("data-node-toggle-locked")) {
+            var locked = !b.locked;
+            applyNodeCommand("setNodeLocked", { id: id, value: locked }, function () {
+                if (locked) b.locked = true; else delete b.locked;
+            });
+            return;
+        }
+        if (control.hasAttribute("data-node-rename")) {
+            var name = window.prompt("Имя слоя:", b.name || blockLabel(b));
+            if (name == null || name.trim().length > 120) return;
+            applyNodeCommand("renameNode", { id: id, name: name }, function () {
+                name = name.trim(); if (name) b.name = name; else delete b.name;
+            });
+            return;
+        }
+        if (control.hasAttribute("data-node-z")) {
+            var delta = parseInt(control.getAttribute("data-node-z"), 10) || 0;
+            var current = resolvedBlockDesign(b, currentBp).zIndex;
+            current = typeof current === "number" && isFinite(current) ? Math.round(current) : 0;
+            var next = Math.max(-1000, Math.min(1000, current + delta));
+            applyNodeCommand("setNodeZIndex", { id: id, breakpoint: currentBp, value: next }, function () {
+                if (!b.design) b.design = {};
+                if (!b.design[currentBp]) b.design[currentBp] = {};
+                b.design[currentBp].zIndex = next;
+            });
+        }
     }
     function refreshLayers() {
         var box = document.getElementById("lime-doc-layers");
@@ -811,9 +1149,19 @@
                 var t = targetBlock(b);
                 var isCont = t && L.isContainer(t.type);
                 var kids = (t && t.children && t.children.length) ? rows(t.children, depth + 1) : "";
-                return '<div class="lime-doc-layer' + (b.id === selectedId ? " is-active" : "") + '" data-doc-layer="' + b.id + '" style="padding-left:' + (8 + depth * 14) + 'px;">' +
+                var stateCls = (b.hidden ? " is-node-hidden" : "") + (b.locked ? " is-node-locked" : "");
+                var z = resolvedBlockDesign(b, currentBp).zIndex;
+                z = typeof z === "number" && isFinite(z) ? Math.round(z) : 0;
+                var controls = canvasOn ? '<span class="lime-doc-layer__controls">' +
+                    '<button type="button" data-node-toggle-hidden title="' + (b.hidden ? "Показать" : "Скрыть") + '">' + (b.hidden ? "◌" : "●") + '</button>' +
+                    '<button type="button" data-node-toggle-locked title="' + (b.locked ? "Разблокировать" : "Заблокировать") + '">' + (b.locked ? "◆" : "◇") + '</button>' +
+                    '<button type="button" data-node-rename title="Переименовать">✎</button>' +
+                    '<button type="button" data-node-z="-1" title="Опустить">−</button>' +
+                    '<span class="lime-doc-layer__z" title="z-index">' + z + '</span>' +
+                    '<button type="button" data-node-z="1" title="Поднять">+</button></span>' : "";
+                return '<div class="lime-doc-layer' + stateCls + (b.id === selectedId ? " is-active" : "") + '" data-doc-layer="' + b.id + '" style="padding-left:' + (8 + depth * 14) + 'px;">' +
                     '<span class="lime-doc-layer__ico">' + (isCont ? "▣" : "▪") + '</span>' +
-                    '<span class="lime-doc-layer__name">' + escapeText(blockLabel(b)) + '</span></div>' + kids;
+                    '<span class="lime-doc-layer__name">' + escapeText(blockLabel(b)) + '</span>' + controls + '</div>' + kids;
             }).join("");
         }
         box.innerHTML = pageBlocks().length
@@ -839,6 +1187,8 @@
             { op: "down", label: "↓ Опустить" }
         ];
         if (nested) items.push({ op: "unwrap", label: "⬅ Вынести наружу" });
+        items.push({ sep: true });
+        items.push({ op: "aiedit", label: "✨ AI: переписать" });
         items.push({ sep: true });
         items.push({ op: "del", label: "✕ Удалить", danger: true, hint: "Del" });
 
@@ -871,6 +1221,7 @@
         if (op === "dup") dupBlock();
         else if (op === "copy") copyBlock();
         else if (op === "paste") pasteBlock();
+        else if (op === "aiedit") aiEditBlock();
         else if (op === "up") moveBlock(-1);
         else if (op === "down") moveBlock(1);
         else if (op === "unwrap") unwrapBlock();
@@ -885,6 +1236,7 @@
         if (src.type === "component") return;
         var name = prompt("Название компонента (например, «Хедер»):", src.type);
         if (name === null) return;
+        beginCheckpointMutation();
         var cid = rid("c");
         var def = JSON.parse(JSON.stringify(src));
         delete def.id;
@@ -898,6 +1250,7 @@
         if (!r) return;
         var inst = r.block;
         if (inst.type !== "component" || !doc.components[inst.ref]) return;
+        beginCheckpointMutation();
         var copy = reid(JSON.parse(JSON.stringify(doc.components[inst.ref].block)));
         copy.id = inst.id;
         r.parent[r.index] = copy;
@@ -905,6 +1258,7 @@
     }
     function insertComponent(cid) {
         if (!doc.components[cid]) return;
+        beginCheckpointMutation();
         var inst = { id: rid("b"), type: "component", ref: cid };
         pageBlocks().push(inst);
         selectedId = inst.id;
@@ -946,6 +1300,7 @@
         return out;
     }
     function addPage() {
+        beginCheckpointMutation();
         doc.pages.push({ id: rid("p"), slug: uniqueSlug("page" + (doc.pages.length + 1)), title: "Страница " + (doc.pages.length + 1), blocks: [] });
         active = doc.pages.length - 1;
         selectedId = null;
@@ -959,6 +1314,7 @@
     }
     function duplicatePage(i) {
         var src = doc.pages[i];
+        beginCheckpointMutation();
         var copy = JSON.parse(JSON.stringify(src));
         copy.id = rid("p");
         copy.title = (src.title || "Страница") + " (копия)";
@@ -972,6 +1328,7 @@
     function deletePage(i) {
         if (doc.pages.length <= 1) { alert("Нельзя удалить единственную страницу."); return; }
         if (!confirm("Удалить страницу «" + (doc.pages[i].title || "") + "» со всеми блоками?")) return;
+        beginCheckpointMutation();
         doc.pages.splice(i, 1);
         if (active >= doc.pages.length) active = doc.pages.length - 1;
         // Гарантия: первая страница — главная (slug "").
@@ -981,6 +1338,7 @@
         renderPagesList();
     }
     function setPageTitle(i, val) {
+        beginCheckpointMutation();
         doc.pages[i].title = val;
         var tabs = document.querySelectorAll('#lime-doc-pages [data-doc-page="' + i + '"]');
         for (var t = 0; t < tabs.length; t++) tabs[t].textContent = val || "Стр.";
@@ -988,6 +1346,7 @@
     }
     function setPageSlug(i, val) {
         if (i === 0) return; // главная всегда ""
+        beginCheckpointMutation();
         doc.pages[i].slug = uniqueSlug(val || doc.pages[i].title || "page", i);
         markDirty();
         renderPagesList(); // показать нормализованный/уникальный слаг
@@ -1218,11 +1577,13 @@
     }
     function applyClassToBlock(cls) {
         var b = byId(selectedId); if (!b || !cls) return;
+        beginCheckpointMutation();
         if (blockClassList(b).indexOf(cls) === -1) toggleBlockClass(b, cls);
         render(); markDirty();
     }
     function removeClassFromBlock(cls) {
         var b = byId(selectedId); if (!b) return;
+        beginCheckpointMutation();
         var list = blockClassList(b);
         var i = list.indexOf(cls); if (i !== -1) list.splice(i, 1);
         if (!list.length) delete targetBlock(b).classes;
@@ -1233,6 +1594,7 @@
         var t = targetBlock(b);
         var name = (window.prompt("Название класса:", "Мой класс") || "").trim();
         if (!name) return;
+        beginCheckpointMutation();
         var cls = newClassId();
         // Снимок текущих стилей блока становится стилями класса (Webflow «extract to class»):
         // свои стили блока убираем — теперь вид задаёт класс, и его можно менять для всех.
@@ -1248,6 +1610,7 @@
     function exitClassEdit() { currentClass = null; render(); }
     function deleteClass(cls) {
         if (!window.confirm("Удалить класс? Он снимется со всех блоков.")) return;
+        beginCheckpointMutation();
         var l = classDefs();
         for (var i = 0; i < l.length; i++) if (l[i].cls === cls) { l.splice(i, 1); break; }
         stripClassEverywhere(cls);
@@ -1256,7 +1619,7 @@
     function renameClass(cls) {
         var def = findClassDef(cls); if (!def) return;
         var name = (window.prompt("Новое имя класса:", def.name || "") || "").trim();
-        if (name) { def.name = name; refreshInspector(); markDirty(); }
+        if (name) { beginCheckpointMutation(); def.name = name; refreshInspector(); markDirty(); }
     }
 
     // ----- Многослойные тени (1.2). box-shadow — список слоёв через запятую; пишем
@@ -1352,6 +1715,212 @@
         refreshInspector();
     }
 
+    // Editor V2 layout inspector. Он виден только вместе с canvas flag и пишет исключительно
+    // design breakpoint buckets; legacy styles/инспектор при выключенном флаге не меняются.
+    function v2CanvasEnabled() { return /[?&]canvas=1\b/.test(location.search) && !!L.resolvedDesign; }
+    function ownDesignField(source, field) {
+        var target = designTarget(source, field);
+        return clone(target && target.design && target.design[currentBp] && target.design[currentBp][field]) || {};
+    }
+    function designFieldSource(source, field) {
+        var design = source && source.design || {};
+        if (design[currentBp] && Object.prototype.hasOwnProperty.call(design[currentBp], field)) return currentBp;
+        if (currentBp === "mobile" && design.tablet && Object.prototype.hasOwnProperty.call(design.tablet, field)) return "tablet";
+        if (currentBp !== "base" && design.base && Object.prototype.hasOwnProperty.call(design.base, field)) return "base";
+        return "default";
+    }
+    function inheritedDesignField(source, field) {
+        var design = source && source.design || {};
+        if (currentBp === "base") return null;
+        var inheritedBp = currentBp === "mobile" ? "tablet" : "base";
+        var value = L.resolvedDesign(design, inheritedBp);
+        return value && value[field] || null;
+    }
+    function v2SourceRow(source, fields, lockedReset) {
+        var unique = [];
+        fields.forEach(function (field) { if (unique.indexOf(field) === -1) unique.push(field); });
+        return '<div class="lime-v2-sources">' + unique.map(function (field) {
+            var origin = designFieldSource(source, field);
+            var own = origin === currentBp;
+            var resettable = own && currentBp !== "base" && !(lockedReset && lockedReset[field]);
+            return '<span><b>' + field + '</b>: ' + origin + (resettable
+                ? ' <button type="button" data-v2-design-reset="' + field + '">сбросить</button>' : '') + '</span>';
+        }).join("") + '</div>';
+    }
+    function patchDesignObject(source, field, path, value) {
+        if (!source || designTarget(source, field) !== source) return;
+        var next = ownDesignField(source, field);
+        // Inspector treats a missing layout as the default stack. Persist that mode with the
+        // first nested edit; otherwise the renderer sees a partial { direction/gap/... } object
+        // without layout.mode and correctly ignores it.
+        if (field === "layout" && !next.mode) {
+            var resolved = resolvedBlockDesign(source, currentBp);
+            next.mode = resolved && resolved.layout && resolved.layout.mode || "stack";
+        }
+        if (field === "layout" && path === "columns" && typeof value === "number") value = Math.max(1, Math.round(value));
+        if (field === "layout" && path === "columns.min") value = Math.max(40, Math.round(value));
+        if (field === "layout" && (path === "gap" || path === "rowGap" || path === "columnGap" || /^padding\./.test(path))) value = Math.max(0, value);
+        if (field === "frame" && (path === "width" || path === "height")) value = Math.max(8, value);
+        if (field === "size" && /\.value$/.test(path)) value = Math.max(0, value);
+        setByPath(next, path, value);
+        if (field === "size" && /^(width|height)\.mode$/.test(path) && value === "fixed") {
+            var axis = path.split(".")[0];
+            if (!next[axis] || typeof next[axis].value !== "number" || !isFinite(next[axis].value)) {
+                if (!next[axis]) next[axis] = {};
+                var blockEl = ws.querySelector('[data-block-id="' + source.id + '"]');
+                var scale = ws.offsetWidth ? ws.getBoundingClientRect().width / ws.offsetWidth : 1;
+                if (!isFinite(scale) || scale <= 0) scale = 1;
+                var rect = blockEl && blockEl.getBoundingClientRect();
+                next[axis].value = Math.max(0, Math.round((rect ? rect[axis] : 100) / scale));
+            }
+        }
+        setDesignValue(source, currentBp, field, next, false);
+    }
+    function v2Number(label, field, path, value, min) {
+        var n = typeof value === "number" && isFinite(value) ? value : 0;
+        return '<label class="lime-v2-field"><span>' + label + '</span><input class="lime-input lime-input--sm" type="number" step="1"' +
+            (min == null ? "" : ' min="' + min + '"') + ' value="' + n + '" data-v2-design-field="' + field + '" data-v2-design-path="' + path + '"></label>';
+    }
+    function v2Select(label, field, path, value, options) {
+        return '<label class="lime-v2-field"><span>' + label + '</span><select class="lime-select" data-v2-design-field="' + field + '" data-v2-design-path="' + path + '">' +
+            options.map(function (o) { return '<option value="' + o.v + '"' + (value === o.v ? " selected" : "") + '>' + o.l + '</option>'; }).join("") +
+            '</select></label>';
+    }
+    function v2SizeControls(design) {
+        var size = design.size || {};
+        var modes = [{ v: "hug", l: "Hug" }, { v: "fill", l: "Fill" }, { v: "fixed", l: "Fixed" }];
+        var width = size.width || { mode: "hug" }, height = size.height || { mode: "hug" };
+        var body = '<div class="lime-v2-fields">' +
+            v2Select("Ширина", "size", "width.mode", width.mode || "hug", modes) +
+            v2Select("Высота", "size", "height.mode", height.mode || "hug", modes) + '</div>';
+        if (width.mode === "fixed" || height.mode === "fixed") {
+            body += '<div class="lime-v2-fields">' +
+                (width.mode === "fixed" ? v2Number("W", "size", "width.value", width.value, 0) : "") +
+                (height.mode === "fixed" ? v2Number("H", "size", "height.value", height.value, 0) : "") + '</div>';
+        }
+        return body;
+    }
+    function v2LayoutInspector(source, found) {
+        if (!v2CanvasEnabled() || !source) return "";
+        var isInstance = source.type === "component";
+        if (!isInstance && targetBlock(source) !== source) return "";
+        var design = resolvedBlockDesign(source, currentBp);
+        var fields = ["size"];
+        var lockedReset = {};
+        var out = v2SizeControls(design);
+        if (!isInstance && L.isContainer(source.type)) {
+            fields.unshift("layout");
+            var layout = design.layout || {};
+            var mode = layout.mode || "stack";
+            out = '<div class="lime-segmented">' + ["stack", "grid", "free"].map(function (m) {
+                return '<button type="button" class="' + (mode === m ? "is-active" : "") + '" data-v2-layout-mode="' + m + '">' + m + '</button>';
+            }).join("") + '</div>';
+            if (mode === "stack") {
+                out += '<div class="lime-segmented"><button type="button" class="' + (layout.direction !== "horizontal" ? "is-active" : "") + '" data-v2-layout-direction="vertical">Вертикально</button>' +
+                    '<button type="button" class="' + (layout.direction === "horizontal" ? "is-active" : "") + '" data-v2-layout-direction="horizontal">Горизонтально</button></div>';
+                out += '<div class="lime-v2-fields">' +
+                    v2Select("Align", "layout", "align", layout.align || "stretch", [{ v: "start", l: "Start" }, { v: "center", l: "Center" }, { v: "end", l: "End" }, { v: "stretch", l: "Stretch" }, { v: "baseline", l: "Baseline" }]) +
+                    v2Select("Justify", "layout", "justify", layout.justify || "start", [{ v: "start", l: "Start" }, { v: "center", l: "Center" }, { v: "end", l: "End" }, { v: "space-between", l: "Between" }, { v: "space-around", l: "Around" }, { v: "space-evenly", l: "Evenly" }]) + '</div>' +
+                    '<div class="lime-segmented"><button type="button" class="' + (!layout.wrap ? "is-active" : "") + '" data-v2-layout-wrap="0">Без переноса</button>' +
+                    '<button type="button" class="' + (layout.wrap ? "is-active" : "") + '" data-v2-layout-wrap="1">Wrap</button></div>';
+            }
+            if (mode === "grid") {
+                var colsAuto = layout.columns && typeof layout.columns === "object" && layout.columns.mode === "auto";
+                out += '<div class="lime-segmented"><button type="button" class="' + (!colsAuto ? "is-active" : "") + '" data-v2-grid-auto="0">Фикс.</button>' +
+                    '<button type="button" class="' + (colsAuto ? "is-active" : "") + '" data-v2-grid-auto="1">Авто</button></div>';
+                if (colsAuto) {
+                    out += '<div class="lime-v2-fields">' + v2Number("Min, px", "layout", "columns.min", layout.columns.min || 240, 40) + '</div>' +
+                        '<div class="lime-segmented"><button type="button" class="' + (!layout.columns.fill ? "is-active" : "") + '" data-v2-grid-fill="0">Auto-fit</button>' +
+                        '<button type="button" class="' + (layout.columns.fill ? "is-active" : "") + '" data-v2-grid-fill="1">Auto-fill</button></div>';
+                } else {
+                    out += '<div class="lime-v2-fields">' + v2Number("Колонки", "layout", "columns", (typeof layout.columns === "number" ? layout.columns : 2), 1) + '</div>';
+                }
+            }
+            out += '<div class="lime-v2-fields">' +
+                (mode !== "free" ? v2Number("Gap", "layout", "gap", layout.gap || 0, 0) : "") + '</div>' + v2SizeControls(design);
+            if (mode !== "free") {
+                var padding = layout.padding || {};
+                out += '<div class="lime-v2-subtitle">Padding</div><div class="lime-v2-fields">' +
+                    v2Number("Top", "layout", "padding.top", padding.top || 0, 0) + v2Number("Right", "layout", "padding.right", padding.right || 0, 0) +
+                    v2Number("Bottom", "layout", "padding.bottom", padding.bottom || 0, 0) + v2Number("Left", "layout", "padding.left", padding.left || 0, 0) + '</div>';
+            }
+            if (mode === "free") out += '<div class="lime-inspector__hint">Дети можно двигать и растягивать прямо на холсте. Стрелки: move, Shift: 10px, Ctrl/Cmd: resize.</div>';
+            if (mode === "free") lockedReset.size = true;
+        }
+        var parent = found && found.parentBlock && targetBlock(found.parentBlock);
+        var parentDesign = parent && L.resolvedDesign(parent.design, currentBp);
+        if (parentDesign && parentDesign.layout && parentDesign.layout.mode === "free") {
+            fields.push("frame", "constraints");
+            if (!inheritedDesignField(source, "frame")) lockedReset.frame = true;
+            var frame = design.frame || { x: 0, y: 0, width: 100, height: 100 };
+            var constraints = design.constraints || { horizontal: "left", vertical: "top" };
+            out += '<div class="lime-v2-subtitle">Frame</div><div class="lime-v2-fields">' +
+                v2Number("X", "frame", "x", frame.x) + v2Number("Y", "frame", "y", frame.y) +
+                v2Number("W", "frame", "width", frame.width, 8) + v2Number("H", "frame", "height", frame.height, 8) + '</div>' +
+                '<div class="lime-v2-subtitle">Constraints</div><div class="lime-v2-fields">' +
+                v2Select("По X", "constraints", "horizontal", constraints.horizontal || "left", [{ v: "left", l: "Left" }, { v: "right", l: "Right" }, { v: "center", l: "Center" }, { v: "stretch", l: "Stretch" }]) +
+                v2Select("По Y", "constraints", "vertical", constraints.vertical || "top", [{ v: "top", l: "Top" }, { v: "bottom", l: "Bottom" }, { v: "center", l: "Center" }, { v: "stretch", l: "Stretch" }]) + '</div>';
+        }
+        // Ребёнок grid-родителя: span по колонкам (grid-column: span N). Только для обычного блока,
+        // не instance (instance остаётся geometry-only по RFC).
+        if (!isInstance && parentDesign && parentDesign.layout && parentDesign.layout.mode === "grid") {
+            fields.push("span");
+            var spanVal = (typeof design.span === "number" && design.span > 0) ? Math.floor(design.span) : 1;
+            out += '<div class="lime-v2-subtitle">Grid</div><div class="lime-v2-fields">' +
+                '<label class="lime-v2-field"><span>Span</span><input class="lime-input lime-input--sm" type="number" step="1" min="1" value="' + spanVal + '" data-v2-span></label></div>';
+        }
+        return sec("Layout · V2", out + v2SourceRow(source, fields, lockedReset));
+    }
+    function switchV2LayoutMode(mode) {
+        var source = selectedId && byId(selectedId);
+        if (!source || targetBlock(source) !== source || !L.isContainer(source.type)) return;
+        var effective = L.resolvedDesign(source.design, currentBp);
+        if (((effective.layout && effective.layout.mode) || "stack") === mode) return;
+        var layout = ownDesignField(source, "layout");
+        layout.mode = mode;
+        if (mode !== "free") { setDesignValue(source, currentBp, "layout", layout, false); return; }
+
+        var children = source.children || [];
+        var parentEl = ws.querySelector('[data-block-id="' + source.id + '"]');
+        var wrapper = parentEl && parentEl.querySelector(":scope > .lime-block__inner > .lime-block__children");
+        var scale = ws.offsetWidth ? ws.getBoundingClientRect().width / ws.offsetWidth : 1;
+        if (!isFinite(scale) || scale <= 0) scale = 1;
+        var wr = wrapper && wrapper.getBoundingClientRect();
+        var pr = parentEl && parentEl.getBoundingClientRect();
+        var size = ownDesignField(source, "size");
+        if (!size.height || size.height.mode !== "fixed") size.height = { mode: "fixed", value: Math.max(8, Math.round((pr ? pr.height : 320) / scale)) };
+        var commands = [
+            { type: "setDesign", payload: { id: source.id, breakpoint: currentBp, field: "layout", value: layout } },
+            { type: "setDesign", payload: { id: source.id, breakpoint: currentBp, field: "size", value: size } }
+        ];
+        var frames = [];
+        children.forEach(function (child) {
+            var childEl = ws.querySelector('[data-block-id="' + child.id + '"]');
+            if (!childEl || !wr) return;
+            var cr = childEl.getBoundingClientRect();
+            var frame = {
+                x: Math.round((cr.left - wr.left) / scale), y: Math.round((cr.top - wr.top) / scale),
+                width: Math.max(8, Math.round(cr.width / scale)), height: Math.max(8, Math.round(cr.height / scale)), rotation: 0
+            };
+            frames.push({ child: child, frame: frame });
+            commands.push({ type: "setDesign", payload: { id: child.id, breakpoint: currentBp, field: "frame", value: frame } });
+        });
+        if (cmdStore) {
+            var changed = runCommands(commands, "layout-to-free");
+            finishMutation(changed);
+        } else {
+            if (!source.design) source.design = {};
+            if (!source.design[currentBp]) source.design[currentBp] = {};
+            source.design[currentBp].layout = layout; source.design[currentBp].size = size;
+            frames.forEach(function (item) {
+                if (!item.child.design) item.child.design = {};
+                if (!item.child.design[currentBp]) item.child.design[currentBp] = {};
+                item.child.design[currentBp].frame = item.frame;
+            });
+            finishMutation(false);
+        }
+    }
+
     function refreshInspector() {
         if (!inspectorEl) return;
         var b = selectedId ? byId(selectedId) : null;
@@ -1360,6 +1929,14 @@
             return;
         }
         var s = curStyle(b);
+        // Stage 5 multi-select: стилевые секции читают синтетический мульти-бакет (общее/Mixed),
+        // правки разветвляются на все выбранные узлы. Layout/fx/фон остаются на primary.
+        var multiIds = v2SelectionIds();
+        var multiSel = multiIds.length >= 2 && !currentClass;
+        var styleSecBucket = multiSel ? multiStyleBucket(multiIds, currentState === "hover" ? "hover" : currentBp) : s;
+        var multiBanner = multiSel
+            ? '<div class="lime-inspector__section"><div class="lime-doc-comp-banner" data-multi-select>▣ Выбрано узлов: ' + multiIds.length + ' — стили применяются ко всем; пустое поле = разные значения.</div></div>'
+            : '';
         var isComp = b.type === "component";
         var compName = (isComp && doc.components[b.ref]) ? doc.components[b.ref].name : "";
         var banner = isComp
@@ -1411,17 +1988,17 @@
         var styleBody;
         if (currentClass) {
             // Режим правки класса: только баннер + переключатель состояния + стили (контент/фон/колонки — это про блок).
-            styleBody = classEditBanner() + stateSeg + renderStyleSections(s);
+            styleBody = classEditBanner() + stateSeg + renderStyleSections(styleSecBucket);
         } else if (currentState === "hover") {
-            styleBody = classesSection(b) + stateSeg + renderStyleSections(s);
+            styleBody = classesSection(b) + stateSeg + renderStyleSections(styleSecBucket);
         } else {
-            styleBody = classesSection(b) + containerHint + colsSec + contentExtras(t) + bgInspector(b, s) + stateSeg + renderStyleSections(s);
+            styleBody = v2LayoutInspector(b, found) + classesSection(b) + containerHint + colsSec + contentExtras(t) + bgInspector(b, s) + stateSeg + renderStyleSections(styleSecBucket);
         }
         var fxBody = fxInspector(t) + animInspector(t);
         var motionBody = motionInspector(t) + sceneInspector(t) + layersInspector(t);
 
         inspectorEl.innerHTML =
-            '<div class="lime-insp-sticky">' + headHtml + banner + tabsBar + '</div>' +
+            '<div class="lime-insp-sticky">' + headHtml + banner + multiBanner + tabsBar + '</div>' +
             panel("style", styleBody) + panel("fx", fxBody) + panel("motion", motionBody);
 
         // Превью фон-пресетов — через style (в css-значениях кавычки/запятые, в атрибут не вставить).
@@ -1523,11 +2100,11 @@
         return sec("Сцена (scroll)", seg + extra);
     }
     function setSceneMode(mode) {
-        var b = targetBlock(byId(selectedId));
+        var source = byId(selectedId);
+        var b = targetBlock(source);
         if (!b) return;
-        if (!mode) delete b.scene;
-        else { if (!b.scene) b.scene = {}; b.scene.mode = mode; if (!b.scene.length) b.scene.length = 2; }
-        render(); markDirty();
+        var next = mode ? { mode: mode, length: (b.scene && b.scene.length) || 2 } : null;
+        setBlockValue(source, "scene", next, !mode);
     }
 
     // Секция «Декор-слои»: список слоёв с контролами + добавление. Позиция правится драгом по холсту.
@@ -1595,20 +2172,18 @@
         return sec("Эффекты и макет", chips + widthSeg + bento);
     }
     function toggleFx(key) {
-        var b = targetBlock(byId(selectedId));
+        var source = byId(selectedId);
+        var b = targetBlock(source);
         if (!b) return;
-        if (!b.fx) b.fx = [];
-        var i = b.fx.indexOf(key);
-        if (i >= 0) b.fx.splice(i, 1); else b.fx.push(key);
-        if (!b.fx.length) delete b.fx;
-        render(); markDirty();
+        var next = clone(b.fx || []);
+        var i = next.indexOf(key);
+        if (i >= 0) next.splice(i, 1); else next.push(key);
+        setBlockValue(source, "fx", next, !next.length);
     }
     function setContentFlag(key, val) {
-        var b = targetBlock(byId(selectedId));
+        var b = byId(selectedId);
         if (!b) return;
-        if (!b.content) b.content = {};
-        if (val == null) delete b.content[key]; else b.content[key] = val;
-        render(); markDirty();
+        setContentValue(b, key, val, val == null);
     }
 
     // ----- мутации слоёв -----
@@ -1619,14 +2194,20 @@
         return b;
     }
     function addLayer(kind) {
-        var b = curBlockWithLayers(); if (!b) return;
+        var source = byId(selectedId);
+        var b = targetBlock(source); if (!b) return;
+        var layers = clone(b.layers || []);
         var l = { id: rid("l"), kind: kind, x: 40, y: 28, w: kind === "image" ? 160 : 120, z: 0, depth: 0.2, opacity: 1 };
         if (kind === "shape") { l.shape = "blob"; l.color = "#a78bfa"; }
-        b.layers.push(l);
-        render(); markDirty();
-        if (kind === "image") openMediaPicker(selectedId, "layers." + (b.layers.length - 1) + ".src", "blockpath");
+        layers.push(l);
+        setBlockValue(source, "layers", layers, false);
+        if (kind === "image") openMediaPicker(selectedId, "layers." + (layers.length - 1) + ".src", "blockpath");
     }
-    function delLayer(i) { var b = curBlockWithLayers(); if (!b) return; b.layers.splice(i, 1); render(); markDirty(); }
+    function delLayer(i) {
+        var source = byId(selectedId); var b = targetBlock(source); if (!b) return;
+        var layers = clone(b.layers || []); layers.splice(i, 1);
+        setBlockValue(source, "layers", layers, !layers.length);
+    }
     // Живой апдейт инлайн-стиля слоя без полного ре-рендера (для ползунков/цвета/драга).
     function applyLayerStyle(i) {
         var b = targetBlock(byId(selectedId));
@@ -1646,7 +2227,13 @@
         if (l.kind !== "image") lyr.style.background = l.color || "#a78bfa";
     }
     function setLayerRng(i, prop, val) {
-        var b = curBlockWithLayers(); if (!b || !b.layers[i]) return;
+        var source = byId(selectedId); var b = targetBlock(source);
+        if (!b || !b.layers || !b.layers[i]) return;
+        var layers = clone(b.layers); layers[i][prop] = val;
+        if (commandBlockGesture(source, "layers", layers, false, "layers:" + i + ":" + prop)) {
+            applyLayerStyle(i);
+            return;
+        }
         b.layers[i][prop] = val;
         applyLayerStyle(i); markDirty();
     }
@@ -1666,7 +2253,11 @@
         if (idx < 0) return;
         e.preventDefault(); e.stopPropagation();
         var l = tb.layers[idx];
-        dragLayer = { lyr: lyr, sec: secEl, l: l, startCx: e.clientX, startCy: e.clientY, startX: l.x || 0, startY: l.y || 0 };
+        dragLayer = {
+            lyr: lyr, sec: secEl, source: b, target: tb, index: idx,
+            startCx: e.clientX, startCy: e.clientY,
+            startX: l.x || 0, startY: l.y || 0, x: l.x || 0, y: l.y || 0
+        };
         try { lyr.setPointerCapture(e.pointerId); } catch (_) { /* no-op */ }
         lyr.addEventListener("pointermove", onLayerMove);
         lyr.addEventListener("pointerup", onLayerUp);
@@ -1676,18 +2267,25 @@
         var r = dragLayer.sec.getBoundingClientRect();
         var dx = ((e.clientX - dragLayer.startCx) / r.width) * 100;
         var dy = ((e.clientY - dragLayer.startCy) / r.height) * 100;
-        dragLayer.l.x = Math.max(0, Math.min(100, Math.round(dragLayer.startX + dx)));
-        dragLayer.l.y = Math.max(0, Math.min(100, Math.round(dragLayer.startY + dy)));
-        dragLayer.lyr.style.left = dragLayer.l.x + "%";
-        dragLayer.lyr.style.top = dragLayer.l.y + "%";
+        dragLayer.x = Math.max(0, Math.min(100, Math.round(dragLayer.startX + dx)));
+        dragLayer.y = Math.max(0, Math.min(100, Math.round(dragLayer.startY + dy)));
+        dragLayer.lyr.style.left = dragLayer.x + "%";
+        dragLayer.lyr.style.top = dragLayer.y + "%";
     }
     function onLayerUp(e) {
         if (!dragLayer) return;
-        var lyr = dragLayer.lyr;
+        var gesture = dragLayer;
+        var lyr = gesture.lyr;
         lyr.removeEventListener("pointermove", onLayerMove);
         lyr.removeEventListener("pointerup", onLayerUp);
         try { lyr.releasePointerCapture(e.pointerId); } catch (_) { /* no-op */ }
-        dragLayer = null; markDirty();
+        dragLayer = null;
+        if (gesture.x === gesture.startX && gesture.y === gesture.startY) return;
+        var layers = clone(gesture.target.layers || []);
+        if (!layers[gesture.index]) return;
+        layers[gesture.index].x = gesture.x;
+        layers[gesture.index].y = gesture.y;
+        setBlockValue(gesture.source, "layers", layers, false);
     }
     function initLayerDrag() {
         var layers = ws.querySelectorAll(".lime-block__layer[data-layer-id]");
@@ -1705,12 +2303,117 @@
         return "#" + h(m[1]) + h(m[2]) + h(m[3]);
     }
 
+    var styleDebounce;
+    var styleTxn = false;
+    var styleTxnKey = null;
+    function commitStyleEdit() {
+        clearTimeout(styleDebounce);
+        if (!styleTxn || !cmdStore) return;
+        cmdStore.commit("style-gesture");
+        styleTxn = false;
+        styleTxnKey = null;
+        doc = cmdStore.getDoc();
+        cmdPrev = JSON.stringify(doc);
+        updateHistButtons();
+        scheduleAutosave();
+    }
+    function commandStyle(b, bucket, prop, val) {
+        if (!cmdStore || targetBlock(b) !== b) return false;
+        commitInlineEdit();
+        commitBlockEdit();
+        var key = b.id + ":" + bucket + ":" + prop;
+        if (styleTxn && styleTxnKey !== key) commitStyleEdit();
+        if (!styleTxn) {
+            cmdStore.begin("style-gesture");
+            styleTxn = true;
+            styleTxnKey = key;
+        }
+        if (!cmdStore.dispatch("setStyle", {
+            id: b.id,
+            breakpoint: bucket,
+            prop: prop,
+            value: val,
+            remove: val === "" || val == null
+        })) {
+            cmdStore.cancel();
+            styleTxn = false;
+            styleTxnKey = null;
+            return true; // поддержанная no-op-команда: не проваливаемся в snapshot fallback
+        }
+        doc = cmdStore.getDoc();
+        clearTimeout(styleDebounce);
+        styleDebounce = setTimeout(commitStyleEdit, 400);
+        return true;
+    }
+    // Stage 5 multi-select: id'шники V2-выбора (≥1). Один блок — обычный путь, несколько —
+    // fan-out стилевых правок на все как одна undo-транзакция.
+    function v2SelectionIds() {
+        if (window.__LIME_SELECTION__) {
+            var ids = window.__LIME_SELECTION__.get().ids;
+            if (ids.length) return ids;
+        }
+        return selectedId ? [selectedId] : [];
+    }
+    // Синтетический style-бакет мульти-выбора: общее значение, где все узлы согласны; иначе
+    // свойство ОТСУТСТВУЕТ → контрол показывает пустое/дефолт = «разные значения» (Mixed).
+    function multiStyleBucket(ids, bucketName) {
+        var buckets = ids.map(function (id) {
+            var t = targetBlock(byId(id));
+            return (t && t.styles && t.styles[bucketName]) || {};
+        });
+        var props = {}, out = {};
+        buckets.forEach(function (bk) { Object.keys(bk).forEach(function (p) { props[p] = 1; }); });
+        Object.keys(props).forEach(function (prop) {
+            var v0 = buckets[0][prop];
+            if (buckets.every(function (bk) { return bk[prop] === v0; })) out[prop] = v0;
+        });
+        return out;
+    }
+    // Стилевая gesture-команда на НЕСКОЛЬКО узлов: одна транзакция, по dispatch на каждый target.
+    function commandStyleMulti(ids, bucket, prop, val) {
+        if (!cmdStore) return false;
+        commitInlineEdit(); commitBlockEdit();
+        var targets = ids.map(function (id) { var t = targetBlock(byId(id)); return t && t.id; }).filter(Boolean);
+        if (!targets.length) return false;
+        var key = "multi:" + targets.join(",") + ":" + bucket + ":" + prop;
+        if (styleTxn && styleTxnKey !== key) commitStyleEdit();
+        if (!styleTxn) { cmdStore.begin("style-gesture"); styleTxn = true; styleTxnKey = key; }
+        targets.forEach(function (id) {
+            cmdStore.dispatch("setStyle", { id: id, breakpoint: bucket, prop: prop, value: val, remove: val === "" || val == null });
+        });
+        doc = cmdStore.getDoc();
+        clearTimeout(styleDebounce);
+        styleDebounce = setTimeout(commitStyleEdit, 400);
+        return true;
+    }
     function setStyle(prop, val) {
         if (currentClass) { setClassStyle(prop, val); return; } // правим класс, не блок (0.1)
-        var b = targetBlock(byId(selectedId));
-        if (!b) return;
-        if (!b.styles) b.styles = {};
+        var ids = v2SelectionIds();
         var bucket = currentState === "hover" ? "hover" : currentBp;
+        if (ids.length >= 2) { // multi-select fan-out (Stage 5)
+            if (cmdStore && commandStyleMulti(ids, bucket, prop, val)) { applyPreviewStyles(); return; }
+            commitStyleEdit();
+            ids.forEach(function (id) {
+                var mb = targetBlock(byId(id));
+                if (!mb) return;
+                if (!mb.styles) mb.styles = {};
+                if (!mb.styles[bucket]) mb.styles[bucket] = {};
+                if (val === "" || val == null) delete mb.styles[bucket][prop]; else mb.styles[bucket][prop] = val;
+                if (!Object.keys(mb.styles[bucket]).length) delete mb.styles[bucket];
+            });
+            applyPreviewStyles();
+            markDirty();
+            return;
+        }
+        var source = byId(selectedId);
+        var b = targetBlock(source);
+        if (!b) return;
+        if (commandStyle(source, bucket, prop, val)) {
+            applyPreviewStyles();
+            return;
+        }
+        commitStyleEdit();
+        if (!b.styles) b.styles = {};
         if (!b.styles[bucket]) b.styles[bucket] = {};
         if (val === "" || val == null) delete b.styles[bucket][prop];
         else b.styles[bucket][prop] = val;
@@ -1723,6 +2426,7 @@
     function setClassStyle(prop, val) {
         var def = findClassDef(currentClass);
         if (!def) return;
+        beginCheckpointMutation();
         if (!def.styles) def.styles = {};
         var bucket = currentState === "hover" ? "hover" : currentBp;
         if (!def.styles[bucket]) def.styles[bucket] = {};
@@ -1737,14 +2441,90 @@
     // (block.anim/animDelay/animDuration). Пишем в DOM-атрибут напрямую, чтобы
     // «▶ Превью» (LimeAnim.play читает data-* с .lime-block) брал свежие значения
     // без полного ре-рендера и потери фокуса ползунка.
+    var blockDebounce;
+    var blockTxn = false;
+    var blockTxnKey = null;
+    function commitBlockEdit() {
+        clearTimeout(blockDebounce);
+        if (!blockTxn || !cmdStore) return;
+        cmdStore.commit("block-gesture");
+        blockTxn = false;
+        blockTxnKey = null;
+        doc = cmdStore.getDoc();
+        cmdPrev = JSON.stringify(doc);
+        updateHistButtons();
+        scheduleAutosave();
+    }
+    function commandBlockGesture(source, prop, value, remove, gestureKey) {
+        if (!cmdStore || targetBlock(source) !== source) return false;
+        commitInlineEdit();
+        commitStyleEdit();
+        var key = source.id + ":" + (gestureKey || prop);
+        if (blockTxn && blockTxnKey !== key) commitBlockEdit();
+        if (!blockTxn) {
+            cmdStore.begin("block-gesture");
+            blockTxn = true;
+            blockTxnKey = key;
+        }
+        if (!cmdStore.dispatch("setBlockProp", {
+            id: source.id, prop: prop, value: value, remove: !!remove
+        })) {
+            cmdStore.cancel();
+            blockTxn = false;
+            blockTxnKey = null;
+            return true;
+        }
+        doc = cmdStore.getDoc();
+        clearTimeout(blockDebounce);
+        blockDebounce = setTimeout(commitBlockEdit, 400);
+        return true;
+    }
+    function commandContentGesture(source, field, value, remove, gestureKey) {
+        if (!cmdStore || targetBlock(source) !== source) return false;
+        commitInlineEdit();
+        commitStyleEdit();
+        var key = source.id + ":content:" + (gestureKey || field);
+        if (blockTxn && blockTxnKey !== key) commitBlockEdit();
+        if (!blockTxn) {
+            cmdStore.begin("content-gesture");
+            blockTxn = true;
+            blockTxnKey = key;
+        }
+        if (!cmdStore.dispatch("setContent", {
+            id: source.id, field: field, value: value, remove: !!remove
+        })) {
+            cmdStore.cancel();
+            blockTxn = false;
+            blockTxnKey = null;
+            return true;
+        }
+        doc = cmdStore.getDoc();
+        clearTimeout(blockDebounce);
+        blockDebounce = setTimeout(commitBlockEdit, 400);
+        return true;
+    }
     function animAttr(prop) {
         return prop === "anim" ? "data-anim" : prop === "animDelay" ? "data-anim-delay" : "data-anim-duration";
     }
     function setAnim(prop, val, reflectInspector) {
-        var b = targetBlock(byId(selectedId));
+        var source = byId(selectedId);
+        var b = targetBlock(source);
         if (!b) return;
-        if (val === "" || val == null) delete b[prop];
-        else b[prop] = val;
+        var remove = val === "" || val == null;
+        var commanded;
+        if (cmdStore && b === source && prop === "anim" && remove) {
+            var cleared = runCommands([
+                { type: "setBlockProp", payload: { id: source.id, prop: "anim", remove: true } },
+                { type: "setBlockProp", payload: { id: source.id, prop: "animDelay", remove: true } },
+                { type: "setBlockProp", payload: { id: source.id, prop: "animDuration", remove: true } }
+            ], "clear-animation");
+            if (cleared) scheduleAutosave();
+            commanded = true;
+        } else commanded = commandBlockGesture(source, prop, val, remove, prop);
+        if (!commanded) {
+            if (remove) delete b[prop];
+            else b[prop] = val;
+        }
         var el = ws.querySelector('[data-block-id="' + selectedId + '"]');
         if (el) {
             var attr = animAttr(prop);
@@ -1752,11 +2532,11 @@
             else el.setAttribute(attr, val);
             if (prop === "anim" && (val === "" || val == null)) {
                 el.removeAttribute("data-anim-delay"); el.removeAttribute("data-anim-duration");
-                delete b.animDelay; delete b.animDuration;
+                if (!(cmdStore && b === source)) { delete b.animDelay; delete b.animDuration; }
             }
         }
         if (reflectInspector) refreshInspector();
-        markDirty();
+        if (!commanded) markDirty();
     }
     function animRng(prop, min, max, step, cur) {
         var n = parseFloat(cur); if (isNaN(n)) n = min;
@@ -1786,14 +2566,9 @@
         return { hex: "#" + toH(m[1]) + toH(m[2]) + toH(m[3]), a: m[4] != null ? parseFloat(m[4]) : 1 };
     }
     function setBg(key, val) {
-        var b = targetBlock(byId(selectedId));
+        var b = byId(selectedId);
         if (!b) return;
-        if (!b.content) b.content = {};
-        if (!b.content.bg) b.content.bg = {};
-        if (val === "" || val == null) delete b.content.bg[key];
-        else b.content.bg[key] = val;
-        if (!Object.keys(b.content.bg).length) delete b.content.bg;
-        render(); markDirty();
+        setContentValue(b, "bg." + key, val, val === "" || val == null);
     }
     // Собирает linear-gradient из контролов инспектора и пишет в backgroundImage (живое превью).
     function composeGradient() {
@@ -1810,11 +2585,15 @@
         var alEl = inspectorEl.querySelector('[data-doc-overlay="alpha"]');
         if (!col) return;
         var val = hexToRgba(col.value, alEl ? alEl.value : 0.5);
-        var b = targetBlock(byId(selectedId));
+        var source = byId(selectedId);
+        var b = targetBlock(source);
         if (!b) return;
-        if (!b.content) b.content = {};
-        if (!b.content.bg) b.content.bg = {};
-        b.content.bg.overlay = val;
+        var commanded = commandContentGesture(source, "bg.overlay", val, false, "overlay");
+        if (!commanded) {
+            if (!b.content) b.content = {};
+            if (!b.content.bg) b.content.bg = {};
+            b.content.bg.overlay = val;
+        }
         var secEl = ws.querySelector('[data-block-id="' + selectedId + '"]');
         if (secEl) {
             var ov = secEl.querySelector(".lime-block__overlay");
@@ -1826,11 +2605,20 @@
             ov.style.background = val;
             if (b.content.bg.blur) ov.style.backdropFilter = "blur(" + b.content.bg.blur + ")";
         }
-        markDirty();
+        if (!commanded) markDirty();
     }
     function switchBgMode(mode) {
-        var b = targetBlock(byId(selectedId));
+        var source = byId(selectedId);
+        var b = targetBlock(source);
         if (!b) return;
+        if (cmdStore && b === source) {
+            var commands = [{ type: "setContent", payload: { id: source.id, field: "bgMode", value: mode } }];
+            if (mode === "solid") commands.push({ type: "setStyle", payload: { id: source.id, breakpoint: currentBp, prop: "backgroundImage", remove: true } });
+            var changed = runCommands(commands, "background-mode");
+            applyPreviewStyles(); refreshInspector();
+            if (changed) scheduleAutosave();
+            return;
+        }
         if (!b.content) b.content = {};
         b.content.bgMode = mode;
         // На сплошном фоне убираем картинку/градиент, чтобы они не перекрывали цвет.
@@ -1890,6 +2678,22 @@
     }
 
     if (inspectorEl) {
+        inspectorEl.addEventListener("change", function (e) {
+            if (e.target.hasAttribute("data-v2-span")) {
+                var spSource = selectedId && byId(selectedId);
+                var sp = Math.max(1, Math.round(parseFloat(e.target.value)) || 1);
+                var rmSpan = currentBp === "base" && sp <= 1; // base + span=1 → дефолт, убираем поле
+                if (spSource) setDesignValue(spSource, currentBp, "span", rmSpan ? null : sp, rmSpan);
+                return;
+            }
+            var field = e.target.getAttribute("data-v2-design-field");
+            var path = e.target.getAttribute("data-v2-design-path");
+            if (!field || !path) return;
+            var source = selectedId && byId(selectedId);
+            var value = e.target.type === "number" ? parseFloat(e.target.value) : e.target.value;
+            if (e.target.type === "number" && !isFinite(value)) return;
+            patchDesignObject(source, field, path, value);
+        });
         inspectorEl.addEventListener("input", function (e) {
             var t = e.target;
             if (t.hasAttribute("data-doc-style")) {
@@ -1918,14 +2722,16 @@
                 }
             } else if (t.hasAttribute("data-doc-motion") && t.type === "range") {
                 // Параллакс секции: пишем модель + DOM-атрибут (визуально едет только на публикации).
-                var mb = targetBlock(byId(selectedId));
+                var motionSource = byId(selectedId);
+                var mb = targetBlock(motionSource);
                 if (mb) {
                     var v = t.value;
-                    if (parseFloat(v) === 0) delete mb.parallax; else mb.parallax = v;
+                    var motionCommanded = commandBlockGesture(motionSource, "parallax", v, parseFloat(v) === 0, "parallax");
+                    if (!motionCommanded) { if (parseFloat(v) === 0) delete mb.parallax; else mb.parallax = v; }
                     var msec = ws.querySelector('[data-block-id="' + selectedId + '"]');
                     if (msec) { if (parseFloat(v) === 0) msec.removeAttribute("data-parallax"); else msec.setAttribute("data-parallax", v); }
                     var ml = t.parentNode.querySelector(".lime-range__val"); if (ml) ml.textContent = v;
-                    markDirty();
+                    if (!motionCommanded) markDirty();
                 }
             } else if (t.hasAttribute("data-doc-layer-rng")) {
                 var li = parseInt(t.dataset.i, 10);
@@ -1935,12 +2741,15 @@
                 var ci = parseInt(t.dataset.docLayerColor, 10);
                 setLayerRng(ci, "color", t.value);
             } else if (t.hasAttribute("data-doc-scene-len") && t.type === "range") {
-                var sb = targetBlock(byId(selectedId));
+                var sceneSource = byId(selectedId);
+                var sb = targetBlock(sceneSource);
                 if (sb && sb.scene) {
-                    sb.scene.length = parseInt(t.value, 10);
+                    var nextScene = clone(sb.scene); nextScene.length = parseInt(t.value, 10);
+                    var sceneCommanded = commandBlockGesture(sceneSource, "scene", nextScene, false, "scene:length");
+                    if (!sceneCommanded) sb.scene.length = nextScene.length;
                     var sl = t.parentNode.querySelector(".lime-range__val");
                     if (sl) sl.textContent = t.value;
-                    markDirty();
+                    if (!sceneCommanded) markDirty();
                 }
             } else if (t.hasAttribute("data-doc-shadow")) {
                 composeShadow();
@@ -1956,6 +2765,30 @@
         });
         inspectorEl.addEventListener("click", function (e) {
             var el;
+            if ((el = e.target.closest("[data-v2-design-reset]"))) {
+                var resetSource = selectedId && byId(selectedId);
+                if (resetSource) setDesignValue(resetSource, currentBp, el.dataset.v2DesignReset, null, true);
+                return;
+            }
+            if ((el = e.target.closest("[data-v2-layout-mode]"))) { switchV2LayoutMode(el.dataset.v2LayoutMode); return; }
+            if ((el = e.target.closest("[data-v2-layout-direction]"))) {
+                patchDesignObject(selectedId && byId(selectedId), "layout", "direction", el.dataset.v2LayoutDirection);
+                return;
+            }
+            if ((el = e.target.closest("[data-v2-layout-wrap]"))) {
+                patchDesignObject(selectedId && byId(selectedId), "layout", "wrap", el.dataset.v2LayoutWrap === "1");
+                return;
+            }
+            if ((el = e.target.closest("[data-v2-grid-auto]"))) {
+                // Фикс./Авто колонки: число (repeat N) ↔ объект { mode:auto, min } (repeat auto-fit/fill).
+                patchDesignObject(selectedId && byId(selectedId), "layout", "columns",
+                    el.dataset.v2GridAuto === "1" ? { mode: "auto", min: 240 } : 2);
+                return;
+            }
+            if ((el = e.target.closest("[data-v2-grid-fill]"))) {
+                patchDesignObject(selectedId && byId(selectedId), "layout", "columns.fill", el.dataset.v2GridFill === "1");
+                return;
+            }
             if ((el = e.target.closest("[data-doc-insp-tab]"))) {
                 currentInspectorTab = el.dataset.docInspTab;
                 var tb = inspectorEl.querySelectorAll("[data-doc-insp-tab]");
@@ -2001,9 +2834,18 @@
             if ((el = e.target.closest("[data-doc-bg-preset]"))) {
                 var bp = window.LimeAssets && window.LimeAssets.BG_PRESETS[parseInt(el.dataset.docBgPreset, 10)];
                 if (bp) {
-                    var bb = targetBlock(byId(selectedId));
-                    if (bb) { if (!bb.content) bb.content = {}; bb.content.bgMode = "gradient"; }
-                    setStyle("backgroundImage", bp.css);
+                    var presetSource = byId(selectedId);
+                    var bb = targetBlock(presetSource);
+                    if (cmdStore && bb === presetSource) {
+                        var presetChanged = runCommands([
+                            { type: "setContent", payload: { id: presetSource.id, field: "bgMode", value: "gradient" } },
+                            { type: "setStyle", payload: { id: presetSource.id, breakpoint: currentBp, prop: "backgroundImage", value: bp.css } }
+                        ], "background-preset");
+                        applyPreviewStyles(); if (presetChanged) scheduleAutosave();
+                    } else {
+                        if (bb) { if (!bb.content) bb.content = {}; bb.content.bgMode = "gradient"; }
+                        setStyle("backgroundImage", bp.css);
+                    }
                     refreshInspector();
                 }
                 return;
@@ -2014,17 +2856,16 @@
             if ((el = e.target.closest("[data-doc-bento]"))) { setContentFlag("layout", el.dataset.docBento === "on" ? "bento" : null); return; }
             // ----- движение -----
             if ((el = e.target.closest("[data-doc-sticky]"))) {
-                var sb = targetBlock(byId(selectedId));
-                if (sb) { if (el.dataset.docSticky === "1") sb.sticky = true; else delete sb.sticky; render(); markDirty(); }
+                var stickySource = byId(selectedId);
+                if (stickySource) setBlockValue(stickySource, "sticky", true, el.dataset.docSticky !== "1");
                 return;
             }
             if ((el = e.target.closest("[data-doc-marquee]"))) {
-                var qb = targetBlock(byId(selectedId));
+                var marqueeSource = byId(selectedId);
+                var qb = targetBlock(marqueeSource);
                 if (qb) {
                     var m = el.dataset.docMarquee;
-                    if (m === "off") delete qb.marquee;
-                    else qb.marquee = { speed: 40, reverse: m === "rtl" };
-                    render(); markDirty();
+                    setBlockValue(marqueeSource, "marquee", { speed: 40, reverse: m === "rtl" }, m === "off");
                 }
                 return;
             }
@@ -2034,17 +2875,18 @@
             if ((el = e.target.closest("[data-doc-layer-del]"))) { delLayer(parseInt(el.dataset.docLayerDel, 10)); return; }
             if ((el = e.target.closest("[data-doc-layer-pick]"))) { openMediaPicker(selectedId, "layers." + el.dataset.docLayerPick + ".src", "blockpath"); return; }
             if ((el = e.target.closest("[data-doc-layer-shape]"))) {
-                var hb = curBlockWithLayers(); var hi = parseInt(el.dataset.docLayerShape, 10);
-                if (hb && hb.layers[hi]) { hb.layers[hi].shape = el.dataset.shape; render(); markDirty(); }
+                var shapeSource = byId(selectedId); var hb = targetBlock(shapeSource); var hi = parseInt(el.dataset.docLayerShape, 10);
+                if (hb && hb.layers && hb.layers[hi]) {
+                    var shapeLayers = clone(hb.layers); shapeLayers[hi].shape = el.dataset.shape;
+                    setBlockValue(shapeSource, "layers", shapeLayers, false);
+                }
                 return;
             }
             if ((el = e.target.closest("[data-doc-cols]"))) {
                 var cb = findBlock(selectedId);
                 if (cb) {
-                    var ct = targetBlock(cb.block);
-                    if (!ct.content) ct.content = {};
-                    ct.content.cols = parseInt(el.dataset.docCols, 10);
-                    render(); markDirty(); refreshInspector();
+                    setContentValue(cb.block, "cols", parseInt(el.dataset.docCols, 10), false);
+                    refreshInspector();
                 }
                 return;
             }
@@ -2099,11 +2941,15 @@
     if (saveBtn) saveBtn.addEventListener("click", save);
 
     var autosaveTimer, autosaving = false;
-    function markDirty() {
-        pushHistory(); // каждое изменение — точка отката (этап 0.4)
+    function scheduleAutosave() {
         if (!siteId || conflicted) return;
         clearTimeout(autosaveTimer);
         autosaveTimer = setTimeout(runAutosave, 2500);
+    }
+    function markDirty() {
+        commitPendingCommandEdits();
+        pushHistory(); // каждое изменение — точка отката (этап 0.4)
+        scheduleAutosave();
     }
     function runAutosave() {
         if (!siteId || autosaving || conflicted || totalBlocks() === 0) return;
@@ -2288,13 +3134,47 @@
             var resp = null;
             try { resp = JSON.parse(xhr.responseText); } catch (e) { /* no-op */ }
             if (xhr.status >= 200 && xhr.status < 300 && resp && resp.text) {
-                t.content.text = resp.text;
-                render(); markDirty();
+                setContentValue(r.block, "text", resp.text, false);
             } else {
                 alert(aiErrorText(xhr.status, resp));
             }
         };
         xhr.onerror = function () { alert("Сетевая ошибка."); };
+        xhr.send(form);
+    }
+    // «✨ AI: переписать» для всей выделенной секции/блока (этап 2.1). Шлём поддерево
+    // (content + children), получаем его же с переписанными текстами, применяем с undo.
+    function aiEditBlock() {
+        var r = findBlock(selectedId);
+        if (!r) return;
+        var t = targetBlock(r.block); // у компонента-инстанса правим общее определение
+        if (!t) return;
+        var instruction = prompt("Как переписать тексты этой секции? (смелее / под SaaS / короче / на английском…)", "сделай тексты смелее и под SaaS");
+        if (!instruction) return;
+        var payload = JSON.stringify({ content: t.content, children: t.children });
+        if (payload.length > 18000) { alert("Секция слишком большая для AI-правки за один раз. Разбей её."); return; }
+        var form = new FormData();
+        form.append("block", payload);
+        form.append("instruction", instruction);
+        leStatus("AI переписывает секцию…");
+        var xhr = new XMLHttpRequest();
+        xhr.open("POST", "/Ai/EditBlock");
+        xhr.setRequestHeader("X-CSRF-TOKEN", csrfToken());
+        xhr.onload = function () {
+            var resp = null;
+            try { resp = JSON.parse(xhr.responseText); } catch (e) { /* no-op */ }
+            if (xhr.status >= 200 && xhr.status < 300 && resp && resp.block) {
+                if (resp.block.content) t.content = resp.block.content;
+                if (resp.block.children) t.children = resp.block.children;
+                render(); markDirty(); // markDirty → pushHistory: правка откатывается через Ctrl+Z
+                leStatus("Готово", { done: true });
+                setTimeout(function () { leStatus("", { hide: true }); }, 900);
+            } else {
+                leStatus("", { hide: true });
+                alert(xhr.status === 422 ? "В этой секции нечего переписывать." : aiErrorText(xhr.status, resp));
+            }
+        };
+        xhr.onerror = function () { leStatus("", { hide: true }); alert("Сетевая ошибка."); };
         xhr.send(form);
     }
     var aiOpenBtn = document.querySelector("[data-doc-ai-open]");
@@ -2311,7 +3191,7 @@
         var el = document.getElementById("lime-theme-" + k);
         if (!el) return;
         el.value = doc.theme[k] || L.DEFAULT_THEME[k];
-        el.addEventListener("input", function () { doc.theme[k] = el.value; render(); markDirty(); refreshPalettes(); });
+        el.addEventListener("input", function () { beginCheckpointMutation(); doc.theme[k] = el.value; render(); markDirty(); refreshPalettes(); });
     });
 
     // Курируемые палитры — гардрейл вкуса: один клик задаёт все 5 токенов гармонично.
@@ -2343,6 +3223,7 @@
         }).join("");
     }
     function applyPalette(p) {
+        beginCheckpointMutation();
         THEME_KEYS.forEach(function (k) {
             doc.theme[k] = p[k];
             var el = document.getElementById("lime-theme-" + k);
@@ -2363,7 +3244,7 @@
         var themeFont = doc.theme.font || L.DEFAULT_THEME.font;
         fontSel.innerHTML = fontOptionsHtml(themeFont, false); // полный список Google Fonts
         fontSel.value = themeFont;
-        fontSel.addEventListener("input", function () { doc.theme.font = fontSel.value; render(); markDirty(); });
+        fontSel.addEventListener("input", function () { beginCheckpointMutation(); doc.theme.font = fontSel.value; render(); markDirty(); });
     }
     var themeOpen = document.querySelector("[data-doc-theme-open]");
     var themeModal = document.getElementById("lime-doc-theme-modal");
@@ -2388,11 +3269,13 @@
     }
     // CSS правим живьём — render() обновляет холст; head только сохраняем (на холст не влияет).
     if (cssArea) cssArea.addEventListener("input", function () {
+        beginCheckpointMutation();
         doc.customCss = cssArea.value;
         if (!doc.customCss) delete doc.customCss;
         render(); markDirty();
     });
     if (headArea) headArea.addEventListener("input", function () {
+        beginCheckpointMutation();
         doc.head = headArea.value;
         if (!doc.head) delete doc.head;
         markDirty();
@@ -2479,11 +3362,638 @@
         }
     }
 
+    function initV2Selection(stage, viewport, isViewportPanning) {
+        if (!window.LimeSelection) return;
+        var overlay = document.getElementById("lime-selection-overlay");
+        if (!overlay) return;
+        var boxes = overlay.querySelector("[data-selection-boxes]");
+        var hoverBox = overlay.querySelector("[data-selection-hover]");
+        var marqueeBox = overlay.querySelector("[data-selection-marquee]");
+        var selection = window.LimeSelection.createSelection();
+        var hoverId = null;
+        var marqueeDrag = null;
+        var suppressClick = false;
+        var activeResize = null;
+        var activeMove = null;
+        var activeRotate = null;
+        var guides = overlay.querySelector("[data-selection-guides]");
+        var gesturePerf = { move: [], resize: [], rotate: [] };
+        window.__LIME_V2_PERF__ = gesturePerf;
+        function recordGesturePerf(kind, started) {
+            var samples = gesturePerf[kind];
+            if (!samples) return;
+            samples.push(performance.now() - started);
+            if (samples.length > 240) samples.shift();
+        }
+        if (!guides) {
+            guides = document.createElement("div");
+            guides.setAttribute("data-selection-guides", "");
+            overlay.insertBefore(guides, boxes);
+        }
+
+        function freeInfo(id) {
+            if (!window.LimeLayout || !L.resolvedDesign) return null;
+            var found = findBlock(id);
+            if (!found || !found.parentBlock) return null;
+            if (found.block.hidden || found.block.locked) return null;
+            var parent = targetBlock(found.parentBlock);
+            var parentDesign = L.resolvedDesign(parent && parent.design, currentBp);
+            var childDesign = resolvedBlockDesign(found.block, currentBp);
+            if (!parentDesign.layout || parentDesign.layout.mode !== "free" || !childDesign.frame) return null;
+            return { source: found.block, frame: clone(childDesign.frame), size: childDesign.size || {}, siblings: found.parent };
+        }
+        function freeGroup(state) {
+            if (!state || state.ids.length < 2) return null;
+            var items = [], siblings = null;
+            for (var i = 0; i < state.ids.length; i++) {
+                var info = freeInfo(state.ids[i]);
+                if (!info || (siblings && info.siblings !== siblings)) return null;
+                siblings = info.siblings;
+                items.push({ id: state.ids[i], info: info });
+            }
+            return { items: items, siblings: siblings, primaryId: state.primaryId };
+        }
+
+        function localRect(el) {
+            var sr = stage.getBoundingClientRect();
+            var r = el.getBoundingClientRect();
+            var left = r.left - sr.left, top = r.top - sr.top;
+            // x/y дублируют left/top: LimeSelection.normalizeRect (hit-test/marquee) читает rect.x/.y,
+            // а place()/unionRects — .left/.top. Без x/y normalizeRect схлопывает прямоугольник в (0,0)
+            // → клик/рамка не попадают ни в один блок (баг был не виден: self-test модуля даёт x/y-rect'ы).
+            return { x: left, y: top, left: left, top: top, right: r.right - sr.left, bottom: r.bottom - sr.top, width: r.width, height: r.height };
+        }
+        function place(el, r) {
+            el.style.left = r.left + "px";
+            el.style.top = r.top + "px";
+            el.style.width = Math.max(0, r.width) + "px";
+            el.style.height = Math.max(0, r.height) + "px";
+        }
+        function unionRects(rects) {
+            var left = Infinity, top = Infinity, right = -Infinity, bottom = -Infinity;
+            rects.forEach(function (r) {
+                left = Math.min(left, r.left); top = Math.min(top, r.top);
+                right = Math.max(right, r.right); bottom = Math.max(bottom, r.bottom);
+            });
+            return { left: left, top: top, right: right, bottom: bottom, width: right - left, height: bottom - top };
+        }
+        function addTransformHandles(box, allowRotate) {
+            if (allowRotate) {
+                var stem = document.createElement("span");
+                stem.className = "lime-rotate-stem";
+                box.appendChild(stem);
+                var rotate = document.createElement("span");
+                rotate.className = "lime-rotate-handle";
+                rotate.setAttribute("data-rotate-handle", "");
+                rotate.setAttribute("title", "Rotate (Shift: 15°)");
+                box.appendChild(rotate);
+            }
+            var move = document.createElement("span");
+            move.className = "lime-move-handle";
+            move.setAttribute("data-move-handle", "");
+            move.setAttribute("title", "Move");
+            move.textContent = "\u2725";
+            box.appendChild(move);
+            ["nw", "n", "ne", "e", "se", "s", "sw", "w"].forEach(function (handle) {
+                var h = document.createElement("span");
+                h.className = "lime-resize-handle";
+                h.setAttribute("data-handle", handle);
+                box.appendChild(h);
+            });
+        }
+        function candidates() {
+            var out = [];
+            var nodes = ws.querySelectorAll(".lime-block[data-block-id]");
+            for (var i = 0; i < nodes.length; i++) {
+                var el = nodes[i];
+                var model = byId(el.getAttribute("data-block-id"));
+                var depth = 1, p = el.parentElement;
+                while (p && p !== ws) { if (p.classList && p.classList.contains("lime-block")) depth++; p = p.parentElement; }
+                out.push({ id: el.getAttribute("data-block-id"), rect: localRect(el), depth: depth, zIndex: parseInt(getComputedStyle(el).zIndex, 10) || 0, order: i,
+                    hidden: !!(model && model.hidden), locked: !!(model && model.locked), el: el });
+            }
+            return out;
+        }
+        function syncLegacy(state) {
+            var old = ws.querySelectorAll(".is-selected");
+            for (var i = 0; i < old.length; i++) old[i].classList.remove("is-selected");
+            selectedId = state.primaryId;
+            if (selectedId) {
+                var primary = ws.querySelector('[data-block-id="' + selectedId + '"]');
+                if (primary) primary.classList.add("is-selected");
+            }
+            currentClass = null;
+            refreshInspector(); refreshLayers();
+        }
+        function refresh() {
+            var state = selection.get();
+            var valid = state.ids.filter(function (id) { return !!ws.querySelector('[data-block-id="' + id + '"]'); });
+            if (valid.length !== state.ids.length) { selection.replace(valid); return; }
+            boxes.innerHTML = "";
+            var group = freeGroup(state);
+            state.ids.forEach(function (id) {
+                var el = ws.querySelector('[data-block-id="' + id + '"]');
+                var model = byId(id);
+                if (!el || (model && model.hidden)) return;
+                var box = document.createElement("div");
+                box.className = "lime-selection-box" + (id === state.primaryId ? " is-primary" : "");
+                box.setAttribute("data-selection-id", id);
+                place(box, localRect(el));
+                if (!group && id === state.primaryId && freeInfo(id)) addTransformHandles(box, true);
+                boxes.appendChild(box);
+            });
+            if (group) {
+                var groupRects = group.items.map(function (item) {
+                    return localRect(ws.querySelector('[data-block-id="' + item.id + '"]'));
+                });
+                var groupBox = document.createElement("div");
+                groupBox.className = "lime-selection-box is-primary is-group";
+                groupBox.setAttribute("data-selection-group", "");
+                place(groupBox, unionRects(groupRects));
+                addTransformHandles(groupBox, false);
+                boxes.appendChild(groupBox);
+            }
+            var hoverEl = hoverId && !selection.has(hoverId) ? ws.querySelector('[data-block-id="' + hoverId + '"]') : null;
+            if (hoverEl) { place(hoverBox, localRect(hoverEl)); hoverBox.hidden = false; }
+            else hoverBox.hidden = true;
+        }
+        refreshV2SelectionOverlay = refresh;
+        selection.subscribe(function (state) { syncLegacy(state); refresh(); });
+        viewport.subscribe(refresh);
+        window.addEventListener("resize", refresh);
+
+        function localPoint(e) {
+            var r = stage.getBoundingClientRect();
+            return { x: e.clientX - r.left, y: e.clientY - r.top };
+        }
+        stage.addEventListener("click", function (e) {
+            if (suppressClick) { suppressClick = false; e.preventDefault(); return; }
+            var point = localPoint(e);
+            var hit = window.LimeSelection.hitTest(candidates(), point);
+            if (hit) selection.select(hit.id, { additive: e.shiftKey, toggle: e.shiftKey });
+            else if (e.target === stage || e.target === ws || e.target.closest(".lime-workspace__placeholder")) selection.clear();
+        });
+        stage.addEventListener("pointermove", function (e) {
+            if (marqueeDrag) {
+                var p = localPoint(e);
+                marqueeDrag.x2 = p.x; marqueeDrag.y2 = p.y;
+                var r = window.LimeSelection.normalizeRect(marqueeDrag);
+                place(marqueeBox, { left: r.left, top: r.top, width: r.right - r.left, height: r.bottom - r.top });
+                return;
+            }
+            if (isViewportPanning()) return;
+            var hit = window.LimeSelection.hitTest(candidates(), localPoint(e));
+            var nextHover = hit ? hit.id : null;
+            if (nextHover !== hoverId) { hoverId = nextHover; refresh(); }
+        });
+        stage.addEventListener("pointerleave", function () { if (!marqueeDrag) { hoverId = null; refresh(); } });
+        stage.addEventListener("pointerdown", function (e) {
+            if (e.button !== 0 || isViewportPanning() || e.target.closest(".lime-block")) return;
+            var p = localPoint(e);
+            marqueeDrag = { x1: p.x, y1: p.y, x2: p.x, y2: p.y, additive: e.shiftKey };
+            marqueeBox.hidden = false;
+            place(marqueeBox, { left: p.x, top: p.y, width: 0, height: 0 });
+            try { stage.setPointerCapture(e.pointerId); } catch (_) { /* no-op */ }
+            e.preventDefault();
+        });
+        stage.addEventListener("pointerup", function (e) {
+            if (!marqueeDrag) return;
+            var drag = marqueeDrag;
+            marqueeDrag = null;
+            marqueeBox.hidden = true;
+            try { stage.releasePointerCapture(e.pointerId); } catch (_) { /* no-op */ }
+            var moved = Math.abs(drag.x2 - drag.x1) + Math.abs(drag.y2 - drag.y1) > 4;
+            if (moved) {
+                var ids = window.LimeSelection.marquee(candidates(), drag);
+                selection.replace(drag.additive ? selection.get().ids.concat(ids) : ids);
+                suppressClick = true;
+            }
+        });
+        document.addEventListener("click", function (e) {
+            var row = e.target.closest("[data-doc-layer]");
+            if (row) selection.select(row.getAttribute("data-doc-layer"), { additive: e.shiftKey, toggle: e.shiftKey });
+        });
+        function moveTargets(info, excluded) {
+            var out = [];
+            (info.siblings || []).forEach(function (sibling) {
+                if (!sibling || (excluded && excluded[sibling.id])) return;
+                var siblingDesign = resolvedBlockDesign(sibling, currentBp);
+                if (!siblingDesign.frame) return;
+                out.push({ id: sibling.id, rect: clone(siblingDesign.frame), hidden: !!sibling.hidden, locked: !!sibling.locked });
+            });
+            return out;
+        }
+        function anchorValue(r, axis, kind) {
+            if (axis === "x") {
+                if (kind === "right") return r.right;
+                if (kind === "center") return r.left + r.width / 2;
+                return r.left;
+            }
+            if (kind === "bottom") return r.bottom;
+            if (kind === "center") return r.top + r.height / 2;
+            return r.top;
+        }
+        function showGuides(gesture, hits) {
+            guides.innerHTML = "";
+            if (!hits || !hits.length) return;
+            var parentRect = localRect(gesture.blockEl.parentElement);
+            var movingRect = localRect(gesture.blockEl);
+            hits.forEach(function (hit) {
+                var targetEl = hit.targetId && ws.querySelector('[data-block-id="' + hit.targetId + '"]');
+                var targetRect = targetEl ? localRect(targetEl) : movingRect;
+                var kind = targetEl ? hit.target : hit.moving;
+                var value = anchorValue(targetRect, hit.axis, kind);
+                var line = document.createElement("span");
+                line.className = "lime-snap-guide is-" + hit.axis;
+                if (hit.axis === "x") {
+                    line.style.left = value + "px";
+                    line.style.top = parentRect.top + "px";
+                    line.style.height = parentRect.height + "px";
+                } else {
+                    line.style.left = parentRect.left + "px";
+                    line.style.top = value + "px";
+                    line.style.width = parentRect.width + "px";
+                }
+                guides.appendChild(line);
+            });
+        }
+        function pointerInParent(e, blockEl) {
+            var r = blockEl.parentElement.getBoundingClientRect();
+            var zoom = viewport.get().zoom || 1;
+            return { x: (e.clientX - r.left) / zoom, y: (e.clientY - r.top) / zoom };
+        }
+        function resizeDelta(start, handle, next) {
+            handle = String(handle || "");
+            return {
+                x: handle.indexOf("w") >= 0 ? next.x - start.x : handle.indexOf("e") >= 0 ? (next.x + next.width) - (start.x + start.width) : 0,
+                y: handle.indexOf("n") >= 0 ? next.y - start.y : handle.indexOf("s") >= 0 ? (next.y + next.height) - (start.y + start.height) : 0
+            };
+        }
+        overlay.addEventListener("pointerdown", function (e) {
+            var rotateHandle = e.target.closest("[data-rotate-handle]");
+            if (rotateHandle) {
+                var rotateBox = rotateHandle.closest("[data-selection-id]");
+                var rotateId = rotateBox && rotateBox.getAttribute("data-selection-id");
+                var rotateInfo = rotateId && freeInfo(rotateId);
+                var rotateEl = rotateId && ws.querySelector('[data-block-id="' + rotateId + '"]');
+                if (!rotateInfo || !rotateEl) return;
+                activeRotate = {
+                    id: rotateId, source: rotateInfo.source, start: rotateInfo.frame, next: rotateInfo.frame,
+                    startPoint: pointerInParent(e, rotateEl), pointerId: e.pointerId, blockEl: rotateEl, box: rotateBox
+                };
+                try { rotateHandle.setPointerCapture(e.pointerId); } catch (_) { /* no-op */ }
+                e.preventDefault(); e.stopPropagation();
+                return;
+            }
+            var moveHandle = e.target.closest("[data-move-handle]");
+            if (moveHandle) {
+                var moveBox = moveHandle.closest("[data-selection-id]");
+                var moveGroupBox = moveHandle.closest("[data-selection-group]");
+                var moveId = moveGroupBox ? selection.get().primaryId : moveBox && moveBox.getAttribute("data-selection-id");
+                var moveInfo = moveId && freeInfo(moveId);
+                var moveEl = moveId && ws.querySelector('[data-block-id="' + moveId + '"]');
+                if (!moveInfo || !moveEl || !window.LimeSnap) return;
+                var selected = selection.get().ids;
+                var moveItems = [];
+                selected.forEach(function (selectedId) {
+                    var selectedInfo = freeInfo(selectedId);
+                    var selectedEl = ws.querySelector('[data-block-id="' + selectedId + '"]');
+                    var selectedBox = boxes.querySelector('[data-selection-id="' + selectedId + '"]');
+                    if (selectedInfo && selectedInfo.siblings === moveInfo.siblings && selectedEl && selectedBox) {
+                        moveItems.push({ id: selectedId, source: selectedInfo.source, start: selectedInfo.frame, next: selectedInfo.frame, blockEl: selectedEl, box: selectedBox });
+                    }
+                });
+                // Смешанный selection из разных parents не двигаем частично: жест остаётся single-primary.
+                if (moveItems.length !== selected.length) {
+                    moveItems = [{ id: moveId, source: moveInfo.source, start: moveInfo.frame, next: moveInfo.frame, blockEl: moveEl, box: moveBox }];
+                }
+                var excluded = {};
+                moveItems.forEach(function (item) { excluded[item.id] = true; });
+                activeMove = {
+                    id: moveId, source: moveInfo.source, start: moveInfo.frame, next: moveInfo.frame,
+                    items: moveItems, targets: moveTargets(moveInfo, excluded), pointerId: e.pointerId,
+                    clientX: e.clientX, clientY: e.clientY, blockEl: moveEl, box: moveBox,
+                    groupBox: moveGroupBox
+                };
+                try { moveHandle.setPointerCapture(e.pointerId); } catch (_) { /* no-op */ }
+                e.preventDefault(); e.stopPropagation();
+                return;
+            }
+            var handle = e.target.closest("[data-handle]");
+            if (!handle) return;
+            var resizeGroupBox = handle.closest("[data-selection-group]");
+            if (resizeGroupBox) {
+                var groupState = freeGroup(selection.get());
+                if (!groupState) return;
+                var groupItems = groupState.items.map(function (item) {
+                    var groupEl = ws.querySelector('[data-block-id="' + item.id + '"]');
+                    return { id: item.id, source: item.info.source, start: item.info.frame, next: item.info.frame, blockEl: groupEl,
+                        box: boxes.querySelector('[data-selection-id="' + item.id + '"]') };
+                });
+                var groupStart = window.LimeLayout.frameBounds(groupItems.map(function (item) { return item.start; }));
+                activeResize = {
+                    group: true, items: groupItems, start: groupStart, next: groupStart,
+                    handle: handle.getAttribute("data-handle"), pointerId: e.pointerId,
+                    clientX: e.clientX, clientY: e.clientY, box: resizeGroupBox, blockEl: groupItems[0].blockEl,
+                    targets: moveTargets(groupState.items[0].info, groupState.items.reduce(function (out, item) { out[item.id] = true; return out; }, {}))
+                };
+                try { handle.setPointerCapture(e.pointerId); } catch (_) { /* no-op */ }
+                e.preventDefault(); e.stopPropagation();
+                return;
+            }
+            var box = handle.closest("[data-selection-id]");
+            var id = box && box.getAttribute("data-selection-id");
+            var info = id && freeInfo(id);
+            var blockEl = id && ws.querySelector('[data-block-id="' + id + '"]');
+            if (!info || !blockEl) return;
+            activeResize = {
+                id: id, source: info.source, start: info.frame, size: info.size,
+                handle: handle.getAttribute("data-handle"), pointerId: e.pointerId,
+                clientX: e.clientX, clientY: e.clientY, blockEl: blockEl, box: box, next: info.frame,
+                targets: moveTargets(info, (function () { var out = {}; out[id] = true; return out; })())
+            };
+            try { handle.setPointerCapture(e.pointerId); } catch (_) { /* no-op */ }
+            e.preventDefault(); e.stopPropagation();
+        });
+        document.addEventListener("pointermove", function (e) {
+            if (activeRotate && activeRotate.pointerId === e.pointerId) {
+                var rotatePerfStarted = performance.now();
+                activeRotate.next = window.LimeLayout.rotateFrame(activeRotate.start, activeRotate.startPoint, pointerInParent(e, activeRotate.blockEl), {
+                    snap: e.shiftKey, increment: 15
+                });
+                activeRotate.blockEl.style.transform = activeRotate.next.rotation ? "rotate(" + activeRotate.next.rotation + "deg)" : "";
+                place(activeRotate.box, localRect(activeRotate.blockEl));
+                recordGesturePerf("rotate", rotatePerfStarted);
+            }
+        }, true);
+        overlay.addEventListener("pointermove", function (e) {
+            var perfStarted = performance.now();
+            if (activeMove && activeMove.pointerId === e.pointerId) {
+                var moveZoom = viewport.get().zoom || 1;
+                var moveDx = (e.clientX - activeMove.clientX) / moveZoom;
+                var moveDy = (e.clientY - activeMove.clientY) / moveZoom;
+                if (e.shiftKey) {
+                    if (Math.abs(moveDx) >= Math.abs(moveDy)) moveDy = 0; else moveDx = 0;
+                }
+                var moved = window.LimeLayout.moveFrame(activeMove.start, moveDx, moveDy);
+                var snapped = e.altKey ? { rect: moved, guides: [] } : window.LimeSnap.snapMove(moved, activeMove.targets, { threshold: 6 / moveZoom });
+                activeMove.next = {
+                    x: snapped.rect.x, y: snapped.rect.y, width: moved.width, height: moved.height, rotation: moved.rotation
+                };
+                var appliedX = activeMove.next.x - activeMove.start.x;
+                var appliedY = activeMove.next.y - activeMove.start.y;
+                activeMove.items.forEach(function (item) {
+                    item.next = window.LimeLayout.moveFrame(item.start, appliedX, appliedY);
+                    var moveStyle = item.blockEl.style;
+                    moveStyle.position = "absolute";
+                    moveStyle.left = item.next.x + "px"; moveStyle.top = item.next.y + "px";
+                    place(item.box, localRect(item.blockEl));
+                });
+                if (activeMove.groupBox) {
+                    place(activeMove.groupBox, unionRects(activeMove.items.map(function (item) { return localRect(item.blockEl); })));
+                }
+                showGuides(activeMove, snapped.guides);
+                recordGesturePerf("move", perfStarted);
+                return;
+            }
+            if (!activeResize || activeResize.pointerId !== e.pointerId) return;
+            var zoom = viewport.get().zoom || 1;
+            var dx = (e.clientX - activeResize.clientX) / zoom;
+            var dy = (e.clientY - activeResize.clientY) / zoom;
+            if (activeResize.group) {
+                var groupResult = window.LimeLayout.resizeFrames(activeResize.items.map(function (item) { return item.start; }), activeResize.handle, { x: dx, y: dy }, {
+                    shift: e.shiftKey, alt: e.altKey, itemMin: 8
+                });
+                if (!e.shiftKey && !e.altKey && window.LimeSnap && window.LimeSnap.snapResize) {
+                    var groupSnap = window.LimeSnap.snapResize(groupResult.bounds, activeResize.handle, activeResize.targets, { threshold: 6 / zoom });
+                    var groupDelta = resizeDelta(activeResize.start, activeResize.handle, groupSnap.rect);
+                    groupResult = window.LimeLayout.resizeFrames(activeResize.items.map(function (item) { return item.start; }), activeResize.handle, groupDelta, { itemMin: 8 });
+                    showGuides(activeResize, groupSnap.guides);
+                } else guides.innerHTML = "";
+                activeResize.next = groupResult.bounds;
+                activeResize.items.forEach(function (item, index) {
+                    item.next = groupResult.frames[index];
+                    var groupStyle = item.blockEl.style;
+                    groupStyle.position = "absolute";
+                    groupStyle.left = item.next.x + "px"; groupStyle.top = item.next.y + "px";
+                    groupStyle.width = item.next.width + "px"; groupStyle.height = item.next.height + "px";
+                    groupStyle.transform = item.next.rotation ? "rotate(" + item.next.rotation + "deg)" : "";
+                    place(item.box, localRect(item.blockEl));
+                });
+                place(activeResize.box, unionRects(activeResize.items.map(function (item) { return localRect(item.blockEl); })));
+                recordGesturePerf("resize", perfStarted);
+                return;
+            }
+            var next = window.LimeLayout.resizeFrame(activeResize.start, activeResize.handle, { x: dx, y: dy }, {
+                shift: e.shiftKey, alt: e.altKey,
+                width: activeResize.size.width, height: activeResize.size.height
+            });
+            if (!e.shiftKey && !e.altKey && window.LimeSnap && window.LimeSnap.snapResize) {
+                var resizeSnap = window.LimeSnap.snapResize(next, activeResize.handle, activeResize.targets, { threshold: 6 / zoom });
+                next = window.LimeLayout.resizeFrame(activeResize.start, activeResize.handle, resizeDelta(activeResize.start, activeResize.handle, resizeSnap.rect), {
+                    width: activeResize.size.width, height: activeResize.size.height
+                });
+                showGuides(activeResize, resizeSnap.guides);
+            } else guides.innerHTML = "";
+            activeResize.next = next;
+            var style = activeResize.blockEl.style;
+            style.position = "absolute";
+            style.left = next.x + "px"; style.top = next.y + "px";
+            style.width = next.width + "px"; style.height = next.height + "px";
+            style.transform = next.rotation ? "rotate(" + next.rotation + "deg)" : "";
+            place(activeResize.box, localRect(activeResize.blockEl));
+            recordGesturePerf("resize", perfStarted);
+        });
+        function commitFrameItems(items, label) {
+            if (items.length === 1) {
+                setDesignValue(items[0].source, currentBp, "frame", items[0].next, false);
+                return;
+            }
+            if (cmdStore) {
+                var commands = items.map(function (item) {
+                    return { type: "setDesign", payload: { id: item.id, breakpoint: currentBp, field: "frame", value: item.next } };
+                });
+                finishMutation(runCommands(commands, label));
+                return;
+            }
+            items.forEach(function (item) {
+                if (!item.source.design) item.source.design = {};
+                if (!item.source.design[currentBp]) item.source.design[currentBp] = {};
+                item.source.design[currentBp].frame = item.next;
+            });
+            finishMutation(false);
+        }
+        function finishResize(e, cancel) {
+            if (!activeResize || activeResize.pointerId !== e.pointerId) return;
+            var gesture = activeResize;
+            activeResize = null;
+            guides.innerHTML = "";
+            if (cancel) { render(); return; }
+            if (gesture.group) {
+                var resizedItems = gesture.items.filter(function (item) {
+                    return item.start.x !== item.next.x || item.start.y !== item.next.y || item.start.width !== item.next.width || item.start.height !== item.next.height;
+                });
+                if (!resizedItems.length) { refresh(); return; }
+                commitFrameItems(resizedItems, "resize-selection");
+                return;
+            }
+            var a = gesture.start, b = gesture.next;
+            if (a.x === b.x && a.y === b.y && a.width === b.width && a.height === b.height && a.rotation === b.rotation) { refresh(); return; }
+            setDesignValue(gesture.source, currentBp, "frame", b, false);
+        }
+        function finishMove(e, cancel) {
+            if (!activeMove || activeMove.pointerId !== e.pointerId) return;
+            var gesture = activeMove;
+            activeMove = null;
+            guides.innerHTML = "";
+            if (cancel) { render(); return; }
+            var changedItems = gesture.items.filter(function (item) { return item.start.x !== item.next.x || item.start.y !== item.next.y; });
+            if (!changedItems.length) { refresh(); return; }
+            commitFrameItems(changedItems, "move-selection");
+        }
+        function finishRotate(e, cancel) {
+            if (!activeRotate || activeRotate.pointerId !== e.pointerId) return;
+            var gesture = activeRotate;
+            activeRotate = null;
+            if (cancel) { render(); return; }
+            if (gesture.start.rotation === gesture.next.rotation) { refresh(); return; }
+            setDesignValue(gesture.source, currentBp, "frame", gesture.next, false);
+        }
+        document.addEventListener("pointerup", function (e) { finishRotate(e, false); }, true);
+        document.addEventListener("pointercancel", function (e) { finishRotate(e, true); }, true);
+        overlay.addEventListener("pointerup", function (e) { finishMove(e, false); finishResize(e, false); finishRotate(e, false); });
+        overlay.addEventListener("pointercancel", function (e) { finishMove(e, true); finishResize(e, true); finishRotate(e, true); });
+        document.addEventListener("keydown", function (e) {
+            if (/^Arrow(Left|Right|Up|Down)$/.test(e.key) && !isTextField(e) && !activeMove && !activeResize) {
+                var keyboardState = selection.get();
+                var keyboardGroup = freeGroup(keyboardState);
+                var keyboardInfos = keyboardGroup ? keyboardGroup.items : (keyboardState.primaryId && freeInfo(keyboardState.primaryId) ? [{ id: keyboardState.primaryId, info: freeInfo(keyboardState.primaryId) }] : []);
+                if (keyboardInfos.length) {
+                    var step = e.shiftKey ? 10 : 1;
+                    var kx = e.key === "ArrowLeft" ? -step : e.key === "ArrowRight" ? step : 0;
+                    var ky = e.key === "ArrowUp" ? -step : e.key === "ArrowDown" ? step : 0;
+                    var keyboardItems = keyboardInfos.map(function (item) {
+                        return { id: item.id, source: item.info.source, start: item.info.frame, next: item.info.frame };
+                    });
+                    if (e.ctrlKey || e.metaKey) {
+                        if (keyboardItems.length > 1) {
+                            var keyboardResize = window.LimeLayout.resizeFrames(keyboardItems.map(function (item) { return item.start; }), "se", { x: kx, y: ky }, { itemMin: 8 });
+                            keyboardItems.forEach(function (item, index) { item.next = keyboardResize.frames[index]; });
+                        } else {
+                            keyboardItems[0].next = window.LimeLayout.resizeFrame(keyboardItems[0].start, "se", { x: kx, y: ky });
+                        }
+                        commitFrameItems(keyboardItems, "keyboard-resize");
+                    } else {
+                        keyboardItems.forEach(function (item) { item.next = window.LimeLayout.moveFrame(item.start, kx, ky); });
+                        commitFrameItems(keyboardItems, "keyboard-move");
+                    }
+                    e.preventDefault();
+                    return;
+                }
+            }
+            if (e.key !== "Escape") return;
+            if (activeMove) { guides.innerHTML = ""; render(); activeMove = null; }
+            if (activeResize) { render(); activeResize = null; }
+            if (activeRotate) { render(); activeRotate = null; }
+            selection.clear();
+        });
+        window.__LIME_SELECTION__ = selection;
+        refresh();
+    }
+
+    // ===== EDITOR V2 VIEWPORT (Stage 2, feature flag ?canvas=1) =====
+    function initV2Viewport() {
+        if (!canvasOn || !window.LimeViewport) return;
+        var stage = document.getElementById("lime-canvas-viewport");
+        var canvas = ws.closest(".lime-editor__canvas");
+        if (!stage || !canvas) return;
+        canvas.classList.add("is-v2-viewport");
+        var controls = document.querySelector("[data-canvas-controls]");
+        if (controls) controls.hidden = false;
+
+        var viewport = window.LimeViewport.createViewport({ x: 48, y: 72, zoom: 0.9, minZoom: 0.1, maxZoom: 4 });
+        var label = document.querySelector("[data-canvas-zoom-label]");
+        function applyViewport(s) {
+            ws.style.transform = "translate(" + s.x + "px," + s.y + "px) scale(" + s.zoom + ")";
+            if (label) {
+                label.textContent = Math.round(s.zoom * 100) + "%";
+                label.title = "Сбросить масштаб до 100%";
+            }
+        }
+        viewport.subscribe(applyViewport);
+        applyViewport(viewport.get());
+
+        function localPoint(e) {
+            var r = stage.getBoundingClientRect();
+            return { x: e.clientX - r.left, y: e.clientY - r.top };
+        }
+        stage.addEventListener("wheel", function (e) {
+            e.preventDefault();
+            var factor = Math.exp(-e.deltaY * 0.0015);
+            viewport.zoomBy(localPoint(e), factor);
+        }, { passive: false });
+
+        var spaceDown = false;
+        var pan = null;
+        document.addEventListener("keydown", function (e) {
+            if (e.code !== "Space" || isTextField(e)) return;
+            spaceDown = true;
+            stage.classList.add("is-panning");
+            e.preventDefault();
+        });
+        document.addEventListener("keyup", function (e) {
+            if (e.code !== "Space") return;
+            spaceDown = false;
+            if (!pan) stage.classList.remove("is-panning");
+        });
+        stage.addEventListener("pointerdown", function (e) {
+            if (!(spaceDown || e.button === 1)) return;
+            e.preventDefault(); e.stopPropagation();
+            pan = { id: e.pointerId, x: e.clientX, y: e.clientY };
+            stage.classList.add("is-panning");
+            try { stage.setPointerCapture(e.pointerId); } catch (_) { /* no-op */ }
+        }, true);
+        stage.addEventListener("pointermove", function (e) {
+            if (!pan || pan.id !== e.pointerId) return;
+            var dx = e.clientX - pan.x, dy = e.clientY - pan.y;
+            pan.x = e.clientX; pan.y = e.clientY;
+            viewport.panBy(dx, dy);
+        });
+        function endPan(e) {
+            if (!pan || pan.id !== e.pointerId) return;
+            try { stage.releasePointerCapture(e.pointerId); } catch (_) { /* no-op */ }
+            pan = null;
+            if (!spaceDown) stage.classList.remove("is-panning");
+        }
+        stage.addEventListener("pointerup", endPan);
+        stage.addEventListener("pointercancel", endPan);
+
+        function centerPoint() { return { x: stage.clientWidth / 2, y: stage.clientHeight / 2 }; }
+        function fit() {
+            viewport.fitBounds(
+                { x: 0, y: 0, width: Math.max(1, ws.offsetWidth), height: Math.max(1, ws.scrollHeight) },
+                { width: stage.clientWidth, height: stage.clientHeight },
+                48
+            );
+        }
+        var zoomIn = document.querySelector("[data-canvas-zoom-in]");
+        var zoomOut = document.querySelector("[data-canvas-zoom-out]");
+        var fitBtn = document.querySelector("[data-canvas-fit]");
+        if (zoomIn) zoomIn.addEventListener("click", function () { viewport.zoomBy(centerPoint(), 1.2); });
+        if (zoomOut) zoomOut.addEventListener("click", function () { viewport.zoomBy(centerPoint(), 1 / 1.2); });
+        if (label) label.addEventListener("click", function () { viewport.zoomAt(centerPoint(), 1); });
+        if (fitBtn) fitBtn.addEventListener("click", fit);
+        initV2Selection(stage, viewport, function () { return !!(spaceDown || pan); });
+        window.__LIME_VIEWPORT__ = viewport; // временный debug/test seam, не часть document JSON
+        setTimeout(fit, 0);
+    }
+
     // ===== INIT =====
     refreshPages();
     refreshComponents();
     render();
     pushHistory(); // стартовое состояние — дно стека undo
+    initV2Viewport();
 
     // Подгружаем коллекции сайта заранее — чтобы блок collectionList показывал превью схемы.
     if (siteId) {

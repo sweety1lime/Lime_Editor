@@ -146,6 +146,148 @@
 .lime-workspace[data-device="tablet"] { max-width: 768px !important; width: 768px; }
 .lime-workspace[data-device="desktop"] { max-width: 100% !important; }
 
+/* Editor V2 viewport: неактивный wrapper прозрачен для legacy layout. */
+.lime-canvas-viewport { display: contents; }
+.lime-editor__canvas.is-v2-viewport {
+    position: relative;
+    overflow: hidden;
+    padding: 0;
+    touch-action: none;
+}
+.lime-editor__canvas.is-v2-viewport .lime-doc-pages-bar {
+    position: absolute;
+    z-index: 20;
+    top: 8px;
+    left: 16px;
+    right: 16px;
+}
+.lime-editor__canvas.is-v2-viewport .lime-canvas-viewport {
+    display: block;
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    cursor: default;
+    background-image: radial-gradient(circle, color-mix(in srgb, var(--border-soft) 70%, transparent) 1px, transparent 1px);
+    background-size: 20px 20px;
+}
+.lime-editor__canvas.is-v2-viewport .lime-canvas-viewport.is-panning { cursor: grabbing; }
+.lime-editor__canvas.is-v2-viewport .lime-workspace {
+    margin: 0;
+    transform-origin: 0 0;
+    transition: none;
+    will-change: transform;
+}
+.lime-selection-overlay { display: none; }
+.lime-editor__canvas.is-v2-viewport .lime-selection-overlay {
+    display: block;
+    position: absolute;
+    inset: 0;
+    z-index: 15;
+    pointer-events: none;
+}
+.lime-selection-box,
+.lime-selection-hover,
+.lime-selection-marquee {
+    position: absolute;
+    box-sizing: border-box;
+    pointer-events: none;
+}
+.lime-selection-box {
+    border: 2px solid #8b5cf6;
+    box-shadow: 0 0 0 1px rgba(255,255,255,.7);
+}
+.lime-selection-box.is-primary { border-color: #7c3aed; }
+.lime-selection-box.is-group {
+    border-style: dashed;
+    border-color: #6d28d9;
+    background: rgba(124,58,237,.035);
+}
+.lime-selection-hover { border: 1px solid rgba(139,92,246,.75); }
+.lime-selection-marquee {
+    border: 1px solid #8b5cf6;
+    background: rgba(139,92,246,.12);
+}
+.lime-resize-handle {
+    position: absolute;
+    width: 9px;
+    height: 9px;
+    border: 1px solid #7c3aed;
+    border-radius: 2px;
+    background: #fff;
+    pointer-events: auto;
+    transform: translate(-50%, -50%);
+}
+.lime-resize-handle[data-handle="nw"] { left: 0; top: 0; cursor: nwse-resize; }
+.lime-resize-handle[data-handle="n"]  { left: 50%; top: 0; cursor: ns-resize; }
+.lime-resize-handle[data-handle="ne"] { left: 100%; top: 0; cursor: nesw-resize; }
+.lime-resize-handle[data-handle="e"]  { left: 100%; top: 50%; cursor: ew-resize; }
+.lime-resize-handle[data-handle="se"] { left: 100%; top: 100%; cursor: nwse-resize; }
+.lime-resize-handle[data-handle="s"]  { left: 50%; top: 100%; cursor: ns-resize; }
+.lime-resize-handle[data-handle="sw"] { left: 0; top: 100%; cursor: nesw-resize; }
+.lime-resize-handle[data-handle="w"]  { left: 0; top: 50%; cursor: ew-resize; }
+.lime-rotate-stem {
+    position: absolute; left: 50%; top: -45px; width: 1px; height: 20px;
+    background: #7c3aed; transform: translateX(-50%); pointer-events: none;
+}
+.lime-rotate-handle {
+    position: absolute; left: 50%; top: -50px; width: 11px; height: 11px;
+    border: 2px solid #7c3aed; border-radius: 50%; background: #fff;
+    transform: translate(-50%, -50%); pointer-events: auto; cursor: grab;
+}
+.lime-rotate-handle:active { cursor: grabbing; }
+.lime-move-handle {
+    position: absolute;
+    left: 50%;
+    top: -25px;
+    width: 20px;
+    height: 20px;
+    display: grid;
+    place-items: center;
+    border: 1px solid #7c3aed;
+    border-radius: 5px;
+    background: #fff;
+    color: #6d28d9;
+    font: 13px/1 sans-serif;
+    box-shadow: 0 1px 4px rgba(40,20,80,.18);
+    cursor: move;
+    pointer-events: auto;
+    transform: translateX(-50%);
+    user-select: none;
+}
+.lime-snap-guide {
+    position: absolute;
+    display: block;
+    z-index: 2;
+    background: #ec4899;
+    pointer-events: none;
+}
+.lime-snap-guide.is-x { width: 1px; }
+.lime-snap-guide.is-y { height: 1px; }
+.lime-canvas-zoom {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    margin-left: var(--space-3);
+    padding: 2px;
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius-sm);
+    background: var(--bg-elev);
+}
+.lime-canvas-zoom[hidden] { display: none; }
+.lime-canvas-zoom button {
+    min-width: 28px;
+    height: 26px;
+    padding: 0 6px;
+    border: 0;
+    border-radius: 5px;
+    background: transparent;
+    color: var(--fg-muted);
+    font: inherit;
+    font-size: var(--text-xs);
+    cursor: pointer;
+}
+.lime-canvas-zoom button:hover { background: var(--bg-soft); color: var(--fg); }
+
 .lime-workspace__placeholder {
     padding: var(--space-16) var(--space-6);
     text-align: center;
@@ -1075,6 +1217,44 @@
     color: var(--fg-subtle);
     font-weight: 600;
 }
+.lime-v2-subtitle {
+    margin-top: 4px;
+    color: var(--fg-subtle);
+    font-size: var(--text-xs);
+    font-weight: 600;
+}
+.lime-v2-fields {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+}
+.lime-v2-field {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: 6px;
+    color: var(--fg-subtle);
+    font-size: var(--text-xs);
+}
+.lime-v2-field > span { min-width: 46px; }
+.lime-v2-field > .lime-input,
+.lime-v2-field > .lime-select { min-width: 0; width: 100%; }
+.lime-v2-sources {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 8px;
+    color: var(--fg-subtle);
+    font-size: 10px;
+}
+.lime-v2-sources button {
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--accent);
+    font: inherit;
+    cursor: pointer;
+    text-decoration: underline;
+}
 
 .lime-prop-row {
     display: flex;
@@ -1221,8 +1401,18 @@
 }
 .lime-doc-layer:hover { background: var(--surface-glass); color: var(--fg); }
 .lime-doc-layer.is-active { background: var(--accent-soft); color: var(--accent); }
+.lime-doc-layer.is-node-hidden { opacity: .52; }
+.lime-doc-layer.is-node-locked .lime-doc-layer__name { font-style: italic; }
 .lime-doc-layer__ico { opacity: .6; flex: none; }
-.lime-doc-layer__name { overflow: hidden; text-overflow: ellipsis; }
+.lime-doc-layer__name { overflow: hidden; text-overflow: ellipsis; flex: 1 1 auto; min-width: 28px; }
+.lime-doc-layer__controls { display: inline-flex; align-items: center; gap: 2px; flex: none; }
+.lime-doc-layer__controls button {
+    width: 20px; height: 20px; padding: 0; border: 0; border-radius: 4px;
+    background: transparent; color: inherit; cursor: pointer; font-size: 11px; line-height: 1;
+}
+.lime-doc-layer__controls button:hover { background: var(--surface-glass); color: var(--accent); }
+.lime-doc-layer__z { min-width: 18px; text-align: center; font-size: 10px; opacity: .7; }
+.lime-editor__canvas.is-v2-viewport .lime-block[data-node-locked="1"] { pointer-events: none; }
 
 /* Контекстное меню блока (ПКМ, этап 0.4) */
 .lime-ctx-menu {

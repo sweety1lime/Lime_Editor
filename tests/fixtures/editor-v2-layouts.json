@@ -1,0 +1,69 @@
+[
+  {
+    "name": "landing-stack",
+    "doc": {
+      "version": 2,
+      "theme": {}, "components": {},
+      "pages": [{ "id": "p-landing", "slug": "", "title": "Landing", "blocks": [
+        { "id": "landing", "type": "container", "content": {}, "design": { "base": { "layout": { "mode": "stack", "direction": "vertical", "gap": 48, "padding": { "top": 0, "right": 0, "bottom": 0, "left": 0 } }, "size": { "width": { "mode": "fill" }, "height": { "mode": "hug" } } } }, "children": [
+          { "id": "nav", "type": "navbar", "content": {} },
+          { "id": "hero", "type": "cover", "content": {} },
+          { "id": "features", "type": "features", "content": {} },
+          { "id": "footer", "type": "footer", "content": {} }
+        ] }
+      ] }]
+    }
+  },
+  {
+    "name": "hero-free",
+    "doc": {
+      "version": 2,
+      "theme": {}, "components": {},
+      "pages": [{ "id": "p-hero", "slug": "", "title": "Hero", "blocks": [
+        { "id": "free-hero", "type": "container", "content": {}, "design": { "base": { "layout": { "mode": "free", "padding": { "top": 32, "right": 32, "bottom": 32, "left": 32 } }, "size": { "width": { "mode": "fill" }, "height": { "mode": "fixed", "value": 640 } }, "overflow": "hidden" } }, "children": [
+          { "id": "hero-title", "type": "heading", "content": { "text": "Build freely" }, "design": { "base": { "frame": { "x": 64, "y": 120, "width": 520, "height": 120, "rotation": 0 }, "constraints": { "horizontal": "left", "vertical": "top" }, "size": { "width": { "mode": "fixed", "value": 520 }, "height": { "mode": "fixed", "value": 120 } } }, "mobile": { "frame": { "x": 16, "y": 72, "width": 288, "height": 144 } } } },
+          { "id": "hero-cta", "type": "buttonGroup", "content": {}, "design": { "base": { "frame": { "x": 64, "y": 280, "width": 240, "height": 48, "rotation": 0 }, "constraints": { "horizontal": "left", "vertical": "top" } } } }
+        ] }
+      ] }]
+    }
+  },
+  {
+    "name": "pricing-grid",
+    "doc": {
+      "version": 2,
+      "theme": {}, "components": {},
+      "pages": [{ "id": "p-pricing", "slug": "", "title": "Pricing", "blocks": [
+        { "id": "pricing-grid", "type": "container", "content": {}, "design": { "base": { "layout": { "mode": "grid", "columns": 3, "gap": 24 } }, "tablet": { "layout": { "columns": 2 } }, "mobile": { "layout": { "columns": 1, "gap": 16 } } }, "children": [
+          { "id": "price-1", "type": "pricing", "content": {} },
+          { "id": "price-2", "type": "pricing", "content": {} },
+          { "id": "price-3", "type": "pricing", "content": {} }
+        ] }
+      ] }]
+    }
+  },
+  {
+    "name": "responsive-navbar",
+    "doc": {
+      "version": 2,
+      "theme": {}, "components": {},
+      "pages": [{ "id": "p-nav", "slug": "", "title": "Navbar", "blocks": [
+        { "id": "navbar-frame", "type": "container", "content": {}, "design": { "base": { "layout": { "mode": "stack", "direction": "horizontal", "gap": 24, "align": "center", "justify": "start" } }, "mobile": { "layout": { "direction": "vertical", "gap": 12, "align": "stretch" } } }, "children": [
+          { "id": "logo", "type": "heading", "content": { "text": "Lime" }, "design": { "base": { "size": { "width": { "mode": "fixed", "value": 120 }, "height": { "mode": "hug" } } } } },
+          { "id": "links", "type": "buttonGroup", "content": {}, "design": { "base": { "size": { "width": { "mode": "fill" }, "height": { "mode": "hug" } } } } }
+        ] }
+      ] }]
+    }
+  },
+  {
+    "name": "mobile-frame-overrides",
+    "doc": {
+      "version": 2,
+      "theme": {}, "components": {},
+      "pages": [{ "id": "p-mobile", "slug": "", "title": "Mobile", "blocks": [
+        { "id": "mobile-free", "type": "container", "content": {}, "design": { "base": { "layout": { "mode": "free" }, "size": { "width": { "mode": "fill" }, "height": { "mode": "fixed", "value": 500 } } } }, "children": [
+          { "id": "mobile-card", "type": "container", "content": {}, "design": { "base": { "frame": { "x": 80, "y": 80, "width": 480, "height": 260, "rotation": 0 }, "constraints": { "horizontal": "center", "vertical": "top" } }, "tablet": { "frame": { "x": 40, "width": 400 } }, "mobile": { "frame": { "x": 16, "y": 32, "width": 288, "height": 360 } } } }
+        ] }
+      ] }]
+    }
+  }
+]

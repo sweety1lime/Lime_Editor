@@ -7,6 +7,7 @@
 
 const path = require("path");
 const L = require(path.join(__dirname, "..", "Lime_Editor", "wwwroot", "js", "lime", "lime-doc.js"));
+const V2_LAYOUTS = require("./fixtures/editor-v2-layouts.json");
 
 let failed = 0;
 function check(name, cond) {
@@ -16,6 +17,82 @@ function check(name, cond) {
         failed++;
         console.error("FAIL " + name);
     }
+}
+
+// --- Editor V2 additive design contract: shared renderer исполняет те же fixtures ---
+{
+    const byName = name => V2_LAYOUTS.find(f => f.name === name).doc;
+    const freeHtml = L.renderSite(byName("hero-free"));
+    const freeCss = L.compileDocCss(byName("hero-free"));
+    check("v2 design: HTML marker only on design blocks", freeHtml.includes('data-block-id="free-hero" data-design="1"'));
+    check("v2 free: parent children wrapper is positioned", freeCss.includes('display:block;position:relative;height:100%'));
+    check("v2 free: child frame compiled", freeCss.includes('[data-block-id="hero-title"]{box-sizing:border-box') && freeCss.includes('position:absolute;left:64px;top:120px;width:520px;height:120px'));
+    check("v2 free: mobile frame override compiled", freeCss.includes('@media(max-width:640px)') && freeCss.includes('left:16px;top:72px;width:288px;height:144px'));
+
+    const gridCss = L.compileDocCss(byName("pricing-grid"));
+    check("v2 grid: base/tablet/mobile columns", gridCss.includes('repeat(3,minmax(0,1fr))') && gridCss.includes('repeat(2,minmax(0,1fr))') && gridCss.includes('repeat(1,minmax(0,1fr))'));
+    const stackCss = L.compileDocCss(byName("responsive-navbar"));
+    check("v2 stack: direction override", stackCss.includes('flex-direction:row') && stackCss.includes('flex-direction:column'));
+    const mobilePreviewCss = L.compilePreviewDesignCss(byName("responsive-navbar").pages[0].blocks, {}, "mobile");
+    check("v2 preview: mobile effective design без media-query", mobilePreviewCss.includes('[data-block-id="navbar-frame"]') && mobilePreviewCss.includes("flex-direction:column") && !mobilePreviewCss.includes("@media"));
+    const fullStack = JSON.parse(JSON.stringify(byName("responsive-navbar")));
+    fullStack.pages[0].blocks[0].design.base.layout.wrap = true;
+    fullStack.pages[0].blocks[0].design.base.layout.justify = "space-between";
+    fullStack.pages[0].blocks[0].design.base.layout.padding = { top: 8, right: 16, bottom: 12, left: 20 };
+    const fullStackCss = L.compileDocCss(fullStack);
+    check("v2 stack: align/justify/wrap rendered", fullStackCss.includes("align-items:center") && fullStackCss.includes("justify-content:space-between") && fullStackCss.includes("flex-wrap:wrap"));
+    check("v2 stack: four-side padding rendered", fullStackCss.includes("padding-top:8px") && fullStackCss.includes("padding-right:16px") && fullStackCss.includes("padding-bottom:12px") && fullStackCss.includes("padding-left:20px"));
+    const framedStack = JSON.parse(JSON.stringify(byName("responsive-navbar")));
+    framedStack.pages[0].blocks[0].children[0].design = { base: { frame: { x: 10, y: 20, width: 30, height: 40 } } };
+    const framedStackCss = L.compileDocCss(framedStack);
+    check("v2 invariant: frame under stack stays out of flow CSS", !framedStackCss.includes('[data-block-id="logo"]{box-sizing:border-box;position:absolute'));
+    const responsiveFlow = JSON.parse(JSON.stringify(byName("responsive-navbar")));
+    responsiveFlow.pages[0].blocks[0].design.base.layout.mode = "free";
+    responsiveFlow.pages[0].blocks[0].design.tablet = { layout: { mode: "stack" } };
+    responsiveFlow.pages[0].blocks[0].children[0].design = { base: { frame: { x: 10, y: 20, width: 30, height: 40 } } };
+    const responsiveFlowCss = L.compileDocCss(responsiveFlow);
+    check("v2 invariant: free→stack breakpoint resets absolute frame", responsiveFlowCss.includes('@media(max-width:1024px){[data-block-id="logo"]{position:static;left:auto;top:auto;width:auto;height:auto;transform:none}'));
+    const unsafe = JSON.parse(JSON.stringify(byName("responsive-navbar")));
+    unsafe.pages[0].blocks[0].design.base.layout.align = "start;color:red";
+    check("v2 design: unsafe enum is not emitted", !L.compileDocCss(unsafe).includes("start;color:red"));
+
+    // Grid срез: child span (gate под grid-родителем) + auto columns min/max/fill.
+    const gridSpan = {
+        version: 2, theme: {}, components: {},
+        pages: [{ id: "p", slug: "", title: "T", blocks: [{ id: "grid", type: "container", content: {},
+            design: { base: { layout: { mode: "grid", columns: 4, gap: 16 } } }, children: [
+                { id: "wide", type: "text", content: { text: "x" }, design: { base: { span: 2 } } },
+                { id: "narrow", type: "text", content: { text: "y" }, design: { base: { span: 1 } } }
+            ] }] }]
+    };
+    const gridSpanCss = L.compileDocCss(gridSpan);
+    check("v2 grid: child span emits grid-column", gridSpanCss.includes('[data-block-id="wide"]{box-sizing:border-box;grid-column:span 2}'));
+    check("v2 grid: span 1 emits no grid-column", !gridSpanCss.includes("grid-column:span 1"));
+    const stackSpan = JSON.parse(JSON.stringify(gridSpan));
+    stackSpan.pages[0].blocks[0].design.base.layout = { mode: "stack" };
+    check("v2 grid: span stripped under non-grid parent", !L.compileDocCss(stackSpan).includes("grid-column:span"));
+    const autoFit = JSON.parse(JSON.stringify(gridSpan));
+    autoFit.pages[0].blocks[0].design.base.layout = { mode: "grid", columns: { mode: "auto", min: 240 } };
+    check("v2 grid: auto-fit minmax(min,1fr)", L.compileDocCss(autoFit).includes("grid-template-columns:repeat(auto-fit,minmax(240px,1fr))"));
+    const autoFill = JSON.parse(JSON.stringify(gridSpan));
+    autoFill.pages[0].blocks[0].design.base.layout = { mode: "grid", columns: { mode: "auto", min: 200, max: 400, fill: true } };
+    check("v2 grid: auto-fill minmax(min,maxpx)", L.compileDocCss(autoFill).includes("grid-template-columns:repeat(auto-fill,minmax(200px,400px))"));
+
+    const componentFrames = {
+        version: 1, theme: {},
+        components: { card: { block: { type: "text", content: { text: "Shared" }, design: { base: { frame: { x: 0, y: 0, width: 120, height: 60 }, zIndex: 2 } } } } },
+        pages: [{ id: "p", slug: "", title: "T", blocks: [{ id: "free", type: "container", content: {},
+            design: { base: { layout: { mode: "free" }, size: { height: { mode: "fixed", value: 300 } } } }, children: [
+                { id: "inst-a", type: "component", ref: "card", design: { base: { frame: { x: 40, y: 30 }, layout: { mode: "grid", columns: 99 } } } },
+                { id: "inst-b", type: "component", ref: "card", design: { base: { frame: { x: 220, y: 90 } } } }
+            ] }] }]
+    };
+    const componentFrameCss = L.compileDocCss(componentFrames);
+    check("v2 component instance: frame overrides definition independently", componentFrameCss.includes('[data-block-id="inst-a"]{box-sizing:border-box;position:absolute;left:40px;top:30px;width:120px;height:60px;z-index:2}') && componentFrameCss.includes('[data-block-id="inst-b"]{box-sizing:border-box;position:absolute;left:220px;top:90px;width:120px;height:60px;z-index:2}'));
+    check("v2 component instance: internal layout override ignored", !componentFrameCss.includes('[data-block-id="inst-a"]>.lime-block__inner>.lime-block__children'));
+
+    const legacy = L.renderSite({ version: 1, pages: [{ id: "p", slug: "", title: "T", blocks: [{ id: "legacy", type: "text", content: { text: "v1" } }] }] });
+    check("v2 additive: v1 markup has no design marker", !legacy.includes("data-design"));
 }
 
 // --- Регрессия: плоский документ рендерится как раньше (B2) ---
@@ -32,6 +109,20 @@ function check(name, cond) {
     check("flat: html содержит блок и текст", out.html.includes('data-block-id="flat1"') && out.html.includes("Привет"));
     check("flat: css содержит base и mobile media", out.css.includes('[data-block-id="flat1"]{color:#fff;}') && out.css.includes("@media(max-width:640px)"));
     check("flat: тема в css-переменных", out.css.includes("--lt-accent:#ff0000"));
+}
+
+// --- Editor V2 node-state: hidden не публикуется, locked остаётся editor-only ---
+{
+    const doc = { version: 1, blocks: [
+        { id: "hidden1", type: "text", hidden: true, content: { text: "Секрет" } },
+        { id: "locked1", type: "heading", locked: true, content: { text: "Виден" } }
+    ] };
+    const pub = L.render(doc, {});
+    const ed = L.render(doc, { editable: true });
+    check("node hidden: отсутствует в publish", !pub.html.includes('data-block-id="hidden1"') && !pub.html.includes("Секрет"));
+    check("node hidden: editor сохраняет скрытый DOM-якорь", ed.html.includes('data-block-id="hidden1"') && ed.html.includes('data-node-hidden="1"'));
+    check("node locked: публикуется без editor-state", pub.html.includes('data-block-id="locked1"') && !pub.html.includes("data-node-locked"));
+    check("node locked: editor marker + без drag-grip", ed.html.includes('data-node-locked="1"') && !/data-block-id="locked1"[^]*lime-block-grip/.test(ed.html.split('data-block-id="locked1"')[1].split("</section>")[0]));
 }
 
 // --- 0.1: children рендерятся рекурсивно, css компилируется для вложенных ---
@@ -432,8 +523,39 @@ function check(name, cond) {
     check("customCss: без поля ничего не добавляется", typeof noCss.css === "string");
 }
 
+// --- Страховка перед Editor V2: migrateDoc — единая нормализация по version ---
+{
+    // legacy плоский doc.blocks → одна страница; дефолты проставлены
+    const m = L.migrateDoc({ version: 1, blocks: [{ id: "lg1", type: "text", content: { text: "Old" } }] });
+    check("migrate: legacy blocks → одна страница", Array.isArray(m.pages) && m.pages.length === 1 && m.pages[0].blocks[0].id === "lg1");
+    check("migrate: старое поле blocks удалено", !("blocks" in m));
+    check("migrate: дефолты version/components/theme.classes", m.version === 1 && typeof m.components === "object" && Array.isArray(m.theme.classes));
+
+    // идемпотентность: повторный вызов не дублирует и не теряет
+    const again = L.migrateDoc(m);
+    check("migrate: идемпотентна", again.pages.length === 1 && again.pages[0].blocks[0].id === "lg1" && !("blocks" in again));
+
+    // многостраничный документ не перетирается
+    const multi = L.migrateDoc({ version: 1, pages: [
+        { id: "p0", slug: "", title: "Главная", blocks: [] },
+        { id: "p1", slug: "about", title: "О нас", blocks: [] }
+    ] });
+    check("migrate: существующие pages сохранены", multi.pages.length === 2 && multi.pages[1].slug === "about");
+
+    // неизвестные поля сохраняются (forward-compat для сосуществования v1/v2)
+    const fwd = L.migrateDoc({ version: 1, blocks: [], futureField: { foo: 1 } });
+    check("migrate: неизвестные поля не теряются (forward-compat)", fwd.futureField && fwd.futureField.foo === 1);
+
+    // мусорный вход → валидный пустой документ, без падения
+    const empty = L.migrateDoc(null);
+    check("migrate: null → валидный пустой документ", empty.version === 1 && empty.pages.length === 1);
+
+    // мигрированный документ рендерится тем же движком (parity сохранён)
+    check("migrate: результат рендерится (renderSite)", L.renderSite(m).includes("Old"));
+}
+
 if (failed) {
     console.error("\nSELFTEST FAILED: " + failed);
     process.exit(1);
 }
-console.log("\nCHILDREN-RENDER-OK (0.1) + MEDIA-RENDER-OK (0.5) + BG-LAYERS-OK (0.3) + MOTION/LAYERS-OK (2) + HOVER-OK (1.2) + CLASSES/TOKENS-OK (0.1) + B2/B3 регрессия зелёные");
+console.log("\nCHILDREN-RENDER-OK (0.1) + MEDIA-RENDER-OK (0.5) + BG-LAYERS-OK (0.3) + MOTION/LAYERS-OK (2) + HOVER-OK (1.2) + CLASSES/TOKENS-OK (0.1) + MIGRATE-OK (v2-страховка) + B2/B3 регрессия зелёные");

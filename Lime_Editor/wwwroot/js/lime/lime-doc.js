@@ -171,17 +171,194 @@
         });
     }
 
+    // ----- Editor V2 design compiler (additive: v1 blocks without design emit nothing). -----
+    function designObject(v) { return !!v && typeof v === "object" && !Array.isArray(v); }
+    function designClone(v) {
+        if (Array.isArray(v)) return v.map(designClone);
+        if (designObject(v)) {
+            var out = {};
+            Object.keys(v).forEach(function (k) { out[k] = designClone(v[k]); });
+            return out;
+        }
+        return v;
+    }
+    function mergeDesign(base, override) {
+        var out = designClone(base || {});
+        if (!designObject(override)) return out;
+        Object.keys(override).forEach(function (k) {
+            out[k] = designObject(override[k]) && designObject(out[k])
+                ? mergeDesign(out[k], override[k]) : designClone(override[k]);
+        });
+        return out;
+    }
+    function resolvedDesign(design, bp) {
+        design = design || {};
+        var out = mergeDesign({}, design.base || {});
+        if (bp === "tablet" || bp === "mobile") out = mergeDesign(out, design.tablet || {});
+        if (bp === "mobile") out = mergeDesign(out, design.mobile || {});
+        return out;
+    }
+    function mergeInstanceDesign(definitionDesign, instanceDesign) {
+        var geometry = {}, allowed = { frame: 1, size: 1, constraints: 1, zIndex: 1 };
+        ["base", "tablet", "mobile"].forEach(function (bp) {
+            var source = instanceDesign && instanceDesign[bp];
+            if (!designObject(source)) return;
+            var bucket = {};
+            Object.keys(source).forEach(function (field) { if (allowed[field]) bucket[field] = designClone(source[field]); });
+            if (Object.keys(bucket).length) geometry[bp] = bucket;
+        });
+        return mergeDesign(definitionDesign || {}, geometry);
+    }
+    function cssNum(v, suffix) {
+        return typeof v === "number" && isFinite(v) ? v + (suffix || "") : null;
+    }
+    function pushDecl(list, prop, value) { if (value != null) list.push(prop + ":" + value); }
+    function flexValue(v, justify) {
+        var common = { start: "flex-start", end: "flex-end", center: "center" };
+        if (common[v]) return common[v];
+        if (!justify && (v === "stretch" || v === "baseline")) return v;
+        if (justify && (v === "space-between" || v === "space-around" || v === "space-evenly")) return v;
+        return null;
+    }
+    function designRules(sel, value) {
+        value = value || {};
+        var own = ["box-sizing:border-box"], inner = [], kids = [];
+        var size = value.size || {};
+        ["width", "height"].forEach(function (axis) {
+            var s = size[axis];
+            if (!s) return;
+            if (s.mode === "fixed") pushDecl(own, axis, cssNum(s.value, "px"));
+            else if (s.mode === "fill") pushDecl(own, axis, "100%");
+            else if (s.mode === "hug") pushDecl(own, axis, axis === "width" ? "max-content" : "auto");
+            pushDecl(own, "min-" + axis, cssNum(s.min, "px"));
+            pushDecl(own, "max-" + axis, cssNum(s.max, "px"));
+        });
+        var frame = value.frame;
+        if (frame) {
+            own.push("position:absolute");
+            pushDecl(own, "left", cssNum(frame.x, "px"));
+            pushDecl(own, "top", cssNum(frame.y, "px"));
+            pushDecl(own, "width", cssNum(frame.width, "px"));
+            pushDecl(own, "height", cssNum(frame.height, "px"));
+            if (typeof frame.rotation === "number" && isFinite(frame.rotation) && frame.rotation !== 0) own.push("transform:rotate(" + frame.rotation + "deg)");
+        }
+        pushDecl(own, "z-index", cssNum(value.zIndex, ""));
+        if (value.overflow === "hidden" || value.overflow === "visible") own.push("overflow:" + value.overflow);
+        // Child grid span (исполняется только под grid-родителем — gate в contextualDesign).
+        if (typeof value.span === "number" && isFinite(value.span) && value.span > 1) own.push("grid-column:span " + Math.floor(value.span));
+
+        var layout = value.layout;
+        if (layout && (layout.mode === "stack" || layout.mode === "grid" || layout.mode === "free")) {
+            inner.push("height:100%", "box-sizing:border-box");
+            kids.push("box-sizing:border-box", "margin-top:0");
+            if (layout.mode === "stack") {
+                kids.push("display:flex", "flex-direction:" + (layout.direction === "horizontal" ? "row" : "column"));
+                if (layout.wrap != null) kids.push("flex-wrap:" + (layout.wrap ? "wrap" : "nowrap"));
+                pushDecl(kids, "align-items", flexValue(layout.align, false));
+                pushDecl(kids, "justify-content", flexValue(layout.justify, true));
+            } else if (layout.mode === "grid") {
+                kids.push("display:grid");
+                if (typeof layout.columns === "number" && isFinite(layout.columns) && layout.columns > 0) {
+                    kids.push("grid-template-columns:repeat(" + Math.floor(layout.columns) + ",minmax(0,1fr))");
+                } else if (layout.columns && layout.columns.mode === "auto") {
+                    var minCol = cssNum(layout.columns.min, "px") || "240px";
+                    var maxCol = cssNum(layout.columns.max, "px") || "1fr"; // нет max → растягиваемся (1fr)
+                    var fitMode = layout.columns.fill ? "auto-fill" : "auto-fit";
+                    kids.push("grid-template-columns:repeat(" + fitMode + ",minmax(" + minCol + "," + maxCol + "))");
+                }
+            } else {
+                kids.push("display:block", "position:relative", "height:100%");
+            }
+            pushDecl(kids, "gap", cssNum(layout.gap, "px"));
+            pushDecl(kids, "row-gap", cssNum(layout.rowGap, "px"));
+            pushDecl(kids, "column-gap", cssNum(layout.columnGap, "px"));
+            if (layout.padding) {
+                ["top", "right", "bottom", "left"].forEach(function (side) {
+                    pushDecl(kids, "padding-" + side, cssNum(layout.padding[side], "px"));
+                });
+            }
+        }
+        var css = own.length ? sel + "{" + own.join(";") + "}" : "";
+        if (inner.length) css += sel + ">.lime-block__inner{" + inner.join(";") + "}";
+        if (kids.length) css += sel + ">.lime-block__inner>.lime-block__children{" + kids.join(";") + "}";
+        return css;
+    }
+    function contextualDesign(design, bp, parentDesign) {
+        var out = resolvedDesign(design, bp);
+        if (parentDesign) {
+            var parent = resolvedDesign(parentDesign, bp);
+            if (!parent.layout || parent.layout.mode !== "free") delete out.frame;
+            if (!parent.layout || parent.layout.mode !== "grid") delete out.span; // span — только в grid-родителе
+        }
+        return out;
+    }
+    function frameRuns(design, bp, parentDesign) {
+        var value = resolvedDesign(design, bp);
+        if (!value.frame) return false;
+        if (!parentDesign) return true; // standalone compileDesignCss API keeps its old behavior
+        var parent = resolvedDesign(parentDesign, bp);
+        return !!(parent.layout && parent.layout.mode === "free");
+    }
+    function frameResetCss(sel) {
+        return sel + "{position:static;left:auto;top:auto;width:auto;height:auto;transform:none}";
+    }
+    function compileDesignCss(block, sel, parentDesign) {
+        if (!block || !block.design) return "";
+        var css = designRules(sel, contextualDesign(block.design, "base", parentDesign));
+        if (block.design.tablet || (parentDesign && parentDesign.tablet)) {
+            var tabletReset = frameRuns(block.design, "base", parentDesign) && !frameRuns(block.design, "tablet", parentDesign) ? frameResetCss(sel) : "";
+            css += "@media(max-width:" + BREAKPOINTS.tablet + "px){" + tabletReset + designRules(sel, contextualDesign(block.design, "tablet", parentDesign)) + "}";
+        }
+        if (block.design.mobile || (parentDesign && parentDesign.mobile)) {
+            var mobileReset = (frameRuns(block.design, "base", parentDesign) || frameRuns(block.design, "tablet", parentDesign)) && !frameRuns(block.design, "mobile", parentDesign) ? frameResetCss(sel) : "";
+            css += "@media(max-width:" + BREAKPOINTS.mobile + "px){" + mobileReset + designRules(sel, contextualDesign(block.design, "mobile", parentDesign)) + "}";
+        }
+        return css;
+    }
+
     // CSS блока: base + media(tablet) + media(mobile) + свой scoped css + рекурсивно children.
-    function compileBlockCss(block, components, depth) {
+    function compileBlockCss(block, components, depth, parentDesign) {
         var sel = '[data-block-id="' + block.id + '"]';
-        var css = bucketsCss(sel, block.styles || {});
+        var css = bucketsCss(sel, block.styles || {}) + compileDesignCss(block, sel, parentDesign || {});
         if (block.css) css += scopeCss(block.css, sel);
         if ((depth || 0) < MAX_DEPTH) {
             (block.children || []).forEach(function (ch) {
-                css += compileBlockCss(resolve(ch, components), components, (depth || 0) + 1);
+                css += compileBlockCss(resolve(ch, components), components, (depth || 0) + 1, block.design || {});
             });
         }
         return css;
+    }
+
+    // Editor preview has a fixed wide viewport and switches breakpoints virtually. Compile the
+    // effective design bucket without media queries so the selected tablet/mobile state can be
+    // layered after publish CSS. This does not participate in render/renderSite output.
+    function compilePreviewDesignBlock(block, components, bp, depth, parentDesign) {
+        if (!block) return "";
+        var sel = '[data-block-id="' + block.id + '"]';
+        var css = "";
+        if (block.design) {
+            if (bp === "tablet" && frameRuns(block.design, "base", parentDesign) && !frameRuns(block.design, "tablet", parentDesign)) {
+                css += frameResetCss(sel);
+            } else if (bp === "mobile" &&
+                (frameRuns(block.design, "base", parentDesign) || frameRuns(block.design, "tablet", parentDesign)) &&
+                !frameRuns(block.design, "mobile", parentDesign)) {
+                css += frameResetCss(sel);
+            }
+            css += designRules(sel, contextualDesign(block.design, bp, parentDesign));
+        }
+        if ((depth || 0) < MAX_DEPTH) {
+            (block.children || []).forEach(function (ch) {
+                css += compilePreviewDesignBlock(resolve(ch, components), components, bp, (depth || 0) + 1, block.design || {});
+            });
+        }
+        return css;
+    }
+    function compilePreviewDesignCss(blocks, components, bp) {
+        if (bp !== "tablet" && bp !== "mobile") bp = "base";
+        components = components || {};
+        return (blocks || []).map(function (block) {
+            return compilePreviewDesignBlock(resolve(block, components), components, bp, 0, {});
+        }).join("\n");
     }
 
     // ----- рендереры внутренностей блока по типу (content-driven) -----
@@ -623,6 +800,10 @@
     }
 
     function renderBlock(block, opts, components, depth) {
+        var editable = !!(opts && opts.editable);
+        // Hidden — persisted node-state: в publish узел и его subtree отсутствуют. В редакторе
+        // оставляем скрытый DOM-якорь, чтобы слой можно было выбрать и вернуть через outline.
+        if (block.hidden && !editable) return "";
         var anim = "";
         if (block.anim) {
             anim = ' data-anim="' + escAttr(block.anim) + '"';
@@ -687,8 +868,12 @@
             if (block.content.layout === "bento") layout += ' data-bento="1"';
         }
         // Грип перетаскивания — только в редакторе.
-        var grip = (opts && opts.editable) ? '<span class="lime-block-grip" title="Перетащить">⠿</span>' : "";
-        return '<section class="lime-block' + fxCls + userCls + '" data-block-type="' + escAttr(block.type) + '" data-block-id="' + escAttr(block.id) + '"' + cols + anim + motion + layout + ">" +
+        var grip = editable && !block.locked ? '<span class="lime-block-grip" title="Перетащить">⠿</span>' : "";
+        var designAttr = block.design ? ' data-design="1"' : "";
+        var editorState = editable
+            ? (block.hidden ? ' hidden data-node-hidden="1"' : "") + (block.locked ? ' data-node-locked="1"' : "")
+            : "";
+        return '<section class="lime-block' + fxCls + userCls + '" data-block-type="' + escAttr(block.type) + '" data-block-id="' + escAttr(block.id) + '"' + designAttr + editorState + cols + anim + motion + layout + ">" +
             bgLayersHtml(block) +
             layersHtml(block, opts) +
             grip +
@@ -706,7 +891,11 @@
                 anim: c.anim, animDelay: c.animDelay, animDuration: c.animDuration,
                 parallax: c.parallax, sticky: c.sticky, stickyOffset: c.stickyOffset,
                 marquee: c.marquee, scene: c.scene, layers: c.layers, fx: c.fx,
-                classes: c.classes, children: c.children
+                classes: c.classes, children: c.children, name: block.name || c.name,
+                locked: !!block.locked, hidden: !!block.hidden,
+                // V2: внутренний design остаётся общим, но instance может переопределить
+                // geometry (frame/size/constraints/zIndex) своим additive design bucket.
+                design: mergeInstanceDesign(c.design, block.design)
             };
         }
         return block;
@@ -718,6 +907,29 @@
             css: resolved.map(function (b) { return compileBlockCss(b, components); }).join("\n"),
             html: resolved.map(function (b) { return renderBlock(b, opts, components); }).join("\n")
         };
+    }
+
+    // Единая точка миграции/нормализации документа по version (страховка перед Editor V2).
+    // Идемпотентна. Сейчас поднимает legacy-формы v1: плоский doc.blocks → одна страница «Главная»,
+    // проставляет дефолты version/components/theme/theme.classes; неизвестные поля СОХРАНЯЕТ
+    // (forward-compat для сосуществования v1/v2). Ветка v1 → v2 появится здесь. Мутирует и
+    // возвращает doc. Вызывается редактором при загрузке (единственный персистер документа);
+    // серверные рендеры пока используют read-time толерантность pagesOf и будут маршрутизированы
+    // сюда при появлении v2 (под защитой golden-fixture).
+    function migrateDoc(doc) {
+        if (!doc || typeof doc !== "object") {
+            return { version: 1, pages: [{ id: "p0", slug: "", title: "Главная", blocks: [] }], components: {}, theme: { classes: [] } };
+        }
+        if (!doc.version) doc.version = 1;
+        if (!doc.components) doc.components = {};
+        if (!doc.theme) doc.theme = {};
+        if (!doc.theme.classes) doc.theme.classes = [];
+        // Legacy: плоский doc.blocks → одна страница «Главная».
+        if (!doc.pages || !doc.pages.length) {
+            doc.pages = [{ id: "p0", slug: "", title: "Главная", blocks: (doc.blocks || []) }];
+        }
+        if ("blocks" in doc) delete doc.blocks;
+        return doc;
     }
 
     // Рендер одной страницы (для превью в редакторе). body = <style> + .lime-doc-page.
@@ -823,12 +1035,18 @@
         THEME_TOKENS: THEME_TOKENS,
         createBlock: createBlock,
         isContainer: isContainer,
+        migrateDoc: migrateDoc,
         render: render,
         renderSite: renderSite,
         renderPage: renderPage,
         pagesOf: pagesOf,
         renderBlock: renderBlock,
         compileBlockCss: compileBlockCss,
+        compileDesignCss: compileDesignCss,
+        compilePreviewDesignCss: compilePreviewDesignCss,
+        resolvedDesign: resolvedDesign,
+        mergeDesign: mergeDesign,
+        mergeInstanceDesign: mergeInstanceDesign,
         compileDocCss: compileDocCss,
         themeCss: themeCss,
         classesCss: classesCss,

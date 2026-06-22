@@ -84,6 +84,7 @@ docs/ROADMAP.md         # план развития
 ```bash
 dotnet test Lime_Editor.sln       # backend
 npm install && npx playwright test # UI (см. playwright.config.ts)
+npm run test:e2e:editor-v2        # быстрый Chromium-gate для Editor V2
 ```
 
 ## Роадмап

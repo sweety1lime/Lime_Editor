@@ -13,6 +13,7 @@
     "test:e2e:update": "playwright test --update-snapshots",
     "test:e2e:smoke": "playwright test tests/smoke.spec.ts",
     "test:e2e:flow": "playwright test tests/flows --project=chromium-dark",
+    "test:e2e:editor-v2": "playwright test tests/flows/editor-b.spec.ts --project=chromium-dark --grep=editor-v2",
     "test:e2e:admin": "playwright test --project=chromium-admin",
     "test:e2e:visual": "playwright test tests/visual.spec.ts",
     "test:e2e:a11y": "playwright test tests/a11y.spec.ts",

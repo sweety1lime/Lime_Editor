@@ -1,5 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 
+const baseURL = process.env.LIME_E2E_BASE_URL || "https://localhost:5001";
+
 /**
  * Playwright config для Lime_Editor (ASP.NET Core 8 + PostgreSQL).
  *
@@ -26,13 +28,13 @@ export default defineConfig({
     },
   },
   use: {
-    baseURL: "https://localhost:5001",
+    baseURL,
     ignoreHTTPSErrors: true,
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
     video: "retain-on-failure",
     actionTimeout: 10_000,
-    navigationTimeout: 20_000,
+    navigationTimeout: 30_000,
   },
   projects: [
     // Setup — выполняется первым, создаёт storageState
@@ -94,8 +96,8 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: "dotnet run --project Lime_Editor --urls=https://localhost:5001 --no-launch-profile",
-    url: "https://localhost:5001/health",
+    command: `dotnet run --project Lime_Editor --urls=${baseURL} --no-launch-profile`,
+    url: `${baseURL}/health`,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000, // .NET cold start: ~30-60s; БД миграции: ещё ~5s
     ignoreHTTPSErrors: true,
