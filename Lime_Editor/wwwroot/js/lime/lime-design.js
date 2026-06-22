@@ -104,7 +104,7 @@
                     if (layout.align != null && !ALIGNS[layout.align]) error(path.concat("layout", "align"), "invalid_align", "Unknown alignment");
                     if (layout.justify != null && !JUSTIFIES[layout.justify]) error(path.concat("layout", "justify"), "invalid_justify", "Unknown justification");
                     if (layout.wrap != null && typeof layout.wrap !== "boolean") error(path.concat("layout", "wrap"), "invalid_wrap", "Wrap must be boolean");
-                    ["gap", "rowGap", "columnGap"].forEach(function (k) { finiteAt(layout[k], path.concat("layout", k), true); });
+                    ["gap", "rowGap", "columnGap", "autoRows"].forEach(function (k) { finiteAt(layout[k], path.concat("layout", k), true); });
                     if (layout.columns != null) {
                         if (typeof layout.columns === "number") {
                             if (!isFinite(layout.columns) || Math.floor(layout.columns) !== layout.columns || layout.columns < 1) error(path.concat("layout", "columns"), "invalid_columns", "Columns must be a positive integer");
@@ -149,6 +149,8 @@
             finiteAt(bucket.zIndex, path.concat("zIndex"), false);
             if (bucket.overflow != null && bucket.overflow !== "visible" && bucket.overflow !== "hidden") error(path.concat("overflow"), "invalid_overflow", "Overflow must be visible or hidden");
             if (bucket.span != null && (typeof bucket.span !== "number" || !isFinite(bucket.span) || Math.floor(bucket.span) !== bucket.span || bucket.span < 1)) error(path.concat("span"), "invalid_span", "Span must be a positive integer");
+            if (bucket.rowSpan != null && (typeof bucket.rowSpan !== "number" || !isFinite(bucket.rowSpan) || Math.floor(bucket.rowSpan) !== bucket.rowSpan || bucket.rowSpan < 1)) error(path.concat("rowSpan"), "invalid_row_span", "Row span must be a positive integer");
+            if (bucket.order != null && (typeof bucket.order !== "number" || !isFinite(bucket.order) || Math.floor(bucket.order) !== bucket.order)) error(path.concat("order"), "invalid_order", "Order must be an integer");
         }
         function walk(blocks, base, depth, pageCounter, parentMode, exactFirstPath) {
             if (!Array.isArray(blocks)) { error(base, "invalid_children", "Blocks must be an array"); return; }

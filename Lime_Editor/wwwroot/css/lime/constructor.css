@@ -254,6 +254,24 @@
     transform: translateX(-50%);
     user-select: none;
 }
+.lime-grid-span-handle {
+    position: absolute;
+    right: -12px;
+    bottom: -12px;
+    width: 24px;
+    height: 24px;
+    display: grid;
+    place-items: center;
+    border: 1px solid #7c3aed;
+    border-radius: 6px;
+    background: #fff;
+    color: #6d28d9;
+    box-shadow: 0 1px 4px rgba(40,20,80,.18);
+    cursor: nwse-resize;
+    pointer-events: auto;
+    user-select: none;
+    font: 14px/1 sans-serif;
+}
 .lime-snap-guide {
     position: absolute;
     display: block;

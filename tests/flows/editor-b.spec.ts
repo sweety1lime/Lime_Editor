@@ -405,11 +405,22 @@ test("editor-v2 Stage 4: stack inspector controls layout and responsive override
   await expect(children).toHaveCSS("padding-bottom", "12px");
   await expect(children).toHaveCSS("padding-left", "20px");
 
+  const firstStackChild = children.locator(":scope > .lime-block").first();
+  const firstStackChildId = await firstStackChild.getAttribute("data-block-id");
+  await page.evaluate(id => (window as any).__LIME_SELECTION__.select(id), firstStackChildId);
+  const orderInput = page.locator('[data-v2-child-field="order"]');
+  await orderInput.fill("2");
+  await orderInput.press("Tab");
+  const maxWidthInput = page.locator('[data-v2-design-field="size"][data-v2-design-path="width.max"]');
+  await maxWidthInput.fill("420");
+  await maxWidthInput.press("Tab");
+  await expect(firstStackChild).toHaveCSS("order", "2");
+  await expect(firstStackChild).toHaveCSS("max-width", "420px");
+
   await page.locator("[data-doc-undo]").click();
-  await expect(children).toHaveCSS("padding-left", "0px");
-  await expect(children).toHaveCSS("padding-right", "16px");
+  await expect(firstStackChild).toHaveCSS("max-width", "none");
   await page.locator("[data-doc-redo]").click();
-  await expect(children).toHaveCSS("padding-left", "20px");
+  await expect(firstStackChild).toHaveCSS("max-width", "420px");
 
   await page.evaluate(id => (window as any).__LIME_SELECTION__.select(id), containerId);
   await page.locator('[data-doc-bp="mobile"]').click();
@@ -420,6 +431,7 @@ test("editor-v2 Stage 4: stack inspector controls layout and responsive override
 });
 
 test("editor-v2 Stage 4: grid inspector controls columns, child span and auto (@flow)", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1400 });
   await page.goto("/Home/EditDoc?canvas=1&cmd=1");
   if (await page.locator("#lime-doc-intro-skip").isVisible()) await page.locator("#lime-doc-intro-skip").click();
 
@@ -445,18 +457,44 @@ test("editor-v2 Stage 4: grid inspector controls columns, child span and auto (@
   await colInput.press("Tab");
   const tracks = await children.evaluate(el => getComputedStyle(el).gridTemplateColumns.trim().split(/\s+/).length);
   expect(tracks).toBe(3);
+  const autoRowsInput = page.locator('[data-v2-design-field="layout"][data-v2-design-path="autoRows"]');
+  await autoRowsInput.fill("80");
+  await autoRowsInput.press("Tab");
+  await expect(children).toHaveCSS("grid-auto-rows", "80px");
 
-  // Ребёнок grid: span 2.
+  // Ребёнок grid: span 2 по колонкам и строкам.
   await page.evaluate(id => (window as any).__LIME_SELECTION__.select(id), firstChildId);
-  const spanInput = page.locator("[data-v2-span]");
+  const spanInput = page.locator('[data-v2-child-field="span"]');
+  const rowSpanInput = page.locator('[data-v2-child-field="rowSpan"]');
   await expect(spanInput).toBeVisible();
   await spanInput.fill("2");
   await spanInput.press("Tab");
+  await rowSpanInput.fill("2");
+  await rowSpanInput.press("Tab");
   await expect(firstChild).toHaveCSS("grid-column-start", "span 2");
+  await expect(firstChild).toHaveCSS("grid-row-start", "span 2");
 
-  // Undo снимает span одной командой.
+  // Два обычных поля — две команды; возвращаемся к 1×1 перед canvas-жестом.
+  await page.locator("[data-doc-undo]").click();
+  await expect(firstChild).not.toHaveCSS("grid-row-start", "span 2");
   await page.locator("[data-doc-undo]").click();
   await expect(firstChild).not.toHaveCSS("grid-column-start", "span 2");
+
+  // Canvas handle меняет оба span одной атомарной транзакцией.
+  const spanHandle = page.locator("[data-grid-span-handle]");
+  await expect(spanHandle).toBeVisible();
+  const handleBox = await spanHandle.boundingBox();
+  const gridBox = await children.boundingBox();
+  expect(handleBox && gridBox).toBeTruthy();
+  await page.mouse.move(handleBox!.x + handleBox!.width / 2, handleBox!.y + handleBox!.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(handleBox!.x + handleBox!.width / 2 + gridBox!.width / 3 + 8, handleBox!.y + handleBox!.height / 2 + 90, { steps: 4 });
+  await page.mouse.up();
+  await expect(firstChild).toHaveCSS("grid-column-start", "span 2");
+  await expect(firstChild).toHaveCSS("grid-row-start", "span 2");
+  await page.locator("[data-doc-undo]").click();
+  await expect(firstChild).not.toHaveCSS("grid-column-start", "span 2");
+  await expect(firstChild).not.toHaveCSS("grid-row-start", "span 2");
 
   // Авто-колонки: переключение показывает auto-fit/fill и сохраняет grid.
   await page.evaluate(id => (window as any).__LIME_SELECTION__.select(id), containerId);

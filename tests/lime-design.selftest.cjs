@@ -85,24 +85,27 @@ function tiny(block) {
 }
 
 {
-    // Grid срез: child span + auto columns min/max/fill.
+    // Grid contract: child column/row span + auto columns + explicit auto rows.
     const good = tiny({ id: "grid", type: "container", content: {}, design: { base: { layout: {
-        mode: "grid", columns: { mode: "auto", min: 240, max: 480, fill: true }, gap: 16
+        mode: "grid", columns: { mode: "auto", min: 240, max: 480, fill: true }, gap: 16, autoRows: 120
     } } } });
     good.pages[0].blocks[0].children = [
-        { id: "g-child", type: "text", content: { text: "x" }, design: { base: { span: 2 } } }
+        { id: "g-child", type: "text", content: { text: "x" }, design: { base: { span: 2, rowSpan: 2 } } }
     ];
-    check("validator: grid auto columns (min/max/fill) + child span accepted", D.validateDoc(good).length === 0);
+    check("validator: complete grid placement contract accepted", D.validateDoc(good).length === 0);
 
     const bad = tiny({ id: "grid2", type: "container", content: {}, design: { base: { layout: {
-        mode: "grid", columns: { mode: "auto", min: 240, fill: "yes" }
+        mode: "grid", columns: { mode: "auto", min: 240, fill: "yes" }, autoRows: -1
     } } } });
     bad.pages[0].blocks[0].children = [
-        { id: "g2-child", type: "text", content: { text: "x" }, design: { base: { span: 1.5 } } }
+        { id: "g2-child", type: "text", content: { text: "x" }, design: { base: { span: 1.5, rowSpan: 1.5, order: 0.5 } } }
     ];
     const codes = D.validateDoc(bad).map(e => e.code);
     check("validator: grid fill non-boolean rejected", codes.includes("invalid_columns_fill"));
     check("validator: fractional span rejected", codes.includes("invalid_span"));
+    check("validator: fractional row span rejected", codes.includes("invalid_row_span"));
+    check("validator: fractional order rejected", codes.includes("invalid_order"));
+    check("validator: negative auto rows rejected", codes.includes("invalid_number"));
 }
 
 {

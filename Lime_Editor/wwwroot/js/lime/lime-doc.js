@@ -244,8 +244,10 @@
         }
         pushDecl(own, "z-index", cssNum(value.zIndex, ""));
         if (value.overflow === "hidden" || value.overflow === "visible") own.push("overflow:" + value.overflow);
-        // Child grid span (исполняется только под grid-родителем — gate в contextualDesign).
+        // Child flow participation is gated by the parent mode in contextualDesign.
         if (typeof value.span === "number" && isFinite(value.span) && value.span > 1) own.push("grid-column:span " + Math.floor(value.span));
+        if (typeof value.rowSpan === "number" && isFinite(value.rowSpan) && value.rowSpan > 1) own.push("grid-row:span " + Math.floor(value.rowSpan));
+        if (typeof value.order === "number" && isFinite(value.order)) own.push("order:" + Math.floor(value.order));
 
         var layout = value.layout;
         if (layout && (layout.mode === "stack" || layout.mode === "grid" || layout.mode === "free")) {
@@ -266,6 +268,7 @@
                     var fitMode = layout.columns.fill ? "auto-fill" : "auto-fit";
                     kids.push("grid-template-columns:repeat(" + fitMode + ",minmax(" + minCol + "," + maxCol + "))");
                 }
+                pushDecl(kids, "grid-auto-rows", cssNum(layout.autoRows, "px"));
             } else {
                 kids.push("display:block", "position:relative", "height:100%");
             }
@@ -288,7 +291,8 @@
         if (parentDesign) {
             var parent = resolvedDesign(parentDesign, bp);
             if (!parent.layout || parent.layout.mode !== "free") delete out.frame;
-            if (!parent.layout || parent.layout.mode !== "grid") delete out.span; // span — только в grid-родителе
+            if (!parent.layout || parent.layout.mode !== "grid") { delete out.span; delete out.rowSpan; }
+            if (!parent.layout || parent.layout.mode !== "stack") delete out.order;
         }
         return out;
     }

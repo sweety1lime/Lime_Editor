@@ -22,6 +22,13 @@ function check(name, cond) {
 // --- Editor V2 additive design contract: shared renderer исполняет те же fixtures ---
 {
     const byName = name => V2_LAYOUTS.find(f => f.name === name).doc;
+    for (const fixture of V2_LAYOUTS) {
+        const first = fixture.doc.pages[0].blocks[0];
+        const html = L.renderSite(fixture.doc);
+        const responsivePreview = ["base", "tablet", "mobile"].every(bp =>
+            L.compilePreviewDesignCss(fixture.doc.pages[0].blocks, fixture.doc.components, bp).includes(`[data-block-id="${first.id}"]`));
+        check("v2 acceptance: " + fixture.name + " renders desktop/tablet/mobile", html.includes(`data-block-id="${first.id}"`) && responsivePreview);
+    }
     const freeHtml = L.renderSite(byName("hero-free"));
     const freeCss = L.compileDocCss(byName("hero-free"));
     check("v2 design: HTML marker only on design blocks", freeHtml.includes('data-block-id="free-hero" data-design="1"'));
@@ -60,17 +67,21 @@ function check(name, cond) {
     const gridSpan = {
         version: 2, theme: {}, components: {},
         pages: [{ id: "p", slug: "", title: "T", blocks: [{ id: "grid", type: "container", content: {},
-            design: { base: { layout: { mode: "grid", columns: 4, gap: 16 } } }, children: [
-                { id: "wide", type: "text", content: { text: "x" }, design: { base: { span: 2 } } },
+            design: { base: { layout: { mode: "grid", columns: 4, gap: 16, autoRows: 120 } } }, children: [
+                { id: "wide", type: "text", content: { text: "x" }, design: { base: { span: 2, rowSpan: 2 } } },
                 { id: "narrow", type: "text", content: { text: "y" }, design: { base: { span: 1 } } }
             ] }] }]
     };
     const gridSpanCss = L.compileDocCss(gridSpan);
-    check("v2 grid: child span emits grid-column", gridSpanCss.includes('[data-block-id="wide"]{box-sizing:border-box;grid-column:span 2}'));
+    check("v2 grid: child spans emit grid-column/grid-row", gridSpanCss.includes('[data-block-id="wide"]{box-sizing:border-box;grid-column:span 2;grid-row:span 2}'));
+    check("v2 grid: explicit auto rows rendered", gridSpanCss.includes("grid-auto-rows:120px"));
     check("v2 grid: span 1 emits no grid-column", !gridSpanCss.includes("grid-column:span 1"));
     const stackSpan = JSON.parse(JSON.stringify(gridSpan));
     stackSpan.pages[0].blocks[0].design.base.layout = { mode: "stack" };
-    check("v2 grid: span stripped under non-grid parent", !L.compileDocCss(stackSpan).includes("grid-column:span"));
+    const stackSpanCss = L.compileDocCss(stackSpan);
+    check("v2 grid: spans stripped under non-grid parent", !stackSpanCss.includes("grid-column:span") && !stackSpanCss.includes("grid-row:span"));
+    stackSpan.pages[0].blocks[0].children[0].design.base.order = 3;
+    check("v2 stack: child order rendered", L.compileDocCss(stackSpan).includes('[data-block-id="wide"]{box-sizing:border-box;order:3}'));
     const autoFit = JSON.parse(JSON.stringify(gridSpan));
     autoFit.pages[0].blocks[0].design.base.layout = { mode: "grid", columns: { mode: "auto", min: 240 } };
     check("v2 grid: auto-fit minmax(min,1fr)", L.compileDocCss(autoFit).includes("grid-template-columns:repeat(auto-fit,minmax(240px,1fr))"));

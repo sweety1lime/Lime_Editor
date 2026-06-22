@@ -148,7 +148,7 @@
         // Editor V2 design bucket. Меняем только крупные валидируемые поля целиком: pointer gesture
         // коммитит один готовый frame/layout, а не сотни промежуточных координат.
         setDesign: function (doc, c) {
-            var allowed = { layout: 1, size: 1, frame: 1, constraints: 1, zIndex: 1, overflow: 1, span: 1 };
+            var allowed = { layout: 1, size: 1, frame: 1, constraints: 1, zIndex: 1, overflow: 1, span: 1, rowSpan: 1, order: 1 };
             var breakpoints = { base: 1, tablet: 1, mobile: 1 };
             var bp = c.breakpoint || "base";
             if (!allowed[c.field] || !breakpoints[bp]) return [];

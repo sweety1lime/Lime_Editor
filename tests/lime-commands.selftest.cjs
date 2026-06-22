@@ -140,6 +140,19 @@ const blocks = (s) => s.getDoc().pages[0].blocks;
 }
 
 {
+    const s = C.createStore(freshDoc());
+    s.begin("grid-placement");
+    s.dispatch("setDesign", { id: "b1", breakpoint: "base", field: "span", value: 2 });
+    s.dispatch("setDesign", { id: "b1", breakpoint: "base", field: "rowSpan", value: 3 });
+    s.dispatch("setDesign", { id: "b1", breakpoint: "base", field: "order", value: 4 });
+    s.commit("grid-placement");
+    check("setDesign placement: span/rowSpan/order accepted", blocks(s)[0].design.base.span === 2 && blocks(s)[0].design.base.rowSpan === 3 && blocks(s)[0].design.base.order === 4);
+    check("setDesign placement: one transaction", s.depth().undo === 1);
+    s.undo();
+    check("setDesign placement: undo clears all fields", !blocks(s)[0].design);
+}
+
+{
     const doc = freshDoc();
     doc.components.card = { block: { type: "text", content: { text: "Shared" }, design: { base: { zIndex: 1 } } } };
     doc.pages[0].blocks.push({ id: "card-instance", type: "component", ref: "card" });

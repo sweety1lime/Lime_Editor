@@ -1762,12 +1762,22 @@
             var resolved = resolvedBlockDesign(source, currentBp);
             next.mode = resolved && resolved.layout && resolved.layout.mode || "stack";
         }
-        if (field === "layout" && path === "columns" && typeof value === "number") value = Math.max(1, Math.round(value));
-        if (field === "layout" && path === "columns.min") value = Math.max(40, Math.round(value));
-        if (field === "layout" && (path === "gap" || path === "rowGap" || path === "columnGap" || /^padding\./.test(path))) value = Math.max(0, value);
-        if (field === "frame" && (path === "width" || path === "height")) value = Math.max(8, value);
-        if (field === "size" && /\.value$/.test(path)) value = Math.max(0, value);
-        setByPath(next, path, value);
+        if (field === "size" && value !== undefined && /^(width|height)\./.test(path)) {
+            var sizeAxis = path.split(".")[0];
+            if (!next[sizeAxis]) next[sizeAxis] = {};
+            if (!next[sizeAxis].mode) {
+                var resolvedSize = resolvedBlockDesign(source, currentBp).size || {};
+                next[sizeAxis].mode = resolvedSize[sizeAxis] && resolvedSize[sizeAxis].mode || "hug";
+            }
+        }
+        if (value !== undefined) {
+            if (field === "layout" && path === "columns" && typeof value === "number") value = Math.max(1, Math.round(value));
+            if (field === "layout" && path === "columns.min") value = Math.max(40, Math.round(value));
+            if (field === "layout" && (path === "gap" || path === "rowGap" || path === "columnGap" || path === "autoRows" || /^padding\./.test(path))) value = Math.max(0, value);
+            if (field === "frame" && (path === "width" || path === "height")) value = Math.max(8, value);
+            if (field === "size" && (/\.value$/.test(path) || /\.(min|max)$/.test(path))) value = Math.max(0, value);
+            setByPath(next, path, value);
+        } else deleteByPath(next, path);
         if (field === "size" && /^(width|height)\.mode$/.test(path) && value === "fixed") {
             var axis = path.split(".")[0];
             if (!next[axis] || typeof next[axis].value !== "number" || !isFinite(next[axis].value)) {
@@ -1786,6 +1796,15 @@
         return '<label class="lime-v2-field"><span>' + label + '</span><input class="lime-input lime-input--sm" type="number" step="1"' +
             (min == null ? "" : ' min="' + min + '"') + ' value="' + n + '" data-v2-design-field="' + field + '" data-v2-design-path="' + path + '"></label>';
     }
+    function v2OptionalNumber(label, field, path, value, min) {
+        var shown = typeof value === "number" && isFinite(value) ? String(value) : "";
+        return '<label class="lime-v2-field"><span>' + label + '</span><input class="lime-input lime-input--sm" type="number" step="1"' +
+            (min == null ? "" : ' min="' + min + '"') + ' value="' + shown + '" placeholder="—" data-v2-design-optional data-v2-design-field="' + field + '" data-v2-design-path="' + path + '"></label>';
+    }
+    function v2ChildNumber(label, field, value, min) {
+        var n = typeof value === "number" && isFinite(value) ? value : (field === "order" ? 0 : 1);
+        return '<label class="lime-v2-field"><span>' + label + '</span><input class="lime-input lime-input--sm" type="number" step="1" min="' + min + '" value="' + n + '" data-v2-child-field="' + field + '"></label>';
+    }
     function v2Select(label, field, path, value, options) {
         return '<label class="lime-v2-field"><span>' + label + '</span><select class="lime-select" data-v2-design-field="' + field + '" data-v2-design-path="' + path + '">' +
             options.map(function (o) { return '<option value="' + o.v + '"' + (value === o.v ? " selected" : "") + '>' + o.l + '</option>'; }).join("") +
@@ -1803,6 +1822,9 @@
                 (width.mode === "fixed" ? v2Number("W", "size", "width.value", width.value, 0) : "") +
                 (height.mode === "fixed" ? v2Number("H", "size", "height.value", height.value, 0) : "") + '</div>';
         }
+        body += '<div class="lime-v2-subtitle">Min / Max</div><div class="lime-v2-fields">' +
+            v2OptionalNumber("Min W", "size", "width.min", width.min, 0) + v2OptionalNumber("Max W", "size", "width.max", width.max, 0) +
+            v2OptionalNumber("Min H", "size", "height.min", height.min, 0) + v2OptionalNumber("Max H", "size", "height.max", height.max, 0) + '</div>';
         return body;
     }
     function v2LayoutInspector(source, found) {
@@ -1840,6 +1862,7 @@
                 } else {
                     out += '<div class="lime-v2-fields">' + v2Number("Колонки", "layout", "columns", (typeof layout.columns === "number" ? layout.columns : 2), 1) + '</div>';
                 }
+                out += '<div class="lime-v2-fields">' + v2OptionalNumber("Auto rows, px", "layout", "autoRows", layout.autoRows, 1) + '</div>';
             }
             out += '<div class="lime-v2-fields">' +
                 (mode !== "free" ? v2Number("Gap", "layout", "gap", layout.gap || 0, 0) : "") + '</div>' + v2SizeControls(design);
@@ -1866,13 +1889,19 @@
                 v2Select("По X", "constraints", "horizontal", constraints.horizontal || "left", [{ v: "left", l: "Left" }, { v: "right", l: "Right" }, { v: "center", l: "Center" }, { v: "stretch", l: "Stretch" }]) +
                 v2Select("По Y", "constraints", "vertical", constraints.vertical || "top", [{ v: "top", l: "Top" }, { v: "bottom", l: "Bottom" }, { v: "center", l: "Center" }, { v: "stretch", l: "Stretch" }]) + '</div>';
         }
-        // Ребёнок grid-родителя: span по колонкам (grid-column: span N). Только для обычного блока,
+        if (!isInstance && parentDesign && parentDesign.layout && parentDesign.layout.mode === "stack") {
+            fields.push("order");
+            out += '<div class="lime-v2-subtitle">Stack child</div><div class="lime-v2-fields">' +
+                v2ChildNumber("Order", "order", design.order, -1000) + '</div>';
+        }
+        // Ребёнок grid-родителя: span по колонкам/строкам. Только для обычного блока,
         // не instance (instance остаётся geometry-only по RFC).
         if (!isInstance && parentDesign && parentDesign.layout && parentDesign.layout.mode === "grid") {
-            fields.push("span");
+            fields.push("span", "rowSpan");
             var spanVal = (typeof design.span === "number" && design.span > 0) ? Math.floor(design.span) : 1;
+            var rowSpanVal = (typeof design.rowSpan === "number" && design.rowSpan > 0) ? Math.floor(design.rowSpan) : 1;
             out += '<div class="lime-v2-subtitle">Grid</div><div class="lime-v2-fields">' +
-                '<label class="lime-v2-field"><span>Span</span><input class="lime-input lime-input--sm" type="number" step="1" min="1" value="' + spanVal + '" data-v2-span></label></div>';
+                v2ChildNumber("Column span", "span", spanVal, 1) + v2ChildNumber("Row span", "rowSpan", rowSpanVal, 1) + '</div>';
         }
         return sec("Layout · V2", out + v2SourceRow(source, fields, lockedReset));
     }
@@ -2702,17 +2731,24 @@
 
     if (inspectorEl) {
         inspectorEl.addEventListener("change", function (e) {
-            if (e.target.hasAttribute("data-v2-span")) {
-                var spSource = selectedId && byId(selectedId);
-                var sp = Math.max(1, Math.round(parseFloat(e.target.value)) || 1);
-                var rmSpan = currentBp === "base" && sp <= 1; // base + span=1 → дефолт, убираем поле
-                if (spSource) setDesignValue(spSource, currentBp, "span", rmSpan ? null : sp, rmSpan);
+            var childField = e.target.getAttribute("data-v2-child-field");
+            if (childField) {
+                var childSource = selectedId && byId(selectedId);
+                var childValue = Math.round(parseFloat(e.target.value));
+                if (!isFinite(childValue)) return;
+                if (childField === "span" || childField === "rowSpan") childValue = Math.max(1, childValue);
+                var removeChildField = currentBp === "base" && ((childField === "order" && childValue === 0) || (childField !== "order" && childValue <= 1));
+                if (childSource) setDesignValue(childSource, currentBp, childField, removeChildField ? null : childValue, removeChildField);
                 return;
             }
             var field = e.target.getAttribute("data-v2-design-field");
             var path = e.target.getAttribute("data-v2-design-path");
             if (!field || !path) return;
             var source = selectedId && byId(selectedId);
+            if (e.target.hasAttribute("data-v2-design-optional") && e.target.value.trim() === "") {
+                patchDesignObject(source, field, path, undefined);
+                return;
+            }
             var value = e.target.type === "number" ? parseFloat(e.target.value) : e.target.value;
             if (e.target.type === "number" && !isFinite(value)) return;
             patchDesignObject(source, field, path, value);
@@ -3411,6 +3447,7 @@
         var activeResize = null;
         var activeMove = null;
         var activeRotate = null;
+        var activeGridSpan = null;
         var guides = overlay.querySelector("[data-selection-guides]");
         var gesturePerf = { move: [], resize: [], rotate: [] };
         window.__LIME_V2_PERF__ = gesturePerf;
@@ -3447,6 +3484,19 @@
                 items.push({ id: state.ids[i], info: info });
             }
             return { items: items, siblings: siblings, primaryId: state.primaryId };
+        }
+        function gridInfo(id) {
+            var found = findBlock(id);
+            if (!found || !found.parentBlock || found.block.hidden || found.block.locked || found.block.type === "component") return null;
+            var parent = targetBlock(found.parentBlock);
+            var parentDesign = L.resolvedDesign(parent && parent.design, currentBp);
+            if (!parentDesign.layout || parentDesign.layout.mode !== "grid") return null;
+            var childDesign = resolvedBlockDesign(found.block, currentBp);
+            return {
+                source: found.block,
+                span: Math.max(1, Math.floor(childDesign.span || 1)),
+                rowSpan: Math.max(1, Math.floor(childDesign.rowSpan || 1))
+            };
         }
 
         function localRect(el) {
@@ -3496,6 +3546,14 @@
                 box.appendChild(h);
             });
         }
+        function addGridSpanHandle(box) {
+            var handle = document.createElement("span");
+            handle.className = "lime-grid-span-handle";
+            handle.setAttribute("data-grid-span-handle", "");
+            handle.setAttribute("title", "Изменить span колонок и строк");
+            handle.textContent = "↘";
+            box.appendChild(handle);
+        }
         function candidates() {
             var out = [];
             var nodes = ws.querySelectorAll(".lime-block[data-block-id]");
@@ -3534,7 +3592,10 @@
                 box.className = "lime-selection-box" + (id === state.primaryId ? " is-primary" : "");
                 box.setAttribute("data-selection-id", id);
                 place(box, localRect(el));
-                if (!group && id === state.primaryId && freeInfo(id)) addTransformHandles(box, true);
+                if (!group && id === state.primaryId) {
+                    if (freeInfo(id)) addTransformHandles(box, true);
+                    else if (gridInfo(id)) addGridSpanHandle(box);
+                }
                 boxes.appendChild(box);
             });
             if (group) {
@@ -3665,6 +3726,35 @@
             };
         }
         overlay.addEventListener("pointerdown", function (e) {
+            var gridSpanHandle = e.target.closest("[data-grid-span-handle]");
+            if (gridSpanHandle) {
+                var gridBox = gridSpanHandle.closest("[data-selection-id]");
+                var gridId = gridBox && gridBox.getAttribute("data-selection-id");
+                var grid = gridId && gridInfo(gridId);
+                var gridEl = gridId && ws.querySelector('[data-block-id="' + gridId + '"]');
+                var gridParent = gridEl && gridEl.parentElement;
+                if (!grid || !gridEl || !gridParent) return;
+                var gridStyle = getComputedStyle(gridParent);
+                var tracks = String(gridStyle.gridTemplateColumns || "").trim().split(/\s+/).filter(Boolean);
+                var columnCount = Math.max(1, tracks.length);
+                var columnGap = parseFloat(gridStyle.columnGap) || 0;
+                var parentWidth = gridParent.getBoundingClientRect().width;
+                var columnStep = Math.max(1, (parentWidth - columnGap * (columnCount - 1)) / columnCount + columnGap);
+                var rowGap = parseFloat(gridStyle.rowGap) || 0;
+                var explicitRow = parseFloat(gridStyle.gridAutoRows);
+                var rowStep = isFinite(explicitRow) && explicitRow > 0
+                    ? explicitRow * (viewport.get().zoom || 1) + rowGap
+                    : Math.max(1, gridEl.getBoundingClientRect().height / grid.rowSpan + rowGap);
+                activeGridSpan = {
+                    id: gridId, source: grid.source, pointerId: e.pointerId, blockEl: gridEl, box: gridBox,
+                    clientX: e.clientX, clientY: e.clientY, columnStep: columnStep, rowStep: rowStep,
+                    maxColumns: columnCount, startSpan: grid.span, startRowSpan: grid.rowSpan,
+                    nextSpan: grid.span, nextRowSpan: grid.rowSpan
+                };
+                try { gridSpanHandle.setPointerCapture(e.pointerId); } catch (_) { /* no-op */ }
+                e.preventDefault(); e.stopPropagation();
+                return;
+            }
             var rotateHandle = e.target.closest("[data-rotate-handle]");
             if (rotateHandle) {
                 var rotateBox = rotateHandle.closest("[data-selection-id]");
@@ -3759,6 +3849,15 @@
                 activeRotate.blockEl.style.transform = activeRotate.next.rotation ? "rotate(" + activeRotate.next.rotation + "deg)" : "";
                 place(activeRotate.box, localRect(activeRotate.blockEl));
                 recordGesturePerf("rotate", rotatePerfStarted);
+            }
+            if (activeGridSpan && activeGridSpan.pointerId === e.pointerId) {
+                activeGridSpan.nextSpan = Math.max(1, Math.min(activeGridSpan.maxColumns,
+                    activeGridSpan.startSpan + Math.round((e.clientX - activeGridSpan.clientX) / activeGridSpan.columnStep)));
+                activeGridSpan.nextRowSpan = Math.max(1, Math.min(12,
+                    activeGridSpan.startRowSpan + Math.round((e.clientY - activeGridSpan.clientY) / activeGridSpan.rowStep)));
+                activeGridSpan.blockEl.style.gridColumn = "span " + activeGridSpan.nextSpan;
+                activeGridSpan.blockEl.style.gridRow = "span " + activeGridSpan.nextRowSpan;
+                place(activeGridSpan.box, localRect(activeGridSpan.blockEl));
             }
         }, true);
         overlay.addEventListener("pointermove", function (e) {
@@ -3894,10 +3993,36 @@
             if (gesture.start.rotation === gesture.next.rotation) { refresh(); return; }
             setDesignValue(gesture.source, currentBp, "frame", gesture.next, false);
         }
-        document.addEventListener("pointerup", function (e) { finishRotate(e, false); }, true);
-        document.addEventListener("pointercancel", function (e) { finishRotate(e, true); }, true);
-        overlay.addEventListener("pointerup", function (e) { finishMove(e, false); finishResize(e, false); finishRotate(e, false); });
-        overlay.addEventListener("pointercancel", function (e) { finishMove(e, true); finishResize(e, true); finishRotate(e, true); });
+        function finishGridSpan(e, cancel) {
+            if (!activeGridSpan || activeGridSpan.pointerId !== e.pointerId) return;
+            var gesture = activeGridSpan;
+            activeGridSpan = null;
+            if (cancel) { render(); return; }
+            var spanChanged = gesture.startSpan !== gesture.nextSpan;
+            var rowChanged = gesture.startRowSpan !== gesture.nextRowSpan;
+            if (!spanChanged && !rowChanged) { refresh(); return; }
+            var changes = [];
+            function addChange(field, value) {
+                var remove = currentBp === "base" && value <= 1;
+                changes.push({ type: "setDesign", payload: { id: gesture.id, breakpoint: currentBp, field: field, value: remove ? null : value, remove: remove } });
+            }
+            if (spanChanged) addChange("span", gesture.nextSpan);
+            if (rowChanged) addChange("rowSpan", gesture.nextRowSpan);
+            if (cmdStore) { finishMutation(runCommands(changes, "grid-span-resize")); return; }
+            beginCheckpointMutation();
+            if (!gesture.source.design) gesture.source.design = {};
+            if (!gesture.source.design[currentBp]) gesture.source.design[currentBp] = {};
+            changes.forEach(function (change) {
+                var field = change.payload.field;
+                if (change.payload.remove) delete gesture.source.design[currentBp][field];
+                else gesture.source.design[currentBp][field] = change.payload.value;
+            });
+            finishMutation(false);
+        }
+        document.addEventListener("pointerup", function (e) { finishRotate(e, false); finishGridSpan(e, false); }, true);
+        document.addEventListener("pointercancel", function (e) { finishRotate(e, true); finishGridSpan(e, true); }, true);
+        overlay.addEventListener("pointerup", function (e) { finishMove(e, false); finishResize(e, false); finishRotate(e, false); finishGridSpan(e, false); });
+        overlay.addEventListener("pointercancel", function (e) { finishMove(e, true); finishResize(e, true); finishRotate(e, true); finishGridSpan(e, true); });
         document.addEventListener("keydown", function (e) {
             if (/^Arrow(Left|Right|Up|Down)$/.test(e.key) && !isTextField(e) && !activeMove && !activeResize) {
                 var keyboardState = selection.get();
@@ -3930,6 +4055,7 @@
             if (activeMove) { guides.innerHTML = ""; render(); activeMove = null; }
             if (activeResize) { render(); activeResize = null; }
             if (activeRotate) { render(); activeRotate = null; }
+            if (activeGridSpan) { render(); activeGridSpan = null; }
             selection.clear();
         });
         window.__LIME_SELECTION__ = selection;
