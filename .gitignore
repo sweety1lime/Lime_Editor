@@ -386,3 +386,7 @@ fix-dotnet-path.log
 
 # Загрузки пользователей (рантайм) — медиа-менеджер пишет сюда
 Lime_Editor/wwwroot/media/
+
+# Local assistant/tooling state
+.claude/
+/Microsoft/Windows/PowerShell/ModuleAnalysisCache
