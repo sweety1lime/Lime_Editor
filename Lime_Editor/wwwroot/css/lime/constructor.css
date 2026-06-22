@@ -1273,6 +1273,24 @@
     align-items: center;
     gap: var(--space-2);
 }
+.lime-color-row.is-mixed .lime-color-input,
+.lime-select.is-mixed,
+.lime-segmented.is-mixed,
+.lime-range-row.is-mixed .lime-range {
+    outline: 1px dashed var(--accent);
+    outline-offset: 2px;
+}
+.lime-mixed-label,
+.lime-mixed-note {
+    color: var(--accent);
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+.lime-segmented .lime-mixed-label {
+    align-self: center;
+    padding: 0 6px;
+}
 .lime-color-input {
     width: 32px;
     height: 32px;

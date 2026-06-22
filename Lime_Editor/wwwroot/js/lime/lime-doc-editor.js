@@ -1407,14 +1407,14 @@
         return currentBp === "base" ? "Десктоп" : currentBp === "tablet" ? "Планшет" : "Мобайл";
     }
 
-    function seg(prop, opts, cur) {
-        return '<div class="lime-segmented">' + opts.map(function (o) {
-            return '<button type="button" class="' + (cur === o.v ? "is-active" : "") + '" data-doc-style="' + prop + '" data-val="' + o.v + '">' + o.l + '</button>';
-        }).join("") + '</div>';
+    function seg(prop, opts, cur, isMixed) {
+        return '<div class="lime-segmented' + (isMixed ? ' is-mixed' : '') + '"' + (isMixed ? ' data-style-mixed="' + prop + '"' : '') + '>' + opts.map(function (o) {
+            return '<button type="button" class="' + (!isMixed && cur === o.v ? "is-active" : "") + '" data-doc-style="' + prop + '" data-val="' + o.v + '">' + o.l + '</button>';
+        }).join("") + (isMixed ? '<span class="lime-mixed-label">Разные</span>' : '') + '</div>';
     }
-    function rng(prop, min, max, step, unit, cur) {
+    function rng(prop, min, max, step, unit, cur, isMixed) {
         var n = parseFloat(cur); if (isNaN(n)) n = min;
-        return '<div class="lime-range-row"><input type="range" class="lime-range" data-doc-style="' + prop + '" data-unit="' + unit + '" min="' + min + '" max="' + max + '" step="' + step + '" value="' + n + '"><span class="lime-range__val">' + (cur || "—") + '</span></div>';
+        return '<div class="lime-range-row' + (isMixed ? ' is-mixed' : '') + '"' + (isMixed ? ' data-style-mixed="' + prop + '"' : '') + '><input type="range" class="lime-range" data-doc-style="' + prop + '" data-unit="' + unit + '" min="' + min + '" max="' + max + '" step="' + step + '" value="' + n + '"' + (isMixed ? ' data-mixed="true" aria-label="Разные значения"' : '') + '><span class="lime-range__val">' + (isMixed ? "Разные" : (cur || "—")) + '</span></div>';
     }
     function tokenSwatches(prop) {
         return '<div class="lime-color-row__swatches">' + L.THEME_TOKENS.map(function (t) {
@@ -1424,34 +1424,37 @@
     function sec(title, body) {
         return '<div class="lime-inspector__section"><div class="lime-inspector__section-title">' + title + '</div>' + body + '</div>';
     }
-    function colorRow(prop, cur) {
-        return '<div class="lime-color-row">' +
-            '<input type="color" class="lime-color-input" data-doc-style="' + prop + '" value="' + toHex(cur) + '">' +
+    function colorRow(prop, cur, isMixed) {
+        return '<div class="lime-color-row' + (isMixed ? ' is-mixed' : '') + '"' + (isMixed ? ' data-style-mixed="' + prop + '"' : '') + '>' +
+            '<input type="color" class="lime-color-input" data-doc-style="' + prop + '" value="' + toHex(cur) + '"' + (isMixed ? ' data-mixed="true" aria-label="Разные значения"' : '') + '>' +
             '<button type="button" class="lime-color-clear" data-doc-clear="' + prop + '" title="Убрать"></button>' +
+            (isMixed ? '<span class="lime-mixed-label">Разные</span>' : '') +
             '</div>';
     }
 
     // <select> для стиль-пропа (data-doc-style → общий input-обработчик; "" = сбросить override).
-    function selectRow(prop, options, cur) {
-        return '<select class="lime-select" data-doc-style="' + prop + '" style="width:100%;">' + options.map(function (o) {
-            return '<option value="' + escapeText(o.v) + '"' + ((cur || "") === o.v ? " selected" : "") + '>' + o.l + '</option>';
+    function selectRow(prop, options, cur, isMixed) {
+        return '<select class="lime-select' + (isMixed ? ' is-mixed' : '') + '" data-doc-style="' + prop + '" style="width:100%;"' + (isMixed ? ' data-mixed="true" data-style-mixed="' + prop + '"' : '') + '>' +
+            (isMixed ? '<option value="__lime_mixed__" disabled selected>— Разные —</option>' : '') + options.map(function (o) {
+            return '<option value="' + escapeText(o.v) + '"' + (!isMixed && (cur || "") === o.v ? " selected" : "") + '>' + o.l + '</option>';
         }).join("") + '</select>';
     }
 
     // Пикер шрифта с группами по категориям (1.2), данные — из LimeFonts. Значение опции =
     // CSS-стек (идёт прямо в styles.fontFamily). withDefault → «По умолчанию (тема)» ("" = сброс).
-    function fontOptionsHtml(cur, withDefault) {
+    function fontOptionsHtml(cur, withDefault, isMixed) {
         var groups = (window.LimeFonts && window.LimeFonts.GROUPS) || [];
-        var opts = withDefault ? '<option value=""' + (!cur ? " selected" : "") + ">По умолчанию (тема)</option>" : "";
+        var opts = isMixed ? '<option value="__lime_mixed__" disabled selected>— Разные —</option>' : "";
+        opts += withDefault ? '<option value=""' + (!isMixed && !cur ? " selected" : "") + ">По умолчанию (тема)</option>" : "";
         groups.forEach(function (g) {
             opts += '<optgroup label="' + g.label + '">' + g.items.map(function (f) {
-                return '<option value="' + escapeText(f.s) + '"' + (cur === f.s ? " selected" : "") + ">" + escapeText(f.n) + "</option>";
+                return '<option value="' + escapeText(f.s) + '"' + (!isMixed && cur === f.s ? " selected" : "") + ">" + escapeText(f.n) + "</option>";
             }).join("") + "</optgroup>";
         });
         return opts;
     }
-    function fontSelect(prop, cur, withDefault) {
-        return '<select class="lime-select" data-doc-style="' + prop + '" style="width:100%;">' + fontOptionsHtml(cur, withDefault) + "</select>";
+    function fontSelect(prop, cur, withDefault, isMixed) {
+        return '<select class="lime-select' + (isMixed ? ' is-mixed' : '') + '" data-doc-style="' + prop + '" style="width:100%;"' + (isMixed ? ' data-mixed="true" data-style-mixed="' + prop + '"' : '') + '>' + fontOptionsHtml(cur, withDefault, isMixed) + "</select>";
     }
 
     // Наборы значений для seg-контролов реестра.
@@ -1493,21 +1496,23 @@
         { title: "Мин. высота", kind: "range", prop: "minHeight", min: 0, max: 800, step: 10, unit: "px" }
     ];
 
-    function renderControl(c, s) {
+    function renderControl(c, s, mixed) {
+        mixed = mixed || {};
+        var isMixed = !!(c.prop && mixed[c.prop]);
         switch (c.kind) {
-            case "select": return selectRow(c.prop, c.options, s[c.prop]);
-            case "font": return fontSelect(c.prop, s[c.prop], true);
-            case "range": return rng(c.prop, c.min, c.max, c.step, c.unit, s[c.prop]);
-            case "ranges": return c.items.map(function (it) { return rng(it.prop, it.min, it.max, it.step, it.unit, s[it.prop]); }).join("");
-            case "seg": return seg(c.prop, c.options === "PAD" ? padSegOpts() : c.options, s[c.prop]);
-            case "color": return colorRow(c.prop, s[c.prop]) + (c.tokens ? tokenSwatches(c.prop) : "");
-            case "shadow": return shadowBuilder(s[c.prop]);
-            case "group": return c.parts.map(function (p) { return renderControl(p, s); }).join("");
+            case "select": return selectRow(c.prop, c.options, s[c.prop], isMixed);
+            case "font": return fontSelect(c.prop, s[c.prop], true, isMixed);
+            case "range": return rng(c.prop, c.min, c.max, c.step, c.unit, s[c.prop], isMixed);
+            case "ranges": return c.items.map(function (it) { return rng(it.prop, it.min, it.max, it.step, it.unit, s[it.prop], !!mixed[it.prop]); }).join("");
+            case "seg": return seg(c.prop, c.options === "PAD" ? padSegOpts() : c.options, s[c.prop], isMixed);
+            case "color": return colorRow(c.prop, s[c.prop], isMixed) + (c.tokens ? tokenSwatches(c.prop) : "");
+            case "shadow": return (isMixed ? '<div class="lime-mixed-note" data-style-mixed="' + c.prop + '">Разные значения</div>' : '') + shadowBuilder(s[c.prop]);
+            case "group": return c.parts.map(function (p) { return renderControl(p, s, mixed); }).join("");
             default: return "";
         }
     }
-    function renderStyleSections(s) {
-        return STYLE_REGISTRY.map(function (item) { return sec(item.title, renderControl(item, s)); }).join("");
+    function renderStyleSections(s, mixed) {
+        return STYLE_REGISTRY.map(function (item) { return sec(item.title, renderControl(item, s, mixed)); }).join("");
     }
 
     // ----- Панель «Классы» (этап 0.1): назначение/снятие/создание/правка классов блока -----
@@ -1933,9 +1938,11 @@
         // правки разветвляются на все выбранные узлы. Layout/fx/фон остаются на primary.
         var multiIds = v2SelectionIds();
         var multiSel = multiIds.length >= 2 && !currentClass;
-        var styleSecBucket = multiSel ? multiStyleBucket(multiIds, currentState === "hover" ? "hover" : currentBp) : s;
+        var multiStyles = multiSel ? multiStyleModel(multiIds, currentState === "hover" ? "hover" : currentBp) : null;
+        var styleSecBucket = multiStyles ? multiStyles.values : s;
+        var styleMixed = multiStyles ? multiStyles.mixed : {};
         var multiBanner = multiSel
-            ? '<div class="lime-inspector__section"><div class="lime-doc-comp-banner" data-multi-select>▣ Выбрано узлов: ' + multiIds.length + ' — стили применяются ко всем; пустое поле = разные значения.</div></div>'
+            ? '<div class="lime-inspector__section"><div class="lime-doc-comp-banner" data-multi-select>▣ Выбрано узлов: ' + multiIds.length + ' — стили применяются ко всем; различия отмечены как «Разные».</div></div>'
             : '';
         var isComp = b.type === "component";
         var compName = (isComp && doc.components[b.ref]) ? doc.components[b.ref].name : "";
@@ -1988,11 +1995,11 @@
         var styleBody;
         if (currentClass) {
             // Режим правки класса: только баннер + переключатель состояния + стили (контент/фон/колонки — это про блок).
-            styleBody = classEditBanner() + stateSeg + renderStyleSections(styleSecBucket);
+            styleBody = classEditBanner() + stateSeg + renderStyleSections(styleSecBucket, styleMixed);
         } else if (currentState === "hover") {
-            styleBody = classesSection(b) + stateSeg + renderStyleSections(styleSecBucket);
+            styleBody = classesSection(b) + stateSeg + renderStyleSections(styleSecBucket, styleMixed);
         } else {
-            styleBody = v2LayoutInspector(b, found) + classesSection(b) + containerHint + colsSec + contentExtras(t) + bgInspector(b, s) + stateSeg + renderStyleSections(styleSecBucket);
+            styleBody = v2LayoutInspector(b, found) + classesSection(b) + containerHint + colsSec + contentExtras(t) + bgInspector(b, s) + stateSeg + renderStyleSections(styleSecBucket, styleMixed);
         }
         var fxBody = fxInspector(t) + animInspector(t);
         var motionBody = motionInspector(t) + sceneInspector(t) + layersInspector(t);
@@ -2354,27 +2361,40 @@
         }
         return selectedId ? [selectedId] : [];
     }
-    // Синтетический style-бакет мульти-выбора: общее значение, где все узлы согласны; иначе
-    // свойство ОТСУТСТВУЕТ → контрол показывает пустое/дефолт = «разные значения» (Mixed).
-    function multiStyleBucket(ids, bucketName) {
+    // Модель стилевых значений мульти-выбора различает три состояния свойства:
+    // common (одно явное значение), mixed (значения/наличие расходятся), unset (нет у всех).
+    function multiStyleModel(ids, bucketName) {
         var buckets = ids.map(function (id) {
             var t = targetBlock(byId(id));
             return (t && t.styles && t.styles[bucketName]) || {};
         });
-        var props = {}, out = {};
+        var props = {}, values = {}, mixed = {};
         buckets.forEach(function (bk) { Object.keys(bk).forEach(function (p) { props[p] = 1; }); });
         Object.keys(props).forEach(function (prop) {
+            var has0 = Object.prototype.hasOwnProperty.call(buckets[0], prop);
             var v0 = buckets[0][prop];
-            if (buckets.every(function (bk) { return bk[prop] === v0; })) out[prop] = v0;
+            var common = buckets.every(function (bk) {
+                return Object.prototype.hasOwnProperty.call(bk, prop) === has0 && (!has0 || bk[prop] === v0);
+            });
+            if (common && has0) values[prop] = v0;
+            else if (!common) mixed[prop] = true;
         });
-        return out;
+        return { values: values, mixed: mixed };
     }
     // Стилевая gesture-команда на НЕСКОЛЬКО узлов: одна транзакция, по dispatch на каждый target.
     function commandStyleMulti(ids, bucket, prop, val) {
         if (!cmdStore) return false;
-        commitInlineEdit(); commitBlockEdit();
-        var targets = ids.map(function (id) { var t = targetBlock(byId(id)); return t && t.id; }).filter(Boolean);
+        var seen = {}, targets = [];
+        for (var i = 0; i < ids.length; i++) {
+            var source = byId(ids[i]);
+            var target = targetBlock(source);
+            // Определения компонентов пока не адресуются command engine: вся группа должна
+            // перейти на единый state-checkpoint, иначе часть selection молча не изменится.
+            if (!source || !target || target !== source) return false;
+            if (!seen[source.id]) { seen[source.id] = true; targets.push(source.id); }
+        }
         if (!targets.length) return false;
+        commitInlineEdit(); commitBlockEdit();
         var key = "multi:" + targets.join(",") + ":" + bucket + ":" + prop;
         if (styleTxn && styleTxnKey !== key) commitStyleEdit();
         if (!styleTxn) { cmdStore.begin("style-gesture"); styleTxn = true; styleTxnKey = key; }
@@ -2393,9 +2413,12 @@
         if (ids.length >= 2) { // multi-select fan-out (Stage 5)
             if (cmdStore && commandStyleMulti(ids, bucket, prop, val)) { applyPreviewStyles(); return; }
             commitStyleEdit();
+            beginCheckpointMutation();
+            var changedTargets = [];
             ids.forEach(function (id) {
                 var mb = targetBlock(byId(id));
-                if (!mb) return;
+                if (!mb || changedTargets.indexOf(mb) !== -1) return;
+                changedTargets.push(mb);
                 if (!mb.styles) mb.styles = {};
                 if (!mb.styles[bucket]) mb.styles[bucket] = {};
                 if (val === "" || val == null) delete mb.styles[bucket][prop]; else mb.styles[bucket][prop] = val;
@@ -2697,6 +2720,18 @@
         inspectorEl.addEventListener("input", function (e) {
             var t = e.target;
             if (t.hasAttribute("data-doc-style")) {
+                if (t.hasAttribute("data-mixed")) {
+                    t.removeAttribute("data-mixed");
+                    t.removeAttribute("aria-label");
+                    t.classList.remove("is-mixed");
+                    var mixedHost = t.closest("[data-style-mixed]");
+                    if (mixedHost) {
+                        mixedHost.classList.remove("is-mixed");
+                        mixedHost.removeAttribute("data-style-mixed");
+                        var mixedLabel = mixedHost.querySelector(".lime-mixed-label");
+                        if (mixedLabel) mixedLabel.remove();
+                    }
+                }
                 var unit = t.dataset.unit || "";
                 setStyle(t.dataset.docStyle, t.value === "" ? "" : t.value + unit);
                 if (t.dataset.docStyle === "fontFamily") ensureDocFonts(); // подгрузить шрифт для превью

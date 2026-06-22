@@ -493,13 +493,15 @@ test("editor-v2 Stage 5: multi-select applies style to all and shows mixed (@flo
   await expect(second).toHaveCSS("border-top-left-radius", "0px");
   await page.waitForTimeout(500); // коммит gesture-транзакции
 
-  // Мульти-выбор обоих: баннер виден, радиус «разный» → контрол не показывает 24 (Mixed).
+  // Мульти-выбор обоих: баннер виден, радиус явно помечен как «Разные».
   await page.evaluate(ids => (window as any).__LIME_SELECTION__.replace(ids), [firstId, secondId]);
   await expect(page.locator("[data-multi-select]")).toBeVisible();
-  await expect(radius()).not.toHaveValue("24");
+  await expect(radius()).toHaveAttribute("data-mixed", "true");
+  await expect(radius().locator("xpath=..").locator(".lime-range__val")).toHaveText("Разные");
 
   // Правка радиуса на мульти-выборе → меняются ОБА.
   await setRadius(40);
+  await expect(radius()).not.toHaveAttribute("data-mixed", "true");
   await expect(first).toHaveCSS("border-top-left-radius", "40px");
   await expect(second).toHaveCSS("border-top-left-radius", "40px");
   await page.waitForTimeout(500); // коммит
@@ -508,6 +510,45 @@ test("editor-v2 Stage 5: multi-select applies style to all and shows mixed (@flo
   await page.locator("[data-doc-undo]").click();
   await expect(first).toHaveCSS("border-top-left-radius", "24px");
   await expect(second).toHaveCSS("border-top-left-radius", "0px");
+});
+
+test("editor-v2 Stage 5: component multi-select uses one checkpoint (@flow)", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1400 });
+  await page.goto("/Home/EditDoc?canvas=1&cmd=1");
+  if (await page.locator("#lime-doc-intro-skip").isVisible()) await page.locator("#lime-doc-intro-skip").click();
+
+  await page.locator('[data-doc-add="heading"]').click();
+  page.once("dialog", dialog => dialog.accept("Shared heading"));
+  await page.locator('[data-doc-op="comp"]').click();
+  await expect(page.locator("#lime-doc-components [data-doc-insert-comp]")).toHaveCount(1);
+
+  const blocks = page.locator(topBlocks);
+  const firstComponentId = await blocks.nth(0).getAttribute("data-block-id");
+  await page.locator("#lime-doc-components [data-doc-insert-comp]").click();
+  await page.locator('[data-doc-add="text"]').click();
+  await expect(blocks).toHaveCount(3);
+
+  const secondComponentId = await blocks.nth(1).getAttribute("data-block-id");
+  const textId = await blocks.nth(2).getAttribute("data-block-id");
+  expect(firstComponentId && secondComponentId && textId).toBeTruthy();
+  const firstComponent = page.locator(`[data-block-id="${firstComponentId}"]`);
+  const secondComponent = page.locator(`[data-block-id="${secondComponentId}"]`);
+  const text = page.locator(`[data-block-id="${textId}"]`);
+
+  await page.evaluate(ids => (window as any).__LIME_SELECTION__.replace(ids), [firstComponentId, textId]);
+  const radius = page.locator('[data-doc-style="borderRadius"]');
+  await radius.evaluate(el => {
+    (el as HTMLInputElement).value = "36";
+    el.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+  await expect(firstComponent).toHaveCSS("border-top-left-radius", "36px");
+  await expect(secondComponent).toHaveCSS("border-top-left-radius", "36px");
+  await expect(text).toHaveCSS("border-top-left-radius", "36px");
+
+  await page.locator("[data-doc-undo]").click();
+  await expect(firstComponent).toHaveCSS("border-top-left-radius", "0px");
+  await expect(secondComponent).toHaveCSS("border-top-left-radius", "0px");
+  await expect(text).toHaveCSS("border-top-left-radius", "0px");
 });
 
 test("editor-b: blocks + container nesting + undo + save/reopen (@flow)", async ({ page }) => {
