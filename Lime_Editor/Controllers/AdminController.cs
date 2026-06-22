@@ -100,12 +100,52 @@ namespace Lime_Editor.Controllers
                 }
             ).ToListAsync();
 
+            // Текущий тариф каждого пользователя (этап 3.4): нет подписки → free.
+            var planByUser = await db.Subscriptions
+                .Where(s => s.OwnerKind == OwnerKind.User)
+                .ToDictionaryAsync(s => s.OwnerId, s => s.PlanCode);
+            var planCodes = await db.Plans.OrderBy(p => p.PriceMonthly).Select(p => p.Code).ToListAsync();
+
             foreach (var r in rows)
             {
                 r.IsAdmin = adminUserIds.Contains(r.Id);
+                r.PlanCode = planByUser.TryGetValue(r.Id, out var pc) ? pc : "free";
             }
 
-            return View(new AdminUsersViewModel { Users = rows });
+            return View(new AdminUsersViewModel { Users = rows, PlanCodes = planCodes });
+        }
+
+        // Ручная выдача тарифа (этап 3.4). Платежей пока нет — так включаем Pro/Business
+        // на тест. days=null → бессрочно; иначе период до now+days.
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> SetPlan(int userId, string planCode, int? days)
+        {
+            var plan = await db.Plans.FindAsync(planCode);
+            if (plan == null)
+            {
+                TempData["Error"] = "Нет такого тарифа.";
+                return RedirectToAction(nameof(Users));
+            }
+
+            var now = System.DateTime.UtcNow;
+            var sub = await db.Subscriptions
+                .FirstOrDefaultAsync(s => s.OwnerKind == OwnerKind.User && s.OwnerId == userId);
+            if (sub == null)
+            {
+                sub = new Subscription { OwnerKind = OwnerKind.User, OwnerId = userId, CreatedAt = now };
+                db.Subscriptions.Add(sub);
+            }
+            sub.PlanCode = planCode;
+            sub.Status = SubscriptionStatus.Active;
+            sub.CurrentPeriodStart = now;
+            sub.CurrentPeriodEnd = days.HasValue ? now.AddDays(days.Value) : (System.DateTime?)null;
+            sub.Provider = "manual";
+            sub.UpdatedAt = now;
+            await db.SaveChangesAsync();
+
+            TempData["AdminMessage"] = $"Тариф «{planCode}» выдан пользователю #{userId}.";
+            return RedirectToAction(nameof(Users));
         }
 
         public async Task<IActionResult> Sites()

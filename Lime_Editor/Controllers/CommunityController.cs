@@ -17,15 +17,18 @@ namespace Lime_Editor.Controllers
         private readonly LimeEditorContext db;
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly IDocumentRenderer _docRenderer;
+        private readonly IEntitlementService _entitlements;
 
         public CommunityController(
             LimeEditorContext context,
             UserManager<ApplicationUser> userManager,
-            IDocumentRenderer docRenderer)
+            IDocumentRenderer docRenderer,
+            IEntitlementService entitlements)
         {
             db = context;
             _userManager = userManager;
             _docRenderer = docRenderer;
+            _entitlements = entitlements;
         }
 
         private int? CurrentUserIdOrNull =>
@@ -137,6 +140,11 @@ namespace Lime_Editor.Controllers
                 clone.DraftFolder = source.Folder;
             }
 
+            // Лимит тарифа на число сайтов (этап 3.4): клон тоже создаёт сайт.
+            if (!await _entitlements.CanCreateSiteAsync(OwnerRef.ForUser(userId)))
+            {
+                return RedirectToAction("Index", "Billing");
+            }
             db.Sites.Add(clone);
             await db.SaveChangesAsync();
             return RedirectToAction("MySites", "Home");

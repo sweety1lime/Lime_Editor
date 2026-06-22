@@ -2,6 +2,7 @@ using Lime_Editor.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json;
 using System;
@@ -35,6 +36,8 @@ namespace Lime_Editor.Controllers
 
         [AllowAnonymous]
         [HttpPost]
+        [IgnoreAntiforgeryToken] // публичная статичная страница токена не несёт; защита — honeypot+timetrap
+        [EnableRateLimiting("public-write")] // анти-спам по IP
         public async Task<IActionResult> Submit()
         {
             var form = Request.Form;

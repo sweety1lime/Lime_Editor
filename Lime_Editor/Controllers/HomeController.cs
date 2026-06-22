@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json;
 using System;
@@ -24,6 +25,7 @@ namespace Lime_Editor.Controllers
         private readonly SignInManager<ApplicationUser> _signInManager;
         private readonly ITemplateExportService _exportService;
         private readonly IDocumentRenderer _docRenderer;
+        private readonly IEntitlementService _entitlements;
 
         public HomeController(
             IWebHostEnvironment environment,
@@ -31,7 +33,8 @@ namespace Lime_Editor.Controllers
             UserManager<ApplicationUser> userManager,
             SignInManager<ApplicationUser> signInManager,
             ITemplateExportService exportService,
-            IDocumentRenderer docRenderer)
+            IDocumentRenderer docRenderer,
+            IEntitlementService entitlements)
         {
             _environment = environment;
             db = context;
@@ -39,6 +42,7 @@ namespace Lime_Editor.Controllers
             _signInManager = signInManager;
             _exportService = exportService;
             _docRenderer = docRenderer;
+            _entitlements = entitlements;
         }
 
         // Id текущего аутентифицированного пользователя (для [Authorize]-действий).
@@ -80,6 +84,7 @@ namespace Lime_Editor.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [EnableRateLimiting("auth")] // анти-брутфорс по IP (в пару к Identity-lockout)
         public async Task<IActionResult> SignIn(LoginModel model)
         {
             if (ModelState.IsValid)
@@ -109,6 +114,7 @@ namespace Lime_Editor.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [EnableRateLimiting("auth")] // троттлинг массовой регистрации по IP
         public async Task<IActionResult> SignUp(RegisterViewModel model)
         {
             if (ModelState.IsValid)
@@ -281,7 +287,11 @@ namespace Lime_Editor.Controllers
                 return auto ? Json(new { version = site.UpdatedAt.Value.Ticks }) : RedirectToAction("MySites");
             }
 
-            // CREATE — новый сайт.
+            // CREATE — новый сайт. Лимит тарифа на число сайтов (этап 3.4).
+            if (!await _entitlements.CanCreateSiteAsync(OwnerRef.ForUser(userId)))
+            {
+                return auto ? StatusCode(403, new { error = "site_limit" }) : RedirectToAction("Index", "Billing");
+            }
             var name = "Новый сайт";
             var slug = await GenerateUniqueSlugAsync(userId, name);
             var created = new Site
@@ -404,7 +414,13 @@ namespace Lime_Editor.Controllers
             // а republish идёт из снапшота. (Движок A удалён — legacy-ветки DraftFolder больше нет.)
             if (!string.IsNullOrEmpty(target.DocumentJson))
             {
-                target.PublishedDocumentJson = target.DocumentJson;
+                // Гейт тарифа (этап 3.4): кастомный CSS/<head> уходит в публикацию только на планах
+                // с AllowCustomCode. Иначе вырезаем его из снапшота — черновик (DocumentJson) при этом
+                // не трогаем, чтобы при апгрейде тарифа код вернулся в следующую публикацию.
+                var plan = await _entitlements.ResolvePlanAsync(OwnerRef.ForUser(CurrentUserId));
+                target.PublishedDocumentJson = plan.AllowCustomCode
+                    ? target.DocumentJson
+                    : PublishedPageBuilder.StripCustomCode(target.DocumentJson);
                 var body = _docRenderer.RenderSite(target.PublishedDocumentJson);
                 target.Folder = PublishedPageBuilder.WrapCustomHtml(body, target, target.PublishedDocumentJson);
             }

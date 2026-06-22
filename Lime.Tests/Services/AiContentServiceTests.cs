@@ -1,7 +1,10 @@
 using System;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using Lime_Editor.Models;
 using Lime_Editor.Services;
+using Newtonsoft.Json.Linq;
 using Xunit;
 
 namespace Lime.Tests.Services
@@ -97,11 +100,87 @@ namespace Lime.Tests.Services
         }
 
         [Fact]
-        public void AiUsage_CurrentPeriod_IsFirstOfMonthUtc()
+        public void UsageCounter_CurrentPeriod_IsFirstOfMonthUtc()
         {
-            var p = AiUsage.CurrentPeriod(new DateTime(2026, 6, 11, 23, 59, 0, DateTimeKind.Utc));
+            var p = UsageCounter.CurrentPeriod(new DateTime(2026, 6, 11, 23, 59, 0, DateTimeKind.Utc));
             Assert.Equal(new DateTime(2026, 6, 1, 0, 0, 0, DateTimeKind.Utc), p);
             Assert.Equal(DateTimeKind.Utc, p.Kind);
+        }
+
+        // ===== Этап 2.1: AI-правка выделенного блока =====
+        // Тот же контракт: модель отдаёт только текст, сервер применяет по известным путям.
+        private sealed class StubProvider : IAiProvider
+        {
+            private readonly string _response;
+            public string LastUser;
+            public StubProvider(string response) { _response = response; }
+            public bool IsConfigured => true;
+            public Task<string> CompleteAsync(string system, string user, int maxTokens, CancellationToken ct = default)
+            {
+                LastUser = user;
+                return Task.FromResult(_response);
+            }
+        }
+
+        [Fact]
+        public async Task EditBlock_RewritesText_PreservesStructureAndSkipsLinks()
+        {
+            var block = @"{
+                ""id"":""b1"",""type"":""cover"",
+                ""styles"":{""base"":{""color"":""#ffffff""}},
+                ""content"":{""title"":""Старый заголовок"",""desc"":""Старое описание"",""cta"":""Жми""},
+                ""children"":[{""id"":""b2"",""type"":""buttonGroup"",""content"":{""primary"":""Купить"",""href"":""https://x.test""}}]
+            }";
+            var patch = @"{""content.title"":""Новый заголовок"",""content.desc"":""Новое описание"",""content.cta"":""Поехали"",""children[0].content.primary"":""Заказать""}";
+            var stub = new StubProvider(patch);
+            var svc = new AiContentService(stub);
+
+            var edited = await svc.EditBlockAsync(block, "сделай смелее", 4000);
+            var o = JObject.Parse(edited);
+
+            Assert.Equal("Новый заголовок", o["content"]["title"].ToString());
+            Assert.Equal("Поехали", o["content"]["cta"].ToString());
+            Assert.Equal("Заказать", o["children"][0]["content"]["primary"].ToString());
+            Assert.Equal("https://x.test", o["children"][0]["content"]["href"].ToString()); // ссылку не трогаем
+            Assert.Equal("#ffffff", o["styles"]["base"]["color"].ToString());                // стили сохранены
+            Assert.Equal("b2", o["children"][0]["id"].ToString());                            // id сохранён
+            Assert.DoesNotContain("https://x.test", stub.LastUser);                           // ссылку модели не показываем
+            Assert.Contains("content.title", stub.LastUser);
+        }
+
+        [Fact]
+        public async Task EditBlock_NoEditableText_ReturnsNull()
+        {
+            var block = @"{""type"":""image"",""content"":{""src"":""https://x/y.png""}}";
+            var svc = new AiContentService(new StubProvider("{}"));
+            Assert.Null(await svc.EditBlockAsync(block, "что угодно", 4000));
+        }
+
+        [Fact]
+        public async Task EditBlock_CapsLongValues()
+        {
+            var block = @"{""type"":""text"",""content"":{""text"":""коротко""}}";
+            var patch = "{\"content.text\":\"" + new string('я', 5000) + "\"}";
+            var svc = new AiContentService(new StubProvider(patch));
+            var edited = await svc.EditBlockAsync(block, "длиннее", 4000);
+            Assert.Equal(600, JObject.Parse(edited)["content"]["text"].ToString().Length);
+        }
+
+        [Fact]
+        public async Task EditBlock_GarbageResponse_Throws()
+        {
+            var block = @"{""type"":""text"",""content"":{""text"":""привет""}}";
+            var svc = new AiContentService(new StubProvider("это не json"));
+            await Assert.ThrowsAsync<FormatException>(() => svc.EditBlockAsync(block, "перепиши", 4000));
+        }
+
+        [Fact]
+        public void TryParseEditMap_HandlesFenceAndGarbage()
+        {
+            Assert.NotNull(AiContentService.TryParseEditMap("```json\n{\"a\":\"b\"}\n```"));
+            Assert.Null(AiContentService.TryParseEditMap("это не json"));
+            Assert.Null(AiContentService.TryParseEditMap("[1,2,3]")); // массив — не объект патча
+            Assert.Null(AiContentService.TryParseEditMap(""));
         }
     }
 }

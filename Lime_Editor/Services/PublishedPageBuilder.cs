@@ -1,4 +1,6 @@
 using Lime_Editor.Models;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace Lime_Editor.Services
 {
@@ -77,6 +79,26 @@ namespace Lime_Editor.Services
                    "</head>\n<body class=\"lime-published\">\n" +
                    (innerHtml ?? string.Empty) + "\n" +
                    "</body>\n</html>";
+        }
+
+        // Гейт тарифа (этап 3.4): на планах без AllowCustomCode произвольный CSS/<head> не должен
+        // попадать в публикацию. Вырезаем doc.customCss и doc.head из снапшота ПЕРЕД компиляцией —
+        // тогда их не эмитит ни движок (customCss), ни сборка head (ExtractDocHead), а republish
+        // из снапшота остаётся чистым. Битый/пустой JSON → возвращаем как есть (не ломаем publish).
+        public static string StripCustomCode(string documentJson)
+        {
+            if (string.IsNullOrWhiteSpace(documentJson)) return documentJson;
+            try
+            {
+                var doc = JObject.Parse(documentJson);
+                var removed = doc.Remove("customCss");
+                removed |= doc.Remove("head");
+                return removed ? doc.ToString(Formatting.None) : documentJson;
+            }
+            catch (JsonException)
+            {
+                return documentJson;
+            }
         }
 
         // Курируемые Google Fonts → их css2-параметры. Inter грузим всегда (базовый),

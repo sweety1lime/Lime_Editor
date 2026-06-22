@@ -17,12 +17,14 @@ namespace Lime_Editor.Controllers
         private readonly LimeEditorContext db;
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly NextExportService _next;
+        private readonly IEntitlementService _entitlements;
 
-        public ExportController(LimeEditorContext context, UserManager<ApplicationUser> userManager, NextExportService next)
+        public ExportController(LimeEditorContext context, UserManager<ApplicationUser> userManager, NextExportService next, IEntitlementService entitlements)
         {
             db = context;
             _userManager = userManager;
             _next = next;
+            _entitlements = entitlements;
         }
 
         private int CurrentUserId => int.Parse(_userManager.GetUserId(User));
@@ -33,6 +35,10 @@ namespace Lime_Editor.Controllers
         {
             var site = await db.Sites.FirstOrDefaultAsync(s => s.IdSite == siteId && s.UserId == CurrentUserId);
             if (site == null) return Forbid();
+
+            // Экспорт в код — фича платных тарифов (этап 3.4).
+            var plan = await _entitlements.ResolvePlanAsync(OwnerRef.ForUser(CurrentUserId));
+            if (!plan.AllowExport) return RedirectToAction("Index", "Billing");
 
             // Опубликованный снапшот предпочтительнее (стабилен); иначе текущий черновик.
             var docJson = !string.IsNullOrEmpty(site.PublishedDocumentJson) ? site.PublishedDocumentJson : site.DocumentJson;

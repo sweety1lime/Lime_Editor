@@ -20,6 +20,10 @@
     {
         <div class="lime-alert lime-alert--warn lime-mb-4">@TempData["Error"]</div>
     }
+    @if (TempData["AdminMessage"] != null)
+    {
+        <div class="lime-alert lime-alert--success lime-mb-4">@TempData["AdminMessage"]</div>
+    }
 
     <div class="lime-card" style="overflow-x:auto; padding: var(--space-2);">
         <table class="lime-table">
@@ -30,6 +34,7 @@
                     <th>Email</th>
                     <th>Сайтов</th>
                     <th>Роль</th>
+                    <th>Тариф</th>
                     <th></th>
                 </tr>
             </thead>
@@ -50,6 +55,20 @@
                             {
                                 <span class="lime-badge lime-badge--muted">User</span>
                             }
+                        </td>
+                        <td>
+                            <span class="lime-badge lime-badge--accent">@u.PlanCode</span>
+                            <form asp-action="SetPlan" method="post" class="lime-flex lime-gap-1" style="margin-top:6px;">
+                                <input type="hidden" name="userId" value="@u.Id">
+                                <select name="planCode" class="lime-input" style="width:7rem;padding:4px 8px;">
+                                    @foreach (var pc in Model.PlanCodes)
+                                    {
+                                        <option value="@pc" selected="@(pc == u.PlanCode ? "selected" : null)">@pc</option>
+                                    }
+                                </select>
+                                <input type="number" name="days" min="1" placeholder="дней" class="lime-input" style="width:5rem;padding:4px 8px;">
+                                <button type="submit" class="lime-btn lime-btn--ghost lime-btn--sm">Выдать</button>
+                            </form>
                         </td>
                         <td>
                             <div class="lime-flex lime-gap-2">

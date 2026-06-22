@@ -1,9 +1,13 @@
+using Lime_Editor.Middleware;
 using Lime_Editor.Models;
 using Lime_Editor.Services;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.HttpsPolicy;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -11,6 +15,7 @@ using Microsoft.Extensions.Hosting;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.RateLimiting;
 using System.Threading.Tasks;
 
 namespace Lime_Editor
@@ -46,6 +51,22 @@ namespace Lime_Editor
                 options.LoginPath = "/Home/SignIn";
                 options.AccessDeniedPath = "/Home/SignIn";
                 options.LogoutPath = "/Home/Logout";
+                // HttpOnly уже дефолт. SecurePolicy=SameAsRequest (дефолт) + ForwardedHeaders ниже:
+                // за TLS-прокси схема становится https → cookie помечается Secure в проде,
+                // а в dev/тестах по http остаётся обычной (иначе авторизация бы не работала).
+                options.Cookie.SameSite = SameSiteMode.Lax;
+            });
+
+            // За reverse-proxy (Caddy/Nginx) приложение слушает plain HTTP — без этого оно не
+            // знало бы исходную https-схему и реальный IP клиента (Secure-cookie, редиректы,
+            // HSTS, логи). KnownProxies/Networks очищаем: прокси в compose-сети имеет нестабильный
+            // нелокальный IP. Безопасно при условии, что снаружи доступен ТОЛЬКО прокси.
+            services.Configure<ForwardedHeadersOptions>(options =>
+            {
+                options.ForwardedHeaders =
+                    ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+                options.KnownNetworks.Clear();
+                options.KnownProxies.Clear();
             });
 
             services.AddDistributedMemoryCache();
@@ -63,18 +84,66 @@ namespace Lime_Editor
             services.AddHttpClient("ai", c => c.Timeout = TimeSpan.FromSeconds(120));
             services.AddSingleton<IAiProvider, OpenAiCompatibleProvider>();
             services.AddSingleton<AiContentService>();
+            // Тарифы/лимиты (этап 3.4): scoped — работает с LimeEditorContext.
+            services.AddScoped<IEntitlementService, EntitlementService>();
+            // Платёжный провайдер (пока ручной) + идемпотентный приём вебхуков.
+            services.AddSingleton<IPaymentProvider, ManualPaymentProvider>();
+            services.AddScoped<IBillingService, BillingService>();
             // Прокси фотостока (Фаза 1): ключ через env STOCK_PEXELS_KEY. Сервер ходит
             // в Pexels, отдаёт фронту тот же формат, что /Media/ApiList.
             services.AddHttpClient("stock", c => c.Timeout = TimeSpan.FromSeconds(20));
             services.AddHostedService<OrphanMediaCleanupService>();
             services.AddHealthChecks()
                 .AddDbContextCheck<LimeEditorContext>("database");
-            services.AddControllersWithViews();
+
+            // Anti-CSRF safe-by-default: каждый небезопасный метод (POST/PUT/DELETE) требует токен,
+            // кроме помеченных [IgnoreAntiforgeryToken] (вебхук провайдера, публичная форма).
+            // Так новые POST-экшены защищены автоматически, а не «не забыть навесить атрибут».
+            services.AddControllersWithViews(o =>
+                o.Filters.Add(new AutoValidateAntiforgeryTokenAttribute()));
+
+            // Rate limiting (этап безопасности): троттлинг по IP/пользователю на чувствительные
+            // эндпоинты. Брутфорс логина (в пару к Identity-lockout), спам публичных форм, burst
+            // дорогих AI-вызовов (поверх квоты тарифа). Применяется атрибутом [EnableRateLimiting].
+            // IP берётся после ForwardedHeaders → за прокси это реальный клиент, а не прокси.
+            services.AddRateLimiter(options =>
+            {
+                options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+
+                options.AddPolicy("auth", ctx => RateLimitPartition.GetFixedWindowLimiter(
+                    ClientKey(ctx),
+                    _ => new FixedWindowRateLimiterOptions { PermitLimit = 10, Window = TimeSpan.FromMinutes(1) }));
+
+                options.AddPolicy("public-write", ctx => RateLimitPartition.GetFixedWindowLimiter(
+                    ClientKey(ctx),
+                    _ => new FixedWindowRateLimiterOptions { PermitLimit = 20, Window = TimeSpan.FromMinutes(1) }));
+
+                options.AddPolicy("ai", ctx => RateLimitPartition.GetFixedWindowLimiter(
+                    UserOrClientKey(ctx),
+                    _ => new FixedWindowRateLimiterOptions { PermitLimit = 20, Window = TimeSpan.FromMinutes(1) }));
+            });
         }
+
+        // Ключ партиции лимитера: IP клиента (после ForwardedHeaders — реальный, не прокси).
+        private static string ClientKey(HttpContext ctx) =>
+            ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+
+        // Для AI: по пользователю, если аутентифицирован (иначе IP) — лимит на аккаунт, не на NAT.
+        private static string UserOrClientKey(HttpContext ctx) =>
+            ctx.User?.Identity?.IsAuthenticated == true
+                ? "u:" + ctx.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+                : "ip:" + ClientKey(ctx);
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
         {
+            // Самым первым — чтобы все последующие middleware видели исходную схему/IP от прокси.
+            app.UseForwardedHeaders();
+
+            // Security-заголовки — на все ответы (включая статику и страницы ошибок).
+            // Строгий CSP вешается только на публичную отдачу /u (см. middleware).
+            app.UseLimeSecurityHeaders();
+
             if (env.IsDevelopment())
             {
                 app.UseDeveloperExceptionPage();
@@ -93,6 +162,8 @@ namespace Lime_Editor
 
             app.UseAuthentication();
             app.UseAuthorization();
+            // После авторизации — чтобы AI-политика партиционировала по пользователю.
+            app.UseRateLimiter();
             app.UseSession();
 
             app.UseEndpoints(endpoints =>

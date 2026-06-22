@@ -1,0 +1,66 @@
+@model BillingViewModel
+@{
+    ViewData["Title"] = "Тарифы";
+}
+@functions {
+    static string LimitText(int v) => v < 0 ? "∞" : v.ToString();
+    static int Pct(long used, int limit) => limit <= 0 ? 0 : (int)System.Math.Min(100, used * 100 / limit);
+}
+
+<section class="lime-aurora lime-aurora--subtle" style="padding: var(--space-12) 0 var(--space-8);">
+    <div class="lime-container">
+        <h2 style="margin-bottom: var(--space-1);">Тариф и лимиты</h2>
+        <p class="lime-text-muted" style="margin:0;">Текущий план: <strong>@Model.Plan.Name</strong></p>
+    </div>
+</section>
+
+<section class="lime-container" style="padding-bottom: var(--space-16);">
+    <div class="lime-card lime-card--padded lime-mb-6">
+        <h3 style="margin-bottom: var(--space-4);">Использование в этом месяце</h3>
+        <div class="lime-grid lime-gap-4" style="grid-template-columns: repeat(auto-fit,minmax(220px,1fr));">
+            <div>
+                <div class="lime-flex lime-justify-between"><span>AI-генерации</span><span class="lime-text-muted">@Model.AiUsed / @LimitText(Model.AiLimit)</span></div>
+                <div style="height:8px;border-radius:6px;background:rgba(127,127,127,.25);overflow:hidden;margin-top:6px;"><div style="height:100%;width:@Pct(Model.AiUsed, Model.AiLimit)%;background:#c5f24e;"></div></div>
+            </div>
+            <div>
+                <div class="lime-flex lime-justify-between"><span>Сайты</span><span class="lime-text-muted">@Model.SitesUsed / @LimitText(Model.Plan.MaxSites)</span></div>
+                <div style="height:8px;border-radius:6px;background:rgba(127,127,127,.25);overflow:hidden;margin-top:6px;"><div style="height:100%;width:@Pct(Model.SitesUsed, Model.Plan.MaxSites)%;background:#c5f24e;"></div></div>
+            </div>
+            <div>
+                <div class="lime-flex lime-justify-between"><span>Хранилище</span><span class="lime-text-muted">@Model.StorageUsedMb / @LimitText(Model.Plan.MaxStorageMb) МБ</span></div>
+                <div style="height:8px;border-radius:6px;background:rgba(127,127,127,.25);overflow:hidden;margin-top:6px;"><div style="height:100%;width:@Pct(Model.StorageUsedMb, Model.Plan.MaxStorageMb)%;background:#c5f24e;"></div></div>
+            </div>
+        </div>
+    </div>
+
+    <h3 class="lime-mb-4">Планы</h3>
+    <div class="lime-grid lime-gap-4" style="grid-template-columns: repeat(auto-fit,minmax(240px,1fr));">
+        @foreach (var p in Model.AllPlans)
+        {
+            var current = p.Code == Model.Plan.Code;
+            <div class="lime-card lime-card--padded" style="@(current ? "border:1px solid #c5f24e;" : "")">
+                <div class="lime-flex lime-justify-between lime-items-center">
+                    <h4 style="margin:0;">@p.Name</h4>
+                    @if (current) { <span class="lime-badge lime-badge--accent">Текущий</span> }
+                </div>
+                <div style="font-size:1.5rem;font-weight:700;margin:var(--space-2) 0;">
+                    @(p.PriceMonthly == 0 ? "Бесплатно" : $"{p.PriceMonthly:0} ₽/мес")
+                </div>
+                <p class="lime-text-muted" style="min-height:2.5em;">@p.Description</p>
+                <ul style="margin:0;padding-left:1.1em;font-size:.875rem;line-height:1.9;">
+                    <li>Сайты: @LimitText(p.MaxSites)</li>
+                    <li>AI в месяц: @LimitText(p.MonthlyAiCredits)</li>
+                    <li>Хранилище: @LimitText(p.MaxStorageMb) МБ</li>
+                    <li>Свои домены: @LimitText(p.MaxCustomDomains)</li>
+                    <li>Экспорт в код: @(p.AllowExport ? "да" : "—")</li>
+                    <li>Свой CSS/код: @(p.AllowCustomCode ? "да" : "—")</li>
+                </ul>
+                @if (!current && p.PriceMonthly > 0)
+                {
+                    <button type="button" class="lime-btn lime-btn--primary lime-mt-4" disabled title="Онлайн-оплата скоро">Подключить</button>
+                    <p class="lime-text-subtle" style="font-size:.75rem;margin-top:var(--space-2);">Онлайн-оплата скоро. Для подключения — напишите в поддержку.</p>
+                }
+            </div>
+        }
+    </div>
+</section>

@@ -27,19 +27,22 @@ namespace Lime_Editor.Controllers
         private readonly IWebHostEnvironment _env;
         private readonly IImageProcessor _imageProcessor;
         private readonly IHttpClientFactory _httpFactory;
+        private readonly IEntitlementService _entitlements;
 
         public MediaController(
             LimeEditorContext context,
             UserManager<ApplicationUser> userManager,
             IWebHostEnvironment env,
             IImageProcessor imageProcessor,
-            IHttpClientFactory httpFactory)
+            IHttpClientFactory httpFactory,
+            IEntitlementService entitlements)
         {
             db = context;
             _userManager = userManager;
             _env = env;
             _imageProcessor = imageProcessor;
             _httpFactory = httpFactory;
+            _entitlements = entitlements;
         }
 
         private int CurrentUserId => int.Parse(_userManager.GetUserId(User));
@@ -150,6 +153,13 @@ namespace Lime_Editor.Controllers
             if (string.IsNullOrEmpty(file.ContentType) || !file.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
             {
                 TempData["Error"] = "Файл должен быть изображением.";
+                return RedirectToAction(nameof(Index));
+            }
+
+            // Лимит хранилища по тарифу (этап 3.4). file.Length — верхняя оценка (после сжатия меньше).
+            if (!await _entitlements.CanUploadAsync(OwnerRef.ForUser(CurrentUserId), file.Length))
+            {
+                TempData["Error"] = "Достигнут лимит хранилища по вашему тарифу.";
                 return RedirectToAction(nameof(Index));
             }
 

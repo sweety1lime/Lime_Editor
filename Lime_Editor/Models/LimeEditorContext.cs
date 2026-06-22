@@ -22,8 +22,11 @@ namespace Lime_Editor.Models
         public virtual DbSet<TypeTemplate> TypeTemplates { get; set; }
         public virtual DbSet<MediaAsset> MediaAssets { get; set; }
         public virtual DbSet<FormSubmission> FormSubmissions { get; set; }
-        public virtual DbSet<AiUsage> AiUsages { get; set; }
         public virtual DbSet<SiteLike> SiteLikes { get; set; }
+        public virtual DbSet<Plan> Plans { get; set; }
+        public virtual DbSet<Subscription> Subscriptions { get; set; }
+        public virtual DbSet<UsageCounter> UsageCounters { get; set; }
+        public virtual DbSet<BillingEvent> BillingEvents { get; set; }
         public virtual DbSet<Collection> Collections { get; set; }
         public virtual DbSet<CollectionRecord> CollectionRecords { get; set; }
 
@@ -140,15 +143,46 @@ namespace Lime_Editor.Models
                     .OnDelete(DeleteBehavior.Cascade);
             });
 
-            modelBuilder.Entity<AiUsage>(entity =>
+            // ===== Биллинг/тарифы (этап 3.4) =====
+            modelBuilder.Entity<Plan>(entity =>
+            {
+                entity.HasKey(e => e.Code);
+                entity.Property(e => e.Code).HasMaxLength(32);
+                entity.Property(e => e.Name).IsRequired().HasMaxLength(100);
+                entity.Property(e => e.Currency).HasMaxLength(8);
+                entity.Property(e => e.PriceMonthly).HasPrecision(10, 2);
+            });
+
+            modelBuilder.Entity<Subscription>(entity =>
             {
                 entity.HasKey(e => e.Id);
-                // Один счётчик на пользователя на месяц.
-                entity.HasIndex(e => new { e.UserId, e.PeriodStart }).IsUnique();
-                entity.HasOne<ApplicationUser>()
+                entity.Property(e => e.PlanCode).IsRequired().HasMaxLength(32);
+                entity.Property(e => e.Provider).HasMaxLength(40);
+                // Один активный план на владельца.
+                entity.HasIndex(e => new { e.OwnerKind, e.OwnerId }).IsUnique();
+                entity.HasOne<Plan>()
                     .WithMany()
-                    .HasForeignKey(e => e.UserId)
-                    .OnDelete(DeleteBehavior.Cascade);
+                    .HasForeignKey(e => e.PlanCode)
+                    .OnDelete(DeleteBehavior.Restrict);
+                // OwnerId — не FK (может быть юзер или воркспейс); чистим подписки юзера в коде при удалении.
+            });
+
+            modelBuilder.Entity<UsageCounter>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Meter).IsRequired().HasMaxLength(40);
+                // Один счётчик на (владелец, метр, месяц).
+                entity.HasIndex(e => new { e.OwnerKind, e.OwnerId, e.Meter, e.PeriodStart }).IsUnique();
+            });
+
+            modelBuilder.Entity<BillingEvent>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Provider).IsRequired().HasMaxLength(40);
+                entity.Property(e => e.ProviderEventId).IsRequired().HasMaxLength(200);
+                entity.Property(e => e.Status).HasMaxLength(20);
+                // Идемпотентность: повтор того же события провайдера отсекается уникальным индексом.
+                entity.HasIndex(e => new { e.Provider, e.ProviderEventId }).IsUnique();
             });
 
             modelBuilder.Entity<SiteLike>(entity =>
@@ -203,6 +237,14 @@ namespace Lime_Editor.Models
                 new Template { IdTemplate = 3, Name = "Coming Soon", FolderPreview = "/images/Template_3/Preview.png",          TypeId = 1 },
                 // Id = 4 — псевдо-шаблон "Custom", на нём строятся сайты из "Создать сайт".
                 new Template { IdTemplate = 4, Name = "Custom",      FolderPreview = "/images/cover-1.jpg",                     TypeId = 1 }
+            );
+
+            // Тарифы (этап 3.4). Free.MonthlyAiCredits совпадает с прежней квотой Ai:MonthlyFreeQuota.
+            // Лимит -1 = безлимит. Платежей пока нет — Pro/Business выдаются вручную (админ).
+            modelBuilder.Entity<Plan>().HasData(
+                new Plan { Code = "free",     Name = "Free",     Description = "Старт: попробовать конструктор.",        PriceMonthly = 0m,    Currency = "RUB", MaxSites = 3,  MonthlyAiCredits = 10,   MaxStorageMb = 100,   MaxCustomDomains = 0,  AllowExport = false, AllowCustomCode = false, FeaturesJson = "{}" },
+                new Plan { Code = "pro",      Name = "Pro",      Description = "Для фрилансеров: домены, экспорт, больше AI.", PriceMonthly = 790m,  Currency = "RUB", MaxSites = 25, MonthlyAiCredits = 300,  MaxStorageMb = 5120,  MaxCustomDomains = 3,  AllowExport = true,  AllowCustomCode = true,  FeaturesJson = "{}" },
+                new Plan { Code = "business", Name = "Business", Description = "Студии и команды: максимум лимитов.",       PriceMonthly = 2490m, Currency = "RUB", MaxSites = -1, MonthlyAiCredits = 2000, MaxStorageMb = 51200, MaxCustomDomains = 25, AllowExport = true,  AllowCustomCode = true,  FeaturesJson = "{}" }
             );
 
             OnModelCreatingPartial(modelBuilder);
