@@ -1,4 +1,5 @@
 @inject Microsoft.AspNetCore.Antiforgery.IAntiforgery Antiforgery
+@inject Microsoft.Extensions.Configuration.IConfiguration Config
 @model ConstructorViewModel
 @{
     Layout = null;
@@ -9,6 +10,9 @@
     // Стартовый шаблон (Фаза 3.2) — только для нового документа; ключ санитайзим.
     var templateKey = isEdit ? "" : System.Text.RegularExpressions.Regex.Replace(
         Context.Request.Query["template"].ToString() ?? "", "[^a-zA-Z0-9_-]", "");
+    // Раскатка Editor V2: дефолт нового редактора (Editor:V2Default, по умолчанию true).
+    var v2DefaultCfg = Config["Editor:V2Default"];
+    var v2Default = v2DefaultCfg == null || !v2DefaultCfg.Equals("false", StringComparison.OrdinalIgnoreCase);
 }<!DOCTYPE html>
 <html lang="ru" data-theme="dark">
 <head>
@@ -28,6 +32,8 @@
         window.__LIME_DOC__ = @Html.Raw(seedJson);
         window.__LIME_DOC_VERSION__ = @Model.DocVersion; // Site.UpdatedAt.Ticks — optimistic concurrency
         window.__LIME_TEMPLATE__ = @Html.Raw(string.IsNullOrEmpty(templateKey) ? "null" : "\"" + templateKey + "\"");
+        // Раскатка Editor V2: дефолт нового редактора задаётся сервером (Editor:V2Default).
+        window.__LIME_V2_DEFAULT__ = @(v2Default ? "true" : "false");
     </script>
 </head>
 <body>
@@ -54,13 +60,28 @@
                     <button type="button" data-canvas-zoom-in title="Увеличить">+</button>
                     <button type="button" data-canvas-fit title="Вместить страницу">Fit</button>
                 </div>
-                <button type="button" class="lime-btn lime-btn--ghost lime-btn--sm" data-doc-anim-preview style="margin-left: var(--space-3);" title="Проиграть анимации появления">▶ Превью</button>
             </div>
             <div class="lime-editor__topbar-right">
                 <span class="lime-text-muted" data-doc-status style="font-size: var(--text-xs); margin-right: var(--space-2);"></span>
-                <button type="button" class="lime-btn lime-btn--violet lime-btn--sm" data-doc-ai-open title="Сгенерировать страницу по описанию">✨ AI заново</button>
-                <button type="button" class="lime-btn lime-btn--ghost lime-btn--sm" data-doc-theme-open title="Тема сайта">🎨 Тема</button>
-                <button type="button" class="lime-btn lime-btn--ghost lime-btn--sm" data-doc-code-open title="Глобальный CSS и код в head">&lt;/&gt; Код</button>
+                <button type="button" class="lime-btn lime-btn--ghost lime-btn--sm lime-cmdk-btn" data-doc-cmdk title="Команды и поиск (Ctrl+K)" aria-keyshortcuts="Control+K"><span>Команды</span><kbd>⌘K</kbd></button>
+                @if (Model.HasOriginalBackup)
+                {
+                    <form method="post" action="/Home/RestoreOriginal" style="display:inline;"
+                          onsubmit="return confirm('Восстановить сайт к исходному виду до правок в новом редакторе? Текущий черновик будет заменён.');">
+                        <input type="hidden" name="__RequestVerificationToken" value="@csrfToken" />
+                        <input type="hidden" name="siteId" value="@Model.SiteId" />
+                        <button type="submit" class="lime-btn lime-btn--ghost lime-btn--sm" title="Откатить к версии до перехода на новый редактор">↩ Оригинал</button>
+                    </form>
+                }
+                <div class="lime-topbar-more" data-topbar-more>
+                    <button type="button" class="lime-btn lime-btn--ghost lime-btn--sm lime-btn--icon" data-topbar-more-toggle aria-haspopup="menu" aria-expanded="false" title="Ещё действия">⋯</button>
+                    <div class="lime-topbar-more__menu" role="menu" hidden>
+                        <button type="button" class="lime-topbar-more__item" role="menuitem" data-doc-ai-open title="Сгенерировать страницу по описанию">✨ AI заново</button>
+                        <button type="button" class="lime-topbar-more__item" role="menuitem" data-doc-theme-open title="Тема сайта">🎨 Тема сайта</button>
+                        <button type="button" class="lime-topbar-more__item" role="menuitem" data-doc-code-open title="Глобальный CSS и код в head">&lt;/&gt; Код сайта</button>
+                        <button type="button" class="lime-topbar-more__item" role="menuitem" data-doc-anim-preview title="Проиграть анимации появления">▶ Превью анимаций</button>
+                    </div>
+                </div>
                 <button type="button" class="lime-btn lime-btn--primary lime-btn--sm" data-doc-save data-site-id="@(Model.SiteId?.ToString() ?? "")">
                     @(isEdit ? "Обновить" : "Опубликовать")
                 </button>

@@ -150,6 +150,48 @@ namespace Lime_Editor.Controllers
             }
         }
 
+        // Правка по промпту через СПИСОК КОМАНД (этап 10.2). Клиент шлёт контекст (выбранное
+        // поддерево + тема), сервер просит модель вернуть валидируемые команды. Клиент re-валидирует
+        // и применяет одной undo-транзакцией с подтверждением — некорректный ответ не портит документ.
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Suggest(string context, string instruction, string breakpoint = null)
+        {
+            if (string.IsNullOrWhiteSpace(context) || context.Length > 20000 ||
+                string.IsNullOrWhiteSpace(instruction) || instruction.Length > 300)
+            {
+                return BadRequest(new { error = "input" });
+            }
+            // breakpoint = tablet|mobile → Responsive-AI (адаптация без правки десктопа); иначе обычная правка.
+            var responsive = breakpoint == "tablet" || breakpoint == "mobile";
+            if (!_ai.IsConfigured)
+            {
+                return StatusCode(503, new { error = "not_configured" });
+            }
+
+            var usage = await _entitlements.GetUsageAsync(Owner, Meter);
+            if (usage.Used >= usage.Limit)
+            {
+                return StatusCode(429, new { error = "quota", used = usage.Used, limit = usage.Limit });
+            }
+
+            try
+            {
+                var commands = responsive
+                    ? await _ai.SuggestResponsiveAsync(context, instruction.Trim(), breakpoint, _maxTokens, HttpContext.RequestAborted)
+                    : await _ai.SuggestCommandsAsync(context, instruction.Trim(), _maxTokens, HttpContext.RequestAborted);
+                await _entitlements.IncrementAsync(Owner, Meter);
+                return Content(
+                    $"{{\"commands\":{commands},\"used\":{usage.Used + 1},\"limit\":{usage.Limit}}}",
+                    "application/json");
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogError(ex, "AI suggest failed for user {UserId}", CurrentUserId);
+                return StatusCode(502, new { error = "ai_failed" });
+            }
+        }
+
         // Остаток квоты — для бейджа в модалке.
         [HttpGet]
         public async Task<IActionResult> Quota()

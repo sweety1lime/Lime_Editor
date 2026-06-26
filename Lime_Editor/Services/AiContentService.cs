@@ -86,6 +86,161 @@ namespace Lime_Editor.Services
 Правила: 5-9 блоков; язык — язык описания пользователя; тексты конкретные и продающие,
 без плейсхолдеров вида [название]; никаких других типов и полей.";
 
+        // ===== Этап 10.2: AI отдаёт СПИСОК КОМАНД, а не сырой документ =====
+        // Тот же принцип безопасности: модель возвращает строго описанные команды из
+        // безопасного поднабора; сервер их валидирует, клиент re-валидирует и применяет
+        // одной undo-транзакцией с подтверждением. Зеркалит AI_ALLOWED в lime-commands.js.
+        private static readonly HashSet<string> AllowedCommands = new(StringComparer.Ordinal)
+        {
+            "setStyle", "setContent", "setDesign", "setBlockProp",
+            "insertBlock", "removeBlock", "reorderBlock", "moveBlock",
+        };
+        private const int MaxCommands = 40;
+
+        private const string CommandSystemPrompt =
+@"Ты — AI-редактор конструктора сайтов Lime. Тебе дан контекст: выбранное поддерево блоков (с их id,
+типами, content и styles) и тема сайта. По инструкции пользователя верни СПИСОК КОМАНД-правок.
+
+Верни СТРОГО JSON без markdown и пояснений по схеме:
+{""commands"":[{""type"":""<тип>"",""payload"":{...}}]}
+
+Доступные команды и payload:
+- setContent: {id, field, value} — изменить текстовое поле content блока (field вида ""text"" или ""title"")
+- setStyle: {id, prop, value, breakpoint?} — CSS-свойство блока (prop ""color"", value ""#ff0000""); breakpoint base|tablet|mobile
+- setDesign: {id, breakpoint, field, value} — layout/size/frame/zIndex/overflow для V2-блока
+- removeBlock: {id} — удалить блок
+- reorderBlock: {id, toIndex} — переставить блок внутри его родителя
+- insertBlock: {block:{type, content}} — добавить новую секцию в конец страницы. Доступные type и поля content
+  (все — строки): cover{uptitle,title,desc,cta}, heading{text}, text{text}, cta{title,desc,btn},
+  buttonGroup{primary,secondary}, features{items:[{icon,title,desc}]}, stats{items:[{num,label}]}, divider, spacer
+
+Правила: для правок меняй ТОЛЬКО блоки с id из контекста, не выдумывай id; для новой секции используй insertBlock
+с блоком из списка выше; value — строка или число; язык текстов — язык контекста; никаких других команд, типов
+и полей; максимум 40 команд. Если менять нечего — верни {""commands"":[]}.";
+
+        // ===== Этап 10.5: Responsive-AI «адаптировать мобилку» =====
+        // Правка адаптива не должна ломать десктоп: модель просят менять только стили/раскладку на
+        // целевом брейкпоинте, а сервер вдобавок ЖЁСТКО фильтрует ответ — оставляет лишь
+        // setStyle/setDesign на этом breakpoint. Контент/структура/base физически не пройдут.
+        private static readonly HashSet<string> ResponsiveCommands = new(StringComparer.Ordinal) { "setStyle", "setDesign" };
+
+        private static string ResponsiveSystemPrompt(string breakpoint)
+        {
+            var screen = breakpoint == "mobile" ? "мобильного (узкий экран ~390px)" : "планшета (~768px)";
+            return
+$@"Ты — AI-адаптатор вёрстки конструктора Lime под {screen}. Тебе дан контекст: поддерево блоков (id, тип,
+content, styles, design) и тема. Подгони ТОЛЬКО отображение под этот экран.
+
+Верни СТРОГО JSON без markdown:
+{{""commands"":[{{""type"":""<тип>"",""payload"":{{...}}}}]}}
+
+Разрешены ТОЛЬКО эти команды, и у каждой обязателен ""breakpoint"":""{breakpoint}"":
+- setStyle: {{id, prop, value, breakpoint:""{breakpoint}""}} — например уменьшить font-size, padding, поправить text-align
+- setDesign: {{id, breakpoint:""{breakpoint}"", field, value}} — например сменить layout/size/frame под узкий экран
+
+Правила: НЕ меняй тексты (никакого setContent), НЕ трогай десктоп (breakpoint base), НЕ добавляй и не удаляй
+блоки; работай только с id из контекста; максимум 40 команд. Если адаптация не нужна — верни {{""commands"":[]}}.";
+        }
+
+        // Контекст + инструкция → команды адаптации под breakpoint (tablet|mobile), отфильтрованные
+        // до безопасного набора. Пустой список — валиден.
+        public async Task<string> SuggestResponsiveAsync(string contextJson, string instruction, string breakpoint, int maxTokens, CancellationToken ct = default)
+        {
+            var user = $"Брейкпоинт: {breakpoint}\nИнструкция: {instruction}\n\nКонтекст:\n{contextJson}";
+            var system = ResponsiveSystemPrompt(breakpoint);
+            var commands = TryParseCommands(await _provider.CompleteAsync(system, user, maxTokens, ct));
+            if (commands == null)
+            {
+                commands = TryParseCommands(await _provider.CompleteAsync(
+                    system, user + "\n\nВАЖНО: верни ТОЛЬКО валидный JSON {\"commands\":[...]}.", maxTokens, ct));
+            }
+            if (commands == null) throw new FormatException("Модель вернула невалидный ответ.");
+            return JsonConvert.SerializeObject(FilterResponsiveCommands(commands, breakpoint));
+        }
+
+        // Оставляет лишь setStyle/setDesign на заданном НЕ-base брейкпоинте. public static — юнит-тесты.
+        public static List<JObject> FilterResponsiveCommands(List<JObject> cmds, string breakpoint)
+        {
+            var result = new List<JObject>();
+            if (cmds == null || (breakpoint != "tablet" && breakpoint != "mobile")) return result;
+            foreach (var c in cmds)
+            {
+                if (!ResponsiveCommands.Contains(c["type"]?.ToString())) continue;
+                var bp = (c["payload"] as JObject)?["breakpoint"]?.ToString();
+                if (bp == breakpoint) result.Add(c);
+            }
+            return result;
+        }
+
+        // Контекст поддерева + инструкция → провалидированный JSON-массив команд (строка для клиента).
+        // Невалидный ответ → один ретрай. Пустой список команд — это валидный результат (нечего менять).
+        public async Task<string> SuggestCommandsAsync(string contextJson, string instruction, int maxTokens, CancellationToken ct = default)
+        {
+            var user = $"Инструкция: {instruction}\n\nКонтекст:\n{contextJson}";
+            var commands = TryParseCommands(await _provider.CompleteAsync(CommandSystemPrompt, user, maxTokens, ct));
+            if (commands == null)
+            {
+                commands = TryParseCommands(await _provider.CompleteAsync(
+                    CommandSystemPrompt,
+                    user + "\n\nВАЖНО: верни ТОЛЬКО валидный JSON по схеме {\"commands\":[...]}, без markdown.",
+                    maxTokens, ct));
+            }
+            if (commands == null) throw new FormatException("Модель вернула невалидный ответ.");
+            return JsonConvert.SerializeObject(commands);
+        }
+
+        // Парсинг + валидация списка команд от модели. public static — покрыто юнит-тестами.
+        // Возвращает null, если JSON не разобрался; иначе очищенный список (чужие типы/битая форма
+        // молча отброшены, строки урезаны, число команд ограничено). Пустой список — валиден.
+        public static List<JObject> TryParseCommands(string raw)
+        {
+            if (string.IsNullOrWhiteSpace(raw)) return null;
+            JToken root;
+            try { root = JToken.Parse(StripFence(raw)); }
+            catch (JsonReaderException) { return null; }
+
+            var arr = root is JObject o ? o["commands"] as JArray : root as JArray;
+            if (arr == null) return null;
+
+            var result = new List<JObject>();
+            foreach (var item in arr)
+            {
+                if (result.Count >= MaxCommands) break;
+                if (item is not JObject c) continue;
+                var type = c["type"]?.ToString();
+                if (string.IsNullOrEmpty(type) || !AllowedCommands.Contains(type)) continue;
+                if (c["payload"] is not JObject payload) continue;
+                // insertBlock несёт целый блок — валидируем его структуру тем же whitelist'ом,
+                // что и генерацию (этап 10.4). Невалидная структура → команда отброшена.
+                if (type == "insertBlock")
+                {
+                    var block = CleanBlock(payload["block"] as JObject);
+                    if (block == null) continue;
+                    payload["block"] = block;
+                }
+                CapStrings(payload);
+                result.Add(new JObject { ["type"] = type, ["payload"] = payload });
+            }
+            return result;
+        }
+
+        // Рекурсивно обрезает строковые значения payload до MaxFieldLength (защита от гигантских правок).
+        private static void CapStrings(JToken node)
+        {
+            if (node is JObject o)
+            {
+                foreach (var p in o.Properties())
+                {
+                    if (p.Value is JValue v && v.Type == JTokenType.String) v.Value = Cap(v.Value<string>());
+                    else CapStrings(p.Value);
+                }
+            }
+            else if (node is JArray a)
+            {
+                foreach (var el in a) CapStrings(el);
+            }
+        }
+
         // Описание бизнеса → провалидированный JSON-массив блоков (строка для клиента).
         // Невалидный ответ → один ретрай с требованием чистого JSON.
         public async Task<string> GenerateLandingAsync(string prompt, int maxTokens, CancellationToken ct = default)
@@ -229,51 +384,56 @@ namespace Lime_Editor.Services
             foreach (var item in arr)
             {
                 if (result.Count >= MaxBlocks) break;
-                if (item is not JObject b) continue;
-                var type = b["type"]?.ToString();
-                if (string.IsNullOrEmpty(type)) continue;
-                var content = b["content"] as JObject ?? new JObject();
-
-                if (BlockFields.TryGetValue(type, out var fields))
-                {
-                    var clean = new JObject();
-                    foreach (var f in fields)
-                    {
-                        var v = Cap(content[f]?.ToString());
-                        if (!string.IsNullOrEmpty(v)) clean[f] = v;
-                    }
-                    // Текстовый блок без единого поля бесполезен (кроме divider/spacer).
-                    if (fields.Length > 0 && clean.Count == 0) continue;
-                    result.Add(new JObject { ["type"] = type, ["content"] = clean });
-                }
-                else if (ListBlocks.TryGetValue(type, out var spec))
-                {
-                    var items = new JArray();
-                    if (content[spec.list] is JArray srcItems)
-                    {
-                        foreach (var si in srcItems)
-                        {
-                            if (items.Count >= MaxItems) break;
-                            if (si is not JObject so) continue;
-                            var cleanItem = new JObject();
-                            foreach (var f in spec.fields)
-                            {
-                                var v = Cap(so[f]?.ToString());
-                                if (!string.IsNullOrEmpty(v)) cleanItem[f] = v;
-                            }
-                            if (cleanItem.Count > 0) items.Add(cleanItem);
-                        }
-                    }
-                    if (items.Count == 0) continue;
-                    result.Add(new JObject
-                    {
-                        ["type"] = type,
-                        ["content"] = new JObject { [spec.list] = items },
-                    });
-                }
-                // Неизвестный тип — отбрасываем молча.
+                var clean = CleanBlock(item as JObject);
+                if (clean != null) result.Add(clean);
             }
             return result;
+        }
+
+        // Очистка одного блока по whitelist (тип + текстовые поля content). Возвращает чистый
+        // {type, content} либо null (неизвестный тип / пустой текстовый блок). Единая точка
+        // валидации структуры блока — и для генерации, и для AI-команды insertBlock (этап 10.4).
+        public static JObject CleanBlock(JObject b)
+        {
+            if (b == null) return null;
+            var type = b["type"]?.ToString();
+            if (string.IsNullOrEmpty(type)) return null;
+            var content = b["content"] as JObject ?? new JObject();
+
+            if (BlockFields.TryGetValue(type, out var fields))
+            {
+                var clean = new JObject();
+                foreach (var f in fields)
+                {
+                    var v = Cap(content[f]?.ToString());
+                    if (!string.IsNullOrEmpty(v)) clean[f] = v;
+                }
+                // Текстовый блок без единого поля бесполезен (кроме divider/spacer).
+                if (fields.Length > 0 && clean.Count == 0) return null;
+                return new JObject { ["type"] = type, ["content"] = clean };
+            }
+            if (ListBlocks.TryGetValue(type, out var spec))
+            {
+                var items = new JArray();
+                if (content[spec.list] is JArray srcItems)
+                {
+                    foreach (var si in srcItems)
+                    {
+                        if (items.Count >= MaxItems) break;
+                        if (si is not JObject so) continue;
+                        var cleanItem = new JObject();
+                        foreach (var f in spec.fields)
+                        {
+                            var v = Cap(so[f]?.ToString());
+                            if (!string.IsNullOrEmpty(v)) cleanItem[f] = v;
+                        }
+                        if (cleanItem.Count > 0) items.Add(cleanItem);
+                    }
+                }
+                if (items.Count == 0) return null;
+                return new JObject { ["type"] = type, ["content"] = new JObject { [spec.list] = items } };
+            }
+            return null; // неизвестный тип — отбрасываем молча
         }
 
         // Срезает markdown-ограждение ```...``` вокруг JSON (модели любят его добавлять).

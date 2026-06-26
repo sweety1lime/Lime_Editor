@@ -452,6 +452,43 @@ const blocks = (s) => s.getDoc().pages[0].blocks;
     check("mixed: undo op-записи после state (пути валидны)", blocks(s)[0].content.text === "Один");
 }
 
+// --- AI command pipeline (этап 10.1): валидатор + dry-run ---
+{
+    const okList = [
+        { type: "setContent", payload: { id: "b1", field: "text", value: "Hello" } },
+        { type: "setStyle", payload: { id: "b2", prop: "color", value: "#f00" } }
+    ];
+    const v = C.validateAiCommands(okList);
+    check("ai-validate: валидный список ok", v.ok === true && v.commands.length === 2 && v.reason === "ok");
+
+    const partial = C.validateAiCommands([
+        okList[0],
+        { type: "renameNode", payload: { id: "b1", name: "x" } }, // не в AI-allowlist
+        { type: "setStyle", payload: null },                      // плохая форма
+        "garbage"
+    ]);
+    check("ai-validate: чужие/битые отсеяны, валидные оставлены", partial.ok === true && partial.commands.length === 1 && partial.rejected.length === 3 && partial.reason === "partial");
+
+    check("ai-validate: не массив → reject", C.validateAiCommands({}).ok === false);
+    check("ai-validate: пусто → reject", C.validateAiCommands([]).reason === "empty");
+    check("ai-validate: ни одной валидной → reject", C.validateAiCommands([{ type: "removeBlock", payload: [] }]).reason === "none-valid");
+    check("ai-validate: превышен лимит → reject", C.validateAiCommands([okList[0], okList[1], okList[0]], { max: 2 }).reason === "too-many");
+
+    // dry-run на клоне НЕ трогает исходный документ.
+    const doc = freshDoc();
+    const snapshot = JSON.stringify(doc);
+    const dry = C.dryRunAiCommands(doc, v.commands);
+    check("ai-dryrun: применилось 2", dry.applied === 2);
+    check("ai-dryrun: appliedCommands = реально применённые", dry.appliedCommands.length === 2 && dry.appliedCommands[0].type === "setContent");
+    check("ai-dryrun: затронуты b1 и b2", dry.affected.sort().join(",") === "b1,b2");
+    check("ai-dryrun: исходный документ не изменён", JSON.stringify(doc) === snapshot);
+    check("ai-dryrun: результат на клоне содержит правку", dry.result.pages[0].blocks[0].content.text === "Hello");
+
+    // no-op команда (битый payload внутри allowed type) даёт applied=0.
+    const noop = C.dryRunAiCommands(freshDoc(), [{ type: "setContent", payload: { id: "missing", field: "text", value: "x" } }]);
+    check("ai-dryrun: команда по несуществующему id — 0 применений", noop.applied === 0);
+}
+
 if (failed) {
     console.error("\nCOMMANDS-SELFTEST FAILED: " + failed);
     process.exit(1);

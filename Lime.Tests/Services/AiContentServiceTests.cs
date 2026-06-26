@@ -182,5 +182,142 @@ namespace Lime.Tests.Services
             Assert.Null(AiContentService.TryParseEditMap("[1,2,3]")); // массив — не объект патча
             Assert.Null(AiContentService.TryParseEditMap(""));
         }
+
+        // ===== Этап 10.2: AI отдаёт список команд =====
+        [Fact]
+        public void TryParseCommands_KeepsAllowedDropsRest()
+        {
+            var raw = @"{""commands"":[
+                {""type"":""setContent"",""payload"":{""id"":""b1"",""field"":""text"",""value"":""Привет""}},
+                {""type"":""setStyle"",""payload"":{""id"":""b2"",""prop"":""color"",""value"":""#f00""}},
+                {""type"":""renameNode"",""payload"":{""id"":""b1"",""name"":""x""}},
+                {""type"":""setContent"",""payload"":""нет объекта""},
+                {""type"":""evilEval"",""payload"":{}}
+            ]}";
+            var cmds = AiContentService.TryParseCommands(raw);
+            Assert.NotNull(cmds);
+            Assert.Equal(2, cmds.Count); // только setContent + setStyle
+            Assert.Equal("setContent", cmds[0]["type"].ToString());
+            Assert.Equal("b1", cmds[0]["payload"]["id"].ToString());
+        }
+
+        [Fact]
+        public void TryParseCommands_HandlesFenceBareArrayAndGarbage()
+        {
+            Assert.NotNull(AiContentService.TryParseCommands("```json\n{\"commands\":[]}\n```")); // пустой — валиден
+            Assert.Single(AiContentService.TryParseCommands(@"[{""type"":""removeBlock"",""payload"":{""id"":""b1""}}]"));
+            Assert.Null(AiContentService.TryParseCommands("это не json"));
+            Assert.Null(AiContentService.TryParseCommands(""));
+            Assert.Null(AiContentService.TryParseCommands(@"{""notcommands"":1}"));
+        }
+
+        [Fact]
+        public void TryParseCommands_EnforcesCountAndLength()
+        {
+            var many = string.Join(",", Enumerable.Repeat(@"{""type"":""removeBlock"",""payload"":{""id"":""b""}}", 60));
+            Assert.Equal(40, AiContentService.TryParseCommands($@"{{""commands"":[{many}]}}").Count);
+
+            var longVal = new string('я', 5000);
+            var capped = AiContentService.TryParseCommands(
+                $@"{{""commands"":[{{""type"":""setContent"",""payload"":{{""id"":""b1"",""field"":""text"",""value"":""{longVal}""}}}}]}}");
+            Assert.Equal(600, capped[0]["payload"]["value"].ToString().Length); // строка payload урезана
+        }
+
+        [Fact]
+        public async Task SuggestCommands_ParsesModelOutput()
+        {
+            var stub = new StubProvider(@"{""commands"":[{""type"":""setStyle"",""payload"":{""id"":""b1"",""prop"":""color"",""value"":""#0f0""}}]}");
+            var svc = new AiContentService(stub);
+            var json = await svc.SuggestCommandsAsync(@"{""blocks"":[{""id"":""b1""}]}", "сделай зелёным", 4000);
+            var arr = JArray.Parse(json);
+            Assert.Single(arr);
+            Assert.Equal("setStyle", arr[0]["type"].ToString());
+            Assert.Contains("сделай зелёным", stub.LastUser);
+        }
+
+        [Fact]
+        public async Task SuggestCommands_EmptyListIsValid()
+        {
+            var svc = new AiContentService(new StubProvider(@"{""commands"":[]}"));
+            var json = await svc.SuggestCommandsAsync("{}", "ничего", 4000);
+            Assert.Equal("[]", json.Replace(" ", ""));
+        }
+
+        [Fact]
+        public async Task SuggestCommands_GarbageThrows()
+        {
+            var svc = new AiContentService(new StubProvider("совсем не json"));
+            await Assert.ThrowsAsync<FormatException>(() => svc.SuggestCommandsAsync("{}", "правка", 4000));
+        }
+
+        // ===== Этап 10.4: insertBlock несёт целую секцию — структура валидируется whitelist'ом =====
+        [Fact]
+        public void TryParseCommands_InsertBlock_KeepsCleanSectionDropsEvil()
+        {
+            var raw = @"{""commands"":[
+                {""type"":""insertBlock"",""payload"":{""block"":{""type"":""cta"",""content"":{""title"":""Готовы?"",""btn"":""Начать"",""onclick"":""alert(1)""}}}},
+                {""type"":""insertBlock"",""payload"":{""block"":{""type"":""script"",""content"":{""src"":""evil.js""}}}},
+                {""type"":""insertBlock"",""payload"":{""nothing"":1}}
+            ]}";
+            var cmds = AiContentService.TryParseCommands(raw);
+            Assert.Single(cmds); // только валидная cta-секция
+            var block = (JObject)cmds[0]["payload"]["block"];
+            Assert.Equal("cta", block["type"].ToString());
+            Assert.Equal("Готовы?", block["content"]["title"].ToString());
+            Assert.Null(block["content"]["onclick"]); // чужое поле вырезано
+        }
+
+        [Fact]
+        public void CleanBlock_WhitelistsTypeAndFields()
+        {
+            Assert.Null(AiContentService.CleanBlock(JObject.Parse(@"{""type"":""iframe"",""content"":{""src"":""x""}}")));
+            Assert.Null(AiContentService.CleanBlock(JObject.Parse(@"{""type"":""text"",""content"":{}}"))); // пустой текст
+            var feat = AiContentService.CleanBlock(JObject.Parse(@"{""type"":""features"",""content"":{""items"":[{""title"":""A"",""desc"":""B""}]}}"));
+            Assert.NotNull(feat);
+            Assert.Single((JArray)feat["content"]["items"]);
+        }
+
+        // ===== Этап 10.5: Responsive-AI «адаптировать мобилку» — фильтр защищает десктоп =====
+        [Fact]
+        public void FilterResponsiveCommands_KeepsOnlyTargetBreakpointStyleAndDesign()
+        {
+            var cmds = AiContentService.TryParseCommands(@"{""commands"":[
+                {""type"":""setStyle"",""payload"":{""id"":""b1"",""prop"":""font-size"",""value"":""20px"",""breakpoint"":""mobile""}},
+                {""type"":""setDesign"",""payload"":{""id"":""b1"",""breakpoint"":""mobile"",""field"":""layout"",""value"":{}}},
+                {""type"":""setStyle"",""payload"":{""id"":""b1"",""prop"":""color"",""value"":""#f00"",""breakpoint"":""base""}},
+                {""type"":""setStyle"",""payload"":{""id"":""b1"",""prop"":""color"",""value"":""#0f0""}},
+                {""type"":""setContent"",""payload"":{""id"":""b1"",""field"":""text"",""value"":""нет""}},
+                {""type"":""removeBlock"",""payload"":{""id"":""b1""}}
+            ]}");
+            var mobile = AiContentService.FilterResponsiveCommands(cmds, "mobile");
+            Assert.Equal(2, mobile.Count); // только mobile setStyle + setDesign; base/без-bp/content/remove отброшены
+            Assert.All(mobile, c => Assert.Equal("mobile", c["payload"]["breakpoint"].ToString()));
+        }
+
+        [Fact]
+        public void FilterResponsiveCommands_RejectsBaseAndUnknownBreakpoint()
+        {
+            var cmds = AiContentService.TryParseCommands(@"{""commands"":[{""type"":""setStyle"",""payload"":{""id"":""b1"",""prop"":""color"",""value"":""#f00"",""breakpoint"":""mobile""}}]}");
+            Assert.Empty(AiContentService.FilterResponsiveCommands(cmds, "base"));
+            Assert.Empty(AiContentService.FilterResponsiveCommands(cmds, "desktop"));
+            Assert.Empty(AiContentService.FilterResponsiveCommands(null, "mobile"));
+        }
+
+        [Fact]
+        public async Task SuggestResponsive_FiltersModelOutputToBreakpoint()
+        {
+            // Модель «промахнулась» и вернула в т.ч. правку десктопа и контента — должны выжить только mobile-стили.
+            var stub = new StubProvider(@"{""commands"":[
+                {""type"":""setStyle"",""payload"":{""id"":""b1"",""prop"":""font-size"",""value"":""18px"",""breakpoint"":""mobile""}},
+                {""type"":""setStyle"",""payload"":{""id"":""b1"",""prop"":""font-size"",""value"":""40px"",""breakpoint"":""base""}},
+                {""type"":""setContent"",""payload"":{""id"":""b1"",""field"":""text"",""value"":""смена текста""}}
+            ]}");
+            var svc = new AiContentService(stub);
+            var json = await svc.SuggestResponsiveAsync(@"{""block"":{""id"":""b1""}}", "адаптируй", "mobile", 4000);
+            var arr = JArray.Parse(json);
+            Assert.Single(arr);
+            Assert.Equal("mobile", arr[0]["payload"]["breakpoint"].ToString());
+            Assert.Equal("18px", arr[0]["payload"]["value"].ToString());
+        }
     }
 }

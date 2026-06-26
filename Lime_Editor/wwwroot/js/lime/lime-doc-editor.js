@@ -15,6 +15,7 @@
     var ws = document.getElementById("lime-doc-workspace");
     if (!ws) return;
     var inspectorEl = document.getElementById("lime-doc-inspector");
+    var editorRoot = document.querySelector(".lime-editor");
     var saveBtn = document.querySelector("[data-doc-save]");
     var siteId = saveBtn ? (saveBtn.dataset.siteId || "") : "";
     var refreshV2SelectionOverlay = function () {};
@@ -252,11 +253,12 @@
     var hist = [];
     var histPos = -1;
 
-    // Editor V2 (этап D2): за флагом ?cmd=1 (или window.__LIME_CMD__) бэкендом истории становится
-    // lime-commands. Переведённые мутации пишут точечные op-записи, остальные продолжают писать
-    // state-чекпоинты в тот же стек. Флаг OFF по умолчанию → старое поведение не меняется.
-    var cmdOn = (/[?&]cmd=1\b/.test(location.search) || window.__LIME_CMD__) && !!window.LimeCommands;
-    var canvasOn = /[?&]canvas=1\b/.test(location.search);
+    // Раскатка Editor V2 (этап «релиз»): новый редактор (command-history + canvas) включён ПО
+    // УМОЛЧАНИЮ (сервер-конфиг Editor:V2Default → window.__LIME_V2_DEFAULT__). Старый редактор —
+    // fallback по ?classic=1. Явные ?cmd=1/?canvas=1 по-прежнему форсят V2 (для тестов/ссылок).
+    var v2Default = window.__LIME_V2_DEFAULT__ !== false && !/[?&]classic=1\b/.test(location.search);
+    var cmdOn = !/[?&]cmd=0\b/.test(location.search) && (/[?&]cmd=1\b/.test(location.search) || window.__LIME_CMD__ || v2Default) && !!window.LimeCommands;
+    var canvasOn = !/[?&]canvas=0\b/.test(location.search) && (/[?&]canvas=1\b/.test(location.search) || v2Default);
     var cmdStore = cmdOn ? window.LimeCommands.createStore(doc) : null;
 
     // ===== Stage 7 perf-инструмент (за ?perf=1, иначе ноль стоимости) =====
@@ -1769,6 +1771,8 @@
         if (nested) items.push({ op: "unwrap", label: "⬅ Вынести наружу" });
         items.push({ sep: true });
         items.push({ op: "aiedit", label: "✨ AI: переписать" });
+        items.push({ op: "aisuggest", label: "✦ AI: изменить по описанию" });
+        items.push({ op: "aimobile", label: "📱 AI: адаптировать мобилку" });
         items.push({ sep: true });
         items.push({ op: "del", label: "✕ Удалить", danger: true, hint: "Del" });
 
@@ -1802,6 +1806,8 @@
         else if (op === "copy") copyBlock();
         else if (op === "paste") pasteBlock();
         else if (op === "aiedit") aiEditBlock();
+        else if (op === "aisuggest") aiSuggest();
+        else if (op === "aimobile") aiAdaptMobile();
         else if (op === "up") moveBlock(-1);
         else if (op === "down") moveBlock(1);
         else if (op === "unwrap") unwrapBlock();
@@ -2085,14 +2091,15 @@
 
     // ===== BREAKPOINTS =====
     var bpBtns = document.querySelectorAll("[data-doc-bp]");
+    function switchBreakpoint(bp) {
+        currentBp = bp;
+        for (var k = 0; k < bpBtns.length; k++) bpBtns[k].classList.toggle("is-active", bpBtns[k].dataset.docBp === bp);
+        ws.setAttribute("data-device", bp === "base" ? "desktop" : bp);
+        applyPreviewStyles();
+        refreshInspector();
+    }
     for (var bp = 0; bp < bpBtns.length; bp++) {
-        bpBtns[bp].addEventListener("click", function () {
-            currentBp = this.dataset.docBp;
-            for (var k = 0; k < bpBtns.length; k++) bpBtns[k].classList.toggle("is-active", bpBtns[k] === this);
-            ws.setAttribute("data-device", currentBp === "base" ? "desktop" : currentBp);
-            applyPreviewStyles();
-            refreshInspector();
-        });
+        bpBtns[bp].addEventListener("click", function () { switchBreakpoint(this.dataset.docBp); });
     }
 
     // «▶ Превью» — одноразово проигрывает анимации появления в холсте (LimeAnim.play).
@@ -2784,6 +2791,9 @@
     function refreshInspector() {
         if (!inspectorEl) return;
         var b = selectedId ? byId(selectedId) : null;
+        // Calm Canvas: в V2 инспектор скрыт, пока ничего не выбрано — холст шире, меньше шума.
+        // В legacy (?classic=1) инспектор остаётся постоянным.
+        if (editorRoot && canvasOn) editorRoot.classList.toggle("no-inspector", !b);
         if (!b) {
             inspectorEl.innerHTML = '<div class="lime-inspector__empty">Выбери блок в холсте, чтобы редактировать его стили.</div>';
             return;
@@ -4415,6 +4425,148 @@
         xhr.onerror = function () { leStatus("", { hide: true }); alert("Сетевая ошибка."); };
         xhr.send(form);
     }
+    // ===== AI COMMAND PIPELINE (этап 10.1): безопасное применение списка команд =====
+    // AI отдаёт список команд → валидируем (allowlist/лимит/форма) → dry-run на клоне для preview →
+    // показываем, что изменится, и применяем ОДНОЙ undo-транзакцией только по подтверждению.
+    // Инвариант: невалидный или неподтверждённый ответ не трогает сохранённый документ.
+    var aiPreviewBar = null;
+    function clearAiHighlight() {
+        var hi = ws.querySelectorAll(".lime-ai-affected");
+        for (var i = 0; i < hi.length; i++) hi[i].classList.remove("lime-ai-affected");
+    }
+    function closeAiPreview() {
+        clearAiHighlight();
+        if (aiPreviewBar) { aiPreviewBar.remove(); aiPreviewBar = null; }
+    }
+    // rawList — массив { type, payload }. Возвращает строку-причину при отказе либо null при успехе.
+    function applyAiCommands(rawList) {
+        if (!cmdStore || !window.LimeCommands) return "no-cmd";
+        var v = window.LimeCommands.validateAiCommands(rawList, { max: 40 });
+        if (!v.ok) { leToastMsg("AI прислал некорректную правку — ничего не менял."); return v.reason; }
+        // Новым секциям (insertBlock) выдаём свежие id — чтобы блок был уникален и выбираем
+        // (этап 10.4). reid рекурсивно и для детей.
+        v.commands.forEach(function (c) {
+            if (c.type === "insertBlock" && c.payload && c.payload.block) reid(c.payload.block);
+        });
+        var dry = window.LimeCommands.dryRunAiCommands(doc, v.commands);
+        if (!dry.applied) { leToastMsg("AI не нашёл, что изменить."); return "no-change"; }
+
+        closeAiPreview();
+        // Подсветка затронутых блоков — лёгкий preview-дифф без мутации документа.
+        dry.affected.forEach(function (id) {
+            var el = ws.querySelector('[data-block-id="' + id + '"]');
+            if (el) el.classList.add("lime-ai-affected");
+        });
+        var changes = dry.appliedCommands.map(describeAiChange);
+        var SHOWN = 6;
+        var listHtml = '<ul class="lime-ai-preview__list" data-ai-list>' +
+            changes.slice(0, SHOWN).map(function (ch) {
+                return '<li><span class="lime-ai-preview__where">' + escapeText(ch.where) + '</span> ' + escapeText(ch.what) + '</li>';
+            }).join("") +
+            (changes.length > SHOWN ? '<li class="lime-ai-preview__more">…и ещё ' + (changes.length - SHOWN) + '</li>' : '') +
+            '</ul>';
+        aiPreviewBar = document.createElement("div");
+        aiPreviewBar.className = "lime-ai-preview";
+        aiPreviewBar.setAttribute("data-doc-ai-preview", "");
+        aiPreviewBar.setAttribute("role", "alertdialog");
+        aiPreviewBar.setAttribute("aria-label", "Предпросмотр правки AI");
+        var word = dry.applied === 1 ? "изменение" : (dry.applied < 5 ? "изменения" : "изменений");
+        aiPreviewBar.innerHTML =
+            '<div class="lime-ai-preview__head"><span class="lime-ai-preview__text">AI предлагает <b data-ai-count>' + dry.applied + '</b> ' + word +
+            (v.rejected.length ? ' (' + v.rejected.length + ' отклонено)' : '') + '</span></div>' +
+            listHtml +
+            '<div class="lime-ai-preview__actions">' +
+                '<button type="button" class="lime-btn lime-btn--ghost lime-btn--sm" data-ai-cancel>Отменить</button>' +
+                '<button type="button" class="lime-btn lime-btn--primary lime-btn--sm" data-ai-apply>Применить</button>' +
+            '</div>';
+        document.body.appendChild(aiPreviewBar);
+        aiPreviewBar.querySelector("[data-ai-apply]").addEventListener("click", function () {
+            // Применяем только реально изменяющие команды одной транзакцией → один undo. Документ
+            // меняется только здесь, после явного подтверждения.
+            runCommands(dry.appliedCommands, "ai-edit");
+            closeAiPreview();
+            render();
+            scheduleAutosave();
+            leToastMsg("Готово. Ctrl+Z отменит правку.");
+        });
+        aiPreviewBar.querySelector("[data-ai-cancel]").addEventListener("click", closeAiPreview);
+        return null;
+    }
+    // Человекочитаемое описание одной команды для diff-списка preview: где (блок) и что меняется.
+    function describeAiChange(c) {
+        var p = c.payload || {};
+        var b = (p.id && byId(p.id)) || (p.parentId && byId(p.parentId));
+        var where = b ? blockLabel(b) : "страница";
+        var what;
+        if (c.type === "setContent") what = "текст «" + (p.field || "") + "» → «" + aiTrunc(p.value) + "»";
+        else if (c.type === "setStyle") what = (p.prop || "стиль") + ": " + aiTrunc(p.value) + aiBpSuffix(p.breakpoint);
+        else if (c.type === "setDesign") what = "раскладка: " + (p.field || "") + aiBpSuffix(p.breakpoint);
+        else if (c.type === "setBlockProp") what = "свойство: " + (p.prop || "");
+        else if (c.type === "insertBlock") what = "добавить блок" + (p.block && p.block.type ? " (" + p.block.type + ")" : "");
+        else if (c.type === "removeBlock") what = "удалить блок";
+        else what = "переместить";
+        return { where: where, what: what };
+    }
+    function aiTrunc(v) {
+        var s = v == null ? "" : String(v);
+        return s.length > 40 ? s.slice(0, 40) + "…" : s;
+    }
+    function aiBpSuffix(bp) { return bp && bp !== "base" ? " (" + bp + ")" : ""; }
+    function leToastMsg(text) {
+        var t = document.getElementById("lime-doc-le-toast");
+        if (!t) return;
+        t.innerHTML = "<b>" + escapeText(text) + "</b>";
+        t.classList.add("is-on");
+        setTimeout(function () { t.classList.remove("is-on"); }, 3200);
+    }
+    // Правка выбранного блока по описанию через серверный LLM→команды (этап 10.2).
+    // Контекст (поддерево + тема) уходит на /Ai/Suggest; ответ-команды идут в applyAiCommands
+    // (валидация + preview + один undo). Живой LLM не тестируется e2e — каждое звено покрыто
+    // отдельно (серверный парсер xUnit, applyAiCommands Playwright 10.1).
+    function aiSuggest(blockId, opts) {
+        opts = opts || {};
+        if (!cmdStore) { alert("AI-правки доступны в режиме команд."); return; }
+        var r = findBlock(blockId || selectedId);
+        if (!r) { alert("Сначала выбери блок."); return; }
+        var t = targetBlock(r.block);
+        var ctx = JSON.stringify({
+            theme: { accent: doc.theme && doc.theme.accent, bg: doc.theme && doc.theme.bg, fg: doc.theme && doc.theme.fg },
+            block: { id: r.block.id, type: t.type, content: t.content, styles: t.styles, design: t.design, children: t.children }
+        });
+        if (ctx.length > 18000) { alert("Секция слишком большая для AI-правки за один раз. Выбери блок поменьше."); return; }
+        var instruction = opts.instruction || prompt("Что изменить в этом блоке? (напр. «сделай заголовок крупнее и ярче», «убери лишний абзац»)", "");
+        if (!instruction) return;
+        var form = new FormData();
+        form.append("context", ctx);
+        form.append("instruction", instruction);
+        if (opts.breakpoint) form.append("breakpoint", opts.breakpoint); // Responsive-AI (этап 10.5)
+        leStatus(opts.breakpoint ? "AI адаптирует под мобильные…" : "AI готовит правки…");
+        fetch("/Ai/Suggest", { method: "POST", headers: { "X-CSRF-TOKEN": csrfToken() }, body: form, credentials: "same-origin" })
+            .then(function (resp) { return resp.json().then(function (j) { return { status: resp.status, j: j }; }); })
+            .then(function (res) {
+                leStatus("", { hide: true });
+                if (res.status >= 200 && res.status < 300 && res.j && res.j.commands) {
+                    if (!res.j.commands.length) { leToastMsg("AI не нашёл, что изменить."); return; }
+                    applyAiCommands(res.j.commands);
+                } else {
+                    alert(res.status === 429 ? "Лимит AI-правок исчерпан в этом месяце." :
+                        res.status === 503 ? "AI не настроен на сервере." : "Не получилось подготовить правку. Попробуй ещё раз.");
+                }
+            })
+            .catch(function () { leStatus("", { hide: true }); alert("Сетевая ошибка."); });
+    }
+    // Responsive-AI «адаптировать мобилку» (этап 10.5): переключаемся на mobile (чтобы видеть результат)
+    // и просим адаптацию — сервер вернёт только setStyle/setDesign на breakpoint=mobile, десктоп не тронут.
+    function aiAdaptMobile(blockId) {
+        switchBreakpoint("mobile");
+        aiSuggest(blockId, {
+            breakpoint: "mobile",
+            instruction: "Адаптируй этот блок под мобильный экран: уменьши крупные шрифты, поправь отступы и переносы, при необходимости сложи элементы в столбец, чтобы ничего не вылезало за края. Тексты и десктоп не меняй."
+        });
+    }
+    // Тест/интеграционный шов: даёт скормить список команд (как от LLM) без живого AI-вызова.
+    window.__LIME_AI__ = { apply: applyAiCommands, suggest: aiSuggest, adaptMobile: aiAdaptMobile };
+
     var aiOpenBtn = document.querySelector("[data-doc-ai-open]");
     if (aiOpenBtn) aiOpenBtn.addEventListener("click", aiOpen);
     document.addEventListener("click", function (e) {
@@ -4484,6 +4636,33 @@
         fontSel.value = themeFont;
         fontSel.addEventListener("input", function () { beginCheckpointMutation(); doc.theme.font = fontSel.value; render(); markDirty(); });
     }
+    // ===== Топбар: overflow-меню «⋯» (Calm Canvas) =====
+    // Вторичные действия (AI/Тема/Код/Превью) убраны из постоянного хрома в выпадашку.
+    // Кнопки сохранили свои data-doc-* хуки — обработчики ниже находят их querySelector'ом.
+    (function () {
+        var more = document.querySelector("[data-topbar-more]");
+        if (!more) return;
+        var toggle = more.querySelector("[data-topbar-more-toggle]");
+        var menu = more.querySelector(".lime-topbar-more__menu");
+        if (!toggle || !menu) return;
+        function setOpen(open) {
+            menu.hidden = !open;
+            toggle.setAttribute("aria-expanded", open ? "true" : "false");
+        }
+        toggle.addEventListener("click", function (e) {
+            e.stopPropagation();
+            setOpen(menu.hidden);
+        });
+        // Клик по пункту выполняет действие (его навешенный обработчик) и закрывает меню.
+        menu.addEventListener("click", function () { setOpen(false); });
+        document.addEventListener("click", function (e) {
+            if (!menu.hidden && !more.contains(e.target)) setOpen(false);
+        });
+        document.addEventListener("keydown", function (e) {
+            if (e.key === "Escape" && !menu.hidden) { setOpen(false); toggle.focus(); }
+        });
+    })();
+
     var themeOpen = document.querySelector("[data-doc-theme-open]");
     var themeModal = document.getElementById("lime-doc-theme-modal");
     if (themeOpen && themeModal) {

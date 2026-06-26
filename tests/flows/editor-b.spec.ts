@@ -9,7 +9,8 @@ const topBlocks = "#lime-doc-workspace .lime-doc-page > .lime-block";
 const nestedBlocks = "#lime-doc-workspace .lime-block .lime-block";
 
 test("editor-v2 D2: command flag keeps structural and checkpoint history coherent (@flow)", async ({ page }) => {
-  await page.goto("/Home/EditDoc?cmd=1");
+  // cmd-only on-ramp (без canvas) — исходный режим D2; canvas=0 отключает V2-вьюпорт при дефолте-ON.
+  await page.goto("/Home/EditDoc?cmd=1&canvas=0");
   await expect(page.locator("#lime-doc-workspace")).toBeVisible();
 
   // Структурные правки уже идут точечными командами.
@@ -568,6 +569,121 @@ test("editor-v2 Stage 9.6: layers tree is an accessible, keyboard-navigable tree
   await expect(page.locator("#lime-canvas-viewport")).toHaveAttribute("aria-label", "Холст редактора");
 });
 
+test("editor-v2 Stage 10.1: AI command pipeline previews, applies as one undo, rejects garbage (@flow)", async ({ page }) => {
+  await page.goto("/Home/EditDoc?canvas=1&cmd=1");
+  if (await page.locator("#lime-doc-intro-skip").isVisible()) await page.locator("#lime-doc-intro-skip").click();
+
+  await page.locator('[data-doc-add="heading"]').click();
+  const heading = page.locator(topBlocks).first();
+  const id = await heading.getAttribute("data-block-id");
+  expect(id).toBeTruthy();
+
+  const cmds = [
+    { type: "setContent", payload: { id, field: "text", value: "ИИ-заголовок" } },
+    { type: "setStyle", payload: { id, prop: "color", value: "rgb(200, 0, 0)" } }
+  ];
+
+  // Применение показывает preview, но НЕ трогает документ до подтверждения.
+  await page.evaluate(list => (window as any).__LIME_AI__.apply(list), cmds);
+  const bar = page.locator("[data-doc-ai-preview]");
+  await expect(bar).toBeVisible();
+  await expect(bar.locator("[data-ai-count]")).toHaveText("2");
+  await expect(page.locator(".lime-ai-affected")).toHaveCount(1);
+  await expect(heading).not.toContainText("ИИ-заголовок");
+
+  await bar.locator("[data-ai-apply]").click();
+  await expect(page.locator("[data-doc-ai-preview]")).toHaveCount(0);
+  await expect(page.locator(".lime-ai-affected")).toHaveCount(0);
+  await expect(heading).toContainText("ИИ-заголовок");
+
+  // Один undo откатывает всю AI-правку.
+  await page.locator("[data-doc-undo]").click();
+  await expect(page.locator(topBlocks).first()).not.toContainText("ИИ-заголовок");
+
+  // Мусорный/чужой список отклоняется без preview и без мутации.
+  const reason = await page.evaluate(() =>
+    (window as any).__LIME_AI__.apply([{ type: "renameNode", payload: { id: "x", name: "y" } }]));
+  expect(reason).toBe("none-valid");
+  await expect(page.locator("[data-doc-ai-preview]")).toHaveCount(0);
+
+  // Отмена preview не меняет документ.
+  await page.evaluate(list => (window as any).__LIME_AI__.apply(list), cmds);
+  await expect(page.locator("[data-doc-ai-preview]")).toBeVisible();
+  await page.locator("[data-doc-ai-preview] [data-ai-cancel]").click();
+  await expect(page.locator("[data-doc-ai-preview]")).toHaveCount(0);
+  await expect(page.locator(topBlocks).first()).not.toContainText("ИИ-заголовок");
+});
+
+test("editor-v2 Stage 10.3: AI preview lists each pending change (@flow)", async ({ page }) => {
+  await page.goto("/Home/EditDoc?canvas=1&cmd=1");
+  if (await page.locator("#lime-doc-intro-skip").isVisible()) await page.locator("#lime-doc-intro-skip").click();
+
+  await page.locator('[data-doc-add="heading"]').click();
+  const id = await page.locator(topBlocks).first().getAttribute("data-block-id");
+
+  await page.evaluate(blockId => (window as any).__LIME_AI__.apply([
+    { type: "setContent", payload: { id: blockId, field: "text", value: "Новый текст AI" } },
+    { type: "setStyle", payload: { id: blockId, prop: "color", value: "#ff0000" } },
+    { type: "setStyle", payload: { id: "не-существует", prop: "color", value: "#000" } } // no-op
+  ]), id);
+
+  const bar = page.locator("[data-doc-ai-preview]");
+  await expect(bar).toBeVisible();
+  // Счётчик и список показывают только реально применимые правки (no-op исключён).
+  await expect(bar.locator("[data-ai-count]")).toHaveText("2");
+  const items = bar.locator("[data-ai-list] > li");
+  await expect(items).toHaveCount(2);
+  await expect(items.nth(0)).toContainText("Новый текст AI");
+  await expect(items.nth(1)).toContainText("color");
+
+  await bar.locator("[data-ai-apply]").click();
+  await expect(page.locator("[data-doc-ai-preview]")).toHaveCount(0);
+  await expect(page.locator(topBlocks).first()).toContainText("Новый текст AI");
+});
+
+test("editor-v2 Stage 10.4: AI can insert a whole section as one undo (@flow)", async ({ page }) => {
+  await page.goto("/Home/EditDoc?canvas=1&cmd=1");
+  if (await page.locator("#lime-doc-intro-skip").isVisible()) await page.locator("#lime-doc-intro-skip").click();
+
+  await page.locator('[data-doc-add="heading"]').click();
+  await expect(page.locator(topBlocks)).toHaveCount(1);
+
+  // AI предлагает добавить целую секцию через insertBlock.
+  await page.evaluate(() => (window as any).__LIME_AI__.apply([
+    { type: "insertBlock", payload: { block: { type: "cta", content: { title: "AI секция", btn: "Жми" } } } }
+  ]));
+  const bar = page.locator("[data-doc-ai-preview]");
+  await expect(bar).toBeVisible();
+  await expect(bar.locator("[data-ai-list] > li")).toContainText("добавить блок");
+
+  await bar.locator("[data-ai-apply]").click();
+  await expect(page.locator(topBlocks)).toHaveCount(2); // секция добавлена в конец страницы
+  await expect(page.locator(topBlocks).last()).toContainText("AI секция");
+
+  await page.locator("[data-doc-undo]").click(); // вставка секции — один undo
+  await expect(page.locator(topBlocks)).toHaveCount(1);
+});
+
+test("editor-v2 Stage 10.5: responsive AI edits are labelled and apply to mobile only (@flow)", async ({ page }) => {
+  await page.goto("/Home/EditDoc?canvas=1&cmd=1");
+  if (await page.locator("#lime-doc-intro-skip").isVisible()) await page.locator("#lime-doc-intro-skip").click();
+
+  await page.locator('[data-doc-add="heading"]').click();
+  const id = await page.locator(topBlocks).first().getAttribute("data-block-id");
+
+  // Адаптация мобилки = setStyle на breakpoint=mobile; diff помечает «(mobile)».
+  await page.evaluate(blockId => (window as any).__LIME_AI__.apply([
+    { type: "setStyle", payload: { id: blockId, prop: "font-size", value: "18px", breakpoint: "mobile" } }
+  ]), id);
+  const bar = page.locator("[data-doc-ai-preview]");
+  await expect(bar).toBeVisible();
+  await expect(bar.locator("[data-ai-list] > li")).toContainText("(mobile)");
+
+  await bar.locator("[data-ai-apply]").click();
+  await expect(page.locator("[data-doc-ai-preview]")).toHaveCount(0);
+  await expect(page.locator(topBlocks)).toHaveCount(1); // блок на месте, mobile-правка применена
+});
+
 test("editor-v2 Stage 4: stack inspector controls layout and responsive override (@flow)", async ({ page }) => {
   await page.goto("/Home/EditDoc?canvas=1&cmd=1");
   if (await page.locator("#lime-doc-intro-skip").isVisible()) await page.locator("#lime-doc-intro-skip").click();
@@ -899,7 +1015,7 @@ test("editor-v2 Stage 6.3: component variants reuse instance snapshots (@flow)",
 test("editor-v2 Stage 6.5: component media override stays local (@flow)", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1400 });
   // Без ?canvas=1: кликаем РЕАЛЬНЫЕ canvas-кнопки (video placeholder) — без canvas-overlay они доступны.
-  await page.goto("/Home/EditDoc?cmd=1");
+  await page.goto("/Home/EditDoc?cmd=1&canvas=0");
   if (await page.locator("#lime-doc-intro-skip").isVisible()) await page.locator("#lime-doc-intro-skip").click();
   // Медиа-тайлы лежат в свёрнутых <details>.lime-tile-group — раскрываем, иначе тайл не кликается.
   await page.evaluate(() => document.querySelectorAll(".lime-tile-group").forEach((d: any) => { d.open = true; }));
@@ -1047,7 +1163,7 @@ test("editor-v2 Stage 6.8: component property edits stay local (@flow)", async (
 test("editor-v2 Stage 7: content edit patches only the affected node (@flow)", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1400 });
   // Без ?canvas=1: кликаем реальную canvas-кнопку (video placeholder) — без overlay она доступна.
-  await page.goto("/Home/EditDoc?cmd=1");
+  await page.goto("/Home/EditDoc?cmd=1&canvas=0");
   if (await page.locator("#lime-doc-intro-skip").isVisible()) await page.locator("#lime-doc-intro-skip").click();
   // Медиа-тайлы в свёрнутых <details>.lime-tile-group — раскрываем для кликабельности.
   await page.evaluate(() => document.querySelectorAll(".lime-tile-group").forEach((d: any) => { d.open = true; }));
@@ -1433,8 +1549,22 @@ test("editor-v2 Stage 6.1: group and ungroup siblings through command history (@
   await expect(page.locator(topBlocks).first()).toHaveAttribute("data-block-type", "group");
 });
 
-test("editor-b: blocks + container nesting + undo + save/reopen (@flow)", async ({ page }) => {
+test("editor-v2 rollout: new editor is default, ?classic=1 falls back (@flow)", async ({ page }) => {
+  // Раскатка: плоский /Home/EditDoc грузит Editor V2 (канвас-контролы видны).
   await page.goto("/Home/EditDoc");
+  if (await page.locator("#lime-doc-intro-skip").isVisible()) await page.locator("#lime-doc-intro-skip").click();
+  await expect(page.locator("[data-canvas-controls]")).toBeVisible();
+  await expect(page.locator(".lime-editor__canvas.is-v2-viewport")).toHaveCount(1);
+
+  // ?classic=1 возвращает старый редактор (канвас-контролы скрыты, нет V2-вьюпорта).
+  await page.goto("/Home/EditDoc?classic=1");
+  if (await page.locator("#lime-doc-intro-skip").isVisible()) await page.locator("#lime-doc-intro-skip").click();
+  await expect(page.locator("[data-canvas-controls]")).toBeHidden();
+  await expect(page.locator(".lime-editor__canvas.is-v2-viewport")).toHaveCount(0);
+});
+
+test("editor-b: blocks + container nesting + undo + save/reopen (@flow)", async ({ page }) => {
+  await page.goto("/Home/EditDoc?classic=1");
   await expect(page.locator("#lime-doc-workspace")).toBeVisible();
   await expect(page.locator(".lime-workspace__placeholder")).toBeVisible();
 
@@ -1476,7 +1606,7 @@ test("editor-b: blocks + container nesting + undo + save/reopen (@flow)", async 
 });
 
 test("editor-b: breakpoint switcher changes preview device (@flow)", async ({ page }) => {
-  await page.goto("/Home/EditDoc");
+  await page.goto("/Home/EditDoc?classic=1");
   await page.locator('[data-doc-add="heading"]').click();
 
   await page.locator('[data-doc-bp="mobile"]').click();
@@ -1486,7 +1616,9 @@ test("editor-b: breakpoint switcher changes preview device (@flow)", async ({ pa
 });
 
 test("editor-b: AI modal opens and reports quota/config status (@flow)", async ({ page }) => {
-  await page.goto("/Home/EditDoc");
+  await page.goto("/Home/EditDoc?classic=1");
+  // Calm Canvas: «AI заново» теперь в overflow-меню «⋯» — сначала раскрываем его.
+  await page.locator("[data-topbar-more-toggle]").click();
   await page.locator("[data-doc-ai-open]").click();
   await expect(page.locator("#lime-doc-ai-modal")).toHaveClass(/is-open/);
   // Статус заполняется ответом /Ai/Quota: либо остаток квоты, либо «не настроен» —
@@ -1497,7 +1629,7 @@ test("editor-b: AI modal opens and reports quota/config status (@flow)", async (
 });
 
 test("editor-b: media block shows picker placeholder (@flow)", async ({ page }) => {
-  await page.goto("/Home/EditDoc");
+  await page.goto("/Home/EditDoc?classic=1");
   await page.locator('[data-doc-add="image"]').click();
   // Пустой image-блок рендерит кликабельный плейсхолдер выбора изображения
   await expect(page.locator("[data-doc-pick]")).toBeVisible();

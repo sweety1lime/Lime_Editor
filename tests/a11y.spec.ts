@@ -14,8 +14,9 @@ const PAGES = [
   { name: "mysites", path: "/Home/MySites" },
   { name: "templates", path: "/Home/Templates" },
   { name: "profile", path: "/Home/Profile" },
-  { name: "editor", path: "/Home/EditDoc" },
-  { name: "editor-b", path: "/Home/EditDoc" },
+  // Editor V2 — дефолт после раскатки; axe здесь проверяет старый редактор (fallback по ?classic=1).
+  { name: "editor", path: "/Home/EditDoc?classic=1" },
+  { name: "editor-b", path: "/Home/EditDoc?classic=1" },
   { name: "community", path: "/Community/Index" },
   { name: "media", path: "/Media/Index" },
 ];

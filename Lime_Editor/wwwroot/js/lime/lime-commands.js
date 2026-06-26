@@ -466,6 +466,51 @@
         }
     };
 
+    // ===== AI command pipeline (этап 10.1) =====
+    // AI отдаёт список команд; применяем только разрешённый безопасный поднабор. Per-команда
+    // payload всё равно валидируется builder'ом (невалид → no-op), но allowlist + лимит + проверка
+    // формы отсекают мусор/опасное ДО применения, чтобы некорректный ответ не портил документ.
+    var AI_ALLOWED = {
+        setStyle: 1, setContent: 1, setDesign: 1, setBlockProp: 1,
+        insertBlock: 1, removeBlock: 1, reorderBlock: 1, moveBlock: 1
+    };
+    function validateAiCommands(list, opts) {
+        opts = opts || {};
+        var max = opts.max || 50;
+        if (!Array.isArray(list)) return { ok: false, reason: "not-array", commands: [], rejected: [] };
+        if (!list.length) return { ok: false, reason: "empty", commands: [], rejected: [] };
+        if (list.length > max) return { ok: false, reason: "too-many", commands: [], rejected: [] };
+        var commands = [], rejected = [];
+        for (var i = 0; i < list.length; i++) {
+            var item = list[i];
+            if (!item || typeof item !== "object" || !AI_ALLOWED[item.type] ||
+                typeof item.payload !== "object" || item.payload == null || Array.isArray(item.payload)) {
+                rejected.push(item);
+                continue;
+            }
+            commands.push({ type: item.type, payload: item.payload });
+        }
+        if (!commands.length) return { ok: false, reason: "none-valid", commands: [], rejected: rejected };
+        return { ok: true, reason: rejected.length ? "partial" : "ok", commands: commands, rejected: rejected };
+    }
+    // Сухой прогон валидированных команд на КЛОНЕ документа: сколько реально применится и какие
+    // блоки затронуты — для preview-диффа без мутации настоящего документа.
+    function dryRunAiCommands(doc, commands) {
+        var clone = JSON.parse(JSON.stringify(doc || {}));
+        var store = createStore(clone);
+        var appliedCommands = [], affected = {};
+        for (var i = 0; i < commands.length; i++) {
+            if (store.dispatch(commands[i].type, commands[i].payload)) {
+                appliedCommands.push(commands[i]);
+                var p = commands[i].payload || {};
+                var id = p.id || p.parentId;
+                if (id) affected[id] = 1;
+            }
+        }
+        // appliedCommands — только реально изменившие документ команды (для честного diff-списка).
+        return { applied: appliedCommands.length, appliedCommands: appliedCommands, affected: Object.keys(affected), result: store.getDoc() };
+    }
+
     function createStore(doc) {
         var state = doc || { version: 1, pages: [], components: {}, theme: { classes: [] } };
         var undoStack = [];
@@ -559,6 +604,8 @@
         createStore: createStore,
         findPath: findPath,
         COMMANDS: COMMANDS,
+        validateAiCommands: validateAiCommands,
+        dryRunAiCommands: dryRunAiCommands,
         _applyOp: applyOp // экспонируем для тестов
     };
 });

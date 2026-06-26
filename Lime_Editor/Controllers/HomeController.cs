@@ -233,6 +233,7 @@ namespace Lime_Editor.Controllers
                 vm.OgImage = site.OgImage;
                 vm.DocumentJson = site.DocumentJson;
                 vm.DocVersion = site.UpdatedAt?.Ticks ?? 0;
+                vm.HasOriginalBackup = !string.IsNullOrEmpty(site.OriginalDocumentJson);
             }
             return View(vm);
         }
@@ -273,7 +274,16 @@ namespace Lime_Editor.Controllers
                 site.MetaTitle = metaTitle;
                 site.MetaDescription = metaDescription;
                 site.OgImage = ogImage;
-                if (documentJson != null) site.DocumentJson = documentJson;
+                if (documentJson != null)
+                {
+                    // Раскатка Editor V2: один раз снимаем резервную копию исходного документа
+                    // перед самой первой перезаписью (страховка миграции v1→v2).
+                    if (Site.ShouldBackupOriginal(site.OriginalDocumentJson, site.DocumentJson, documentJson))
+                    {
+                        site.OriginalDocumentJson = site.DocumentJson;
+                    }
+                    site.DocumentJson = documentJson;
+                }
                 site.DraftFolder = WrapCustomHtml(html, site);
                 // Неопубликованный сайт держим синхронным (Folder обязателен в БД);
                 // опубликованный — Folder меняется только при повторной Publish.
@@ -312,6 +322,35 @@ namespace Lime_Editor.Controllers
             db.Sites.Add(created);
             await db.SaveChangesAsync();
             return auto ? Json(new { version = created.UpdatedAt.Value.Ticks }) : RedirectToAction("MySites");
+        }
+
+        // Откат сайта к резервной копии исходного документа (раскатка Editor V2). Сервер сам
+        // перекомпилирует черновик из оригинального JSON. Бэкап НЕ стирается — можно открыть и
+        // продолжить с исходного состояния. Без бэкапа — нечего восстанавливать.
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> RestoreOriginal(int siteId)
+        {
+            var userId = CurrentUserId;
+            var site = await db.Sites.FirstOrDefaultAsync(s => s.IdSite == siteId && s.UserId == userId);
+            if (site == null)
+            {
+                return Forbid();
+            }
+            if (string.IsNullOrEmpty(site.OriginalDocumentJson))
+            {
+                return BadRequest(new { error = "no_backup" });
+            }
+            site.DocumentJson = site.OriginalDocumentJson;
+            var body = _docRenderer.RenderSite(site.OriginalDocumentJson);
+            site.DraftFolder = Services.PublishedPageBuilder.WrapCustomHtml(body, site, site.OriginalDocumentJson);
+            if (!site.IsPublished)
+            {
+                site.Folder = site.DraftFolder;
+            }
+            site.UpdatedAt = DateTime.UtcNow;
+            await db.SaveChangesAsync();
+            return RedirectToAction("EditDoc", new { siteId });
         }
 
         // Wrap для сохранения Folder в БД вынесен в Services.PublishedPageBuilder (этап 0.2) —

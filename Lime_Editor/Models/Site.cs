@@ -20,6 +20,10 @@ namespace Lime_Editor.Models
         // Снапшот JSON на момент публикации (этап 0.2). Folder опубликованного сайта
         // компилируется сервером именно из него — republish не утащит черновик в прод.
         public string PublishedDocumentJson { get; set; }
+        // Резервная копия документа на момент ПЕРВОЙ правки в новом редакторе (раскатка Editor V2).
+        // Снимается один раз перед первой перезаписью DocumentJson и больше не меняется —
+        // страховка миграции v1→v2: даёт откатить сайт к исходному состоянию.
+        public string OriginalDocumentJson { get; set; }
         public int UserId { get; set; }
         public int TemplateId { get; set; }
 
@@ -36,6 +40,11 @@ namespace Lime_Editor.Models
         // (legacy), проверка пропускается; иначе любая разница с текущей версией = конфликт.
         public static bool IsVersionConflict(long baseVersion, DateTime? updatedAt)
             => baseVersion >= 0 && baseVersion != (updatedAt?.Ticks ?? 0);
+
+        // Нужно ли снять резервную копию исходного документа (раскатка Editor V2): бэкапа ещё нет,
+        // документ существовал и входящая правка реально его меняет (no-op-автосейв бэкап не плодит).
+        public static bool ShouldBackupOriginal(string existingBackup, string currentDoc, string incomingDoc)
+            => existingBackup == null && currentDoc != null && currentDoc != incomingDoc;
 
         // SEO-мета для опубликованной страницы.
         public string MetaTitle { get; set; }

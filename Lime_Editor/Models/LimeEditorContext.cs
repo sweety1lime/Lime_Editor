@@ -49,6 +49,7 @@ namespace Lime_Editor.Models
                 entity.Property(e => e.DraftFolder).IsUnicode(false);
                 entity.Property(e => e.DocumentJson).IsUnicode(false);
                 entity.Property(e => e.PublishedDocumentJson).IsUnicode(false);
+                entity.Property(e => e.OriginalDocumentJson).IsUnicode(false);
                 entity.Property(e => e.MetaTitle).HasMaxLength(200);
                 entity.Property(e => e.MetaDescription).HasMaxLength(400);
                 entity.Property(e => e.OgImage).HasMaxLength(400);
