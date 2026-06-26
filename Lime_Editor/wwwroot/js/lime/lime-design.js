@@ -86,12 +86,22 @@
             if (v == null) return;
             if (typeof v !== "number" || !isFinite(v) || (nonNegative && v < 0)) error(path, "invalid_number", "Expected " + (nonNegative ? "non-negative " : "") + "finite number");
         }
+        function lengthAt(v, path, nonNegative) {
+            if (v == null) return;
+            if (typeof v === "number") { finiteAt(v, path, nonNegative); return; }
+            if (typeof v === "string") {
+                var m = v.trim().match(/^(-?(?:\d+|\d*\.\d+))(px|%|rem)$/);
+                if (m && (!nonNegative || parseFloat(m[1]) >= 0)) return;
+            }
+            error(path, "invalid_length", "Expected " + (nonNegative ? "non-negative " : "") + "number or px/%/rem length");
+        }
         function validateSize(axis, path) {
             if (!isObject(axis)) { error(path, "invalid_size", "Size axis must be an object"); return; }
             if (!SIZE_MODES[axis.mode]) error(path.concat("mode"), "invalid_size_mode", "Unknown size mode");
-            if (axis.mode === "fixed" && (typeof axis.value !== "number" || !isFinite(axis.value) || axis.value < 0)) error(path.concat("value"), "fixed_value_required", "Fixed size requires non-negative value");
-            finiteAt(axis.min, path.concat("min"), true);
-            finiteAt(axis.max, path.concat("max"), true);
+            if (axis.mode === "fixed" && axis.value == null) error(path.concat("value"), "fixed_value_required", "Fixed size requires a value");
+            if (axis.mode === "fixed") lengthAt(axis.value, path.concat("value"), true);
+            lengthAt(axis.min, path.concat("min"), true);
+            lengthAt(axis.max, path.concat("max"), true);
         }
         function validateBucket(bucket, path) {
             if (!isObject(bucket)) { error(path, "invalid_bucket", "Design bucket must be an object"); return; }
@@ -104,20 +114,21 @@
                     if (layout.align != null && !ALIGNS[layout.align]) error(path.concat("layout", "align"), "invalid_align", "Unknown alignment");
                     if (layout.justify != null && !JUSTIFIES[layout.justify]) error(path.concat("layout", "justify"), "invalid_justify", "Unknown justification");
                     if (layout.wrap != null && typeof layout.wrap !== "boolean") error(path.concat("layout", "wrap"), "invalid_wrap", "Wrap must be boolean");
-                    ["gap", "rowGap", "columnGap", "autoRows"].forEach(function (k) { finiteAt(layout[k], path.concat("layout", k), true); });
+                    ["gap", "rowGap", "columnGap", "autoRows"].forEach(function (k) { lengthAt(layout[k], path.concat("layout", k), true); });
                     if (layout.columns != null) {
                         if (typeof layout.columns === "number") {
                             if (!isFinite(layout.columns) || Math.floor(layout.columns) !== layout.columns || layout.columns < 1) error(path.concat("layout", "columns"), "invalid_columns", "Columns must be a positive integer");
-                        } else if (!isObject(layout.columns) || layout.columns.mode !== "auto" || typeof layout.columns.min !== "number" || !isFinite(layout.columns.min) || layout.columns.min <= 0) {
+                        } else if (!isObject(layout.columns) || layout.columns.mode !== "auto" || layout.columns.min == null) {
                             error(path.concat("layout", "columns"), "invalid_columns", "Auto columns require a positive min");
                         } else {
-                            if (layout.columns.max != null) finiteAt(layout.columns.max, path.concat("layout", "columns", "max"), true);
+                            lengthAt(layout.columns.min, path.concat("layout", "columns", "min"), true);
+                            lengthAt(layout.columns.max, path.concat("layout", "columns", "max"), true);
                             if (layout.columns.fill != null && typeof layout.columns.fill !== "boolean") error(path.concat("layout", "columns", "fill"), "invalid_columns_fill", "Auto columns fill must be boolean");
                         }
                     }
                     if (layout.padding != null) {
                         if (!isObject(layout.padding)) error(path.concat("layout", "padding"), "invalid_padding", "Padding must be an object");
-                        else ["top", "right", "bottom", "left"].forEach(function (k) { finiteAt(layout.padding[k], path.concat("layout", "padding", k), true); });
+                        else ["top", "right", "bottom", "left"].forEach(function (k) { lengthAt(layout.padding[k], path.concat("layout", "padding", k), true); });
                     }
                 }
             }
@@ -131,10 +142,10 @@
             if (bucket.frame != null) {
                 if (!isObject(bucket.frame)) error(path.concat("frame"), "invalid_frame", "Frame must be an object");
                 else {
-                    finiteAt(bucket.frame.x, path.concat("frame", "x"), false);
-                    finiteAt(bucket.frame.y, path.concat("frame", "y"), false);
-                    finiteAt(bucket.frame.width, path.concat("frame", "width"), true);
-                    finiteAt(bucket.frame.height, path.concat("frame", "height"), true);
+                    lengthAt(bucket.frame.x, path.concat("frame", "x"), false);
+                    lengthAt(bucket.frame.y, path.concat("frame", "y"), false);
+                    lengthAt(bucket.frame.width, path.concat("frame", "width"), true);
+                    lengthAt(bucket.frame.height, path.concat("frame", "height"), true);
                     finiteAt(bucket.frame.rotation, path.concat("frame", "rotation"), false);
                 }
             }

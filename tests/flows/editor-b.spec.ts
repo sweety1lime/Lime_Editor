@@ -580,13 +580,653 @@ test("editor-v2 Stage 5: component multi-select uses one checkpoint (@flow)", as
     el.dispatchEvent(new Event("input", { bubbles: true }));
   });
   await expect(firstComponent).toHaveCSS("border-top-left-radius", "36px");
-  await expect(secondComponent).toHaveCSS("border-top-left-radius", "36px");
   await expect(text).toHaveCSS("border-top-left-radius", "36px");
+  // Stage 6.6: стиль-правка инстанса теперь ЛОКАЛЬНА (overrides.styles), а не в definition →
+  // вторая копия (НЕ выбрана) остаётся нетронутой (раньше менялись все копии через определение).
+  await expect(secondComponent).toHaveCSS("border-top-left-radius", "0px");
 
+  // Один undo откатывает обе правки группы (firstComponent override + text) одной транзакцией.
   await page.locator("[data-doc-undo]").click();
   await expect(firstComponent).toHaveCSS("border-top-left-radius", "0px");
-  await expect(secondComponent).toHaveCSS("border-top-left-radius", "0px");
   await expect(text).toHaveCSS("border-top-left-radius", "0px");
+  await expect(secondComponent).toHaveCSS("border-top-left-radius", "0px");
+});
+
+test("editor-v2 Stage 6.2: component text and visibility overrides stay local (@flow)", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1400 });
+  await page.goto("/Home/EditDoc?canvas=1&cmd=1");
+  if (await page.locator("#lime-doc-intro-skip").isVisible()) await page.locator("#lime-doc-intro-skip").click();
+
+  await page.locator('[data-doc-add="heading"]').click();
+  const original = page.locator(`${topBlocks} [contenteditable][data-field="text"]`).first();
+  await original.evaluate(el => {
+    el.textContent = "Shared title";
+    el.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+  page.once("dialog", dialog => dialog.accept("Shared heading"));
+  await page.locator('[data-doc-op="comp"]').click();
+  await expect(page.locator("#lime-doc-components [data-doc-insert-comp]")).toHaveCount(1);
+  await page.locator("#lime-doc-components [data-doc-insert-comp]").click();
+
+  const firstComponentId = await page.locator(topBlocks).nth(0).getAttribute("data-block-id");
+  const secondComponentId = await page.locator(topBlocks).nth(1).getAttribute("data-block-id");
+  expect(firstComponentId && secondComponentId).toBeTruthy();
+  const firstComponent = page.locator(`[data-block-id="${firstComponentId}"]`);
+  const secondComponent = page.locator(`[data-block-id="${secondComponentId}"]`);
+  const firstText = firstComponent.locator('[contenteditable][data-field="text"]').first();
+  const secondText = secondComponent.locator('[contenteditable][data-field="text"]').first();
+
+  await firstText.evaluate(el => {
+    el.textContent = "Local title";
+    el.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+  await page.waitForTimeout(700);
+  await expect(firstText).toHaveText("Local title");
+  await expect(secondText).toHaveText("Shared title");
+
+  await page.locator("[data-doc-undo]").click();
+  await expect(firstText).toHaveText("Shared title");
+  await expect(secondText).toHaveText("Shared title");
+  await page.locator("[data-doc-redo]").click();
+  await expect(firstText).toHaveText("Local title");
+  await expect(secondText).toHaveText("Shared title");
+
+  const firstLayer = page.locator(`[data-doc-layer="${firstComponentId}"]`);
+  await firstLayer.locator("[data-node-toggle-hidden]").click();
+  await expect(firstComponent).toHaveAttribute("hidden", "");
+  await expect(secondComponent).not.toHaveAttribute("hidden", "");
+  await page.locator("[data-doc-undo]").click();
+  await expect(firstComponent).not.toHaveAttribute("hidden", "");
+
+  await page.evaluate(id => (window as any).__LIME_SELECTION__.replace([id]), firstComponentId);
+  await expect(page.locator('[data-doc-op="detach"]')).toBeVisible();
+  await page.locator('[data-doc-op="detach"]').click();
+  await expect(page.locator('[data-doc-op="detach"]')).toHaveCount(0);
+  await expect(page.locator('[data-doc-op="comp"]')).toBeVisible();
+  await expect(firstText).toHaveText("Local title");
+  await page.locator("[data-doc-undo]").click();
+  await expect(page.locator('[data-doc-op="detach"]')).toBeVisible();
+});
+
+test("editor-v2 Stage 6.3: component variants reuse instance snapshots (@flow)", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1400 });
+  await page.goto("/Home/EditDoc?canvas=1&cmd=1");
+  if (await page.locator("#lime-doc-intro-skip").isVisible()) await page.locator("#lime-doc-intro-skip").click();
+
+  await page.locator('[data-doc-add="heading"]').click();
+  const original = page.locator(`${topBlocks} [contenteditable][data-field="text"]`).first();
+  await original.evaluate(el => {
+    el.textContent = "Shared title";
+    el.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+  page.once("dialog", dialog => dialog.accept("Shared heading"));
+  await page.locator('[data-doc-op="comp"]').click();
+  await page.locator("#lime-doc-components [data-doc-insert-comp]").click();
+
+  const firstComponentId = await page.locator(topBlocks).nth(0).getAttribute("data-block-id");
+  const secondComponentId = await page.locator(topBlocks).nth(1).getAttribute("data-block-id");
+  expect(firstComponentId && secondComponentId).toBeTruthy();
+  const firstComponent = page.locator(`[data-block-id="${firstComponentId}"]`);
+  const secondComponent = page.locator(`[data-block-id="${secondComponentId}"]`);
+  const firstText = firstComponent.locator('[contenteditable][data-field="text"]').first();
+  const secondText = secondComponent.locator('[contenteditable][data-field="text"]').first();
+
+  await page.evaluate(id => (window as any).__LIME_SELECTION__.replace([id]), firstComponentId);
+  await firstText.evaluate(el => {
+    el.textContent = "Alt title";
+    el.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+  page.once("dialog", dialog => dialog.accept("Alt"));
+  await page.locator("[data-doc-component-variant-add]").click();
+  await expect(firstText).toHaveText("Alt title");
+  await expect(secondText).toHaveText("Shared title");
+  await expect(page.locator("[data-doc-component-variant]")).toContainText("Alt");
+
+  await page.evaluate(id => (window as any).__LIME_SELECTION__.replace([id]), secondComponentId);
+  await page.locator("[data-doc-component-variant]").selectOption({ label: "Alt" });
+  await expect(secondText).toHaveText("Alt title");
+
+  await page.locator("[data-doc-undo]").click();
+  await expect(secondText).toHaveText("Shared title");
+  await page.locator("[data-doc-redo]").click();
+  await expect(secondText).toHaveText("Alt title");
+});
+
+test("editor-v2 Stage 6.5: component media override stays local (@flow)", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1400 });
+  // Без ?canvas=1: кликаем РЕАЛЬНЫЕ canvas-кнопки (video placeholder) — без canvas-overlay они доступны.
+  await page.goto("/Home/EditDoc?cmd=1");
+  if (await page.locator("#lime-doc-intro-skip").isVisible()) await page.locator("#lime-doc-intro-skip").click();
+  // Медиа-тайлы лежат в свёрнутых <details>.lime-tile-group — раскрываем, иначе тайл не кликается.
+  await page.evaluate(() => document.querySelectorAll(".lime-tile-group").forEach((d: any) => { d.open = true; }));
+
+  // Видео-блок с общим youtubeId → компонент → второй инстанс (оба видят определение).
+  await page.locator('[data-doc-add="video"]').click();
+  page.once("dialog", dialog => dialog.accept("https://youtu.be/SHARED01"));
+  await page.locator(`${topBlocks} [data-doc-video]`).first().click();
+  await expect(page.locator(`${topBlocks} iframe[src*="embed/SHARED01"]`)).toHaveCount(1);
+
+  page.once("dialog", dialog => dialog.accept("Видео"));
+  await page.locator('[data-doc-op="comp"]').click();
+  await expect(page.locator("#lime-doc-components [data-doc-insert-comp]")).toHaveCount(1);
+  await page.locator("#lime-doc-components [data-doc-insert-comp]").click();
+
+  const firstId = await page.locator(topBlocks).nth(0).getAttribute("data-block-id");
+  const secondId = await page.locator(topBlocks).nth(1).getAttribute("data-block-id");
+  expect(firstId && secondId).toBeTruthy();
+  const first = page.locator(`[data-block-id="${firstId}"]`);
+  const second = page.locator(`[data-block-id="${secondId}"]`);
+  await expect(first.locator('iframe[src*="embed/SHARED01"]')).toHaveCount(1);
+  await expect(second.locator('iframe[src*="embed/SHARED01"]')).toHaveCount(1);
+
+  // Локальная замена видео на первом инстансе → overrides.content; второй остаётся на определении.
+  page.once("dialog", dialog => dialog.accept("https://youtu.be/LOCAL02"));
+  await first.locator("[data-doc-video]").click();
+  await expect(first.locator('iframe[src*="embed/LOCAL02"]')).toHaveCount(1);
+  await expect(second.locator('iframe[src*="embed/SHARED01"]')).toHaveCount(1);
+
+  await page.locator("[data-doc-undo]").click();
+  await expect(first.locator('iframe[src*="embed/SHARED01"]')).toHaveCount(1);
+  await expect(second.locator('iframe[src*="embed/SHARED01"]')).toHaveCount(1);
+  await page.locator("[data-doc-redo]").click();
+  await expect(first.locator('iframe[src*="embed/LOCAL02"]')).toHaveCount(1);
+});
+
+test("editor-v2 Stage 6.6: component style override stays local (@flow)", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1400 });
+  await page.goto("/Home/EditDoc?canvas=1&cmd=1");
+  if (await page.locator("#lime-doc-intro-skip").isVisible()) await page.locator("#lime-doc-intro-skip").click();
+
+  await page.locator('[data-doc-add="heading"]').click();
+  page.once("dialog", dialog => dialog.accept("Стиль-компонент"));
+  await page.locator('[data-doc-op="comp"]').click();
+  await expect(page.locator("#lime-doc-components [data-doc-insert-comp]")).toHaveCount(1);
+  await page.locator("#lime-doc-components [data-doc-insert-comp]").click();
+
+  const firstId = await page.locator(topBlocks).nth(0).getAttribute("data-block-id");
+  const secondId = await page.locator(topBlocks).nth(1).getAttribute("data-block-id");
+  expect(firstId && secondId).toBeTruthy();
+  const first = page.locator(`[data-block-id="${firstId}"]`);
+  const second = page.locator(`[data-block-id="${secondId}"]`);
+  const radius = () => page.locator('[data-doc-style="borderRadius"]');
+  const setRadius = (v: number) => radius().evaluate((el, val) => {
+    (el as HTMLInputElement).value = String(val);
+    el.dispatchEvent(new Event("input", { bubbles: true }));
+  }, v);
+
+  // Радиус на первом инстансе → локальный overrides.styles; второй остаётся на определении (0px).
+  await page.evaluate(id => (window as any).__LIME_SELECTION__.replace([id]), firstId);
+  await setRadius(24);
+  await expect(first).toHaveCSS("border-top-left-radius", "24px");
+  await expect(second).toHaveCSS("border-top-left-radius", "0px");
+  await page.waitForTimeout(500); // коммит gesture-транзакции
+
+  // Один undo откатывает локальный override; второй инстанс не затронут. Redo возвращает.
+  await page.locator("[data-doc-undo]").click();
+  await expect(first).toHaveCSS("border-top-left-radius", "0px");
+  await expect(second).toHaveCSS("border-top-left-radius", "0px");
+  await page.locator("[data-doc-redo]").click();
+  await expect(first).toHaveCSS("border-top-left-radius", "24px");
+});
+
+test("editor-v2 Stage 6.7: instance override reset returns to component (@flow)", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1400 });
+  await page.goto("/Home/EditDoc?canvas=1&cmd=1");
+  if (await page.locator("#lime-doc-intro-skip").isVisible()) await page.locator("#lime-doc-intro-skip").click();
+
+  await page.locator('[data-doc-add="heading"]').click();
+  page.once("dialog", dialog => dialog.accept("Reset-компонент"));
+  await page.locator('[data-doc-op="comp"]').click();
+  await page.locator("#lime-doc-components [data-doc-insert-comp]").click();
+
+  const firstId = await page.locator(topBlocks).nth(0).getAttribute("data-block-id");
+  expect(firstId).toBeTruthy();
+  const first = page.locator(`[data-block-id="${firstId}"]`);
+  const radius = () => page.locator('[data-doc-style="borderRadius"]');
+  const setRadius = (v: number) => radius().evaluate((el, val) => {
+    (el as HTMLInputElement).value = String(val);
+    el.dispatchEvent(new Event("input", { bubbles: true }));
+  }, v);
+
+  await page.evaluate(id => (window as any).__LIME_SELECTION__.replace([id]), firstId);
+  await setRadius(24);
+  await expect(first).toHaveCSS("border-top-left-radius", "24px");
+  await page.waitForTimeout(600); // settle → инспектор показывает «↺ к компоненту»
+
+  // Секционный reset: «↺ к компоненту» снимает локальный style-override → значение из определения (0).
+  await expect(page.locator("[data-doc-style-reset]").first()).toBeVisible();
+  await page.locator("[data-doc-style-reset]").first().click();
+  await expect(first).toHaveCSS("border-top-left-radius", "0px");
+
+  // Снова override → банер-кнопка «Сбросить правки» снимает все локальные правки разом.
+  await setRadius(18);
+  await expect(first).toHaveCSS("border-top-left-radius", "18px");
+  await page.waitForTimeout(600);
+  await expect(page.locator('[data-doc-op="reset-overrides"]')).toBeVisible();
+  await page.locator('[data-doc-op="reset-overrides"]').click();
+  await expect(first).toHaveCSS("border-top-left-radius", "0px");
+});
+
+test("editor-v2 Stage 6.8: component property edits stay local (@flow)", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1400 });
+  await page.goto("/Home/EditDoc?canvas=1&cmd=1");
+  if (await page.locator("#lime-doc-intro-skip").isVisible()) await page.locator("#lime-doc-intro-skip").click();
+
+  await page.locator('[data-doc-add="heading"]').click();
+  page.once("dialog", dialog => dialog.accept("Props-компонент"));
+  await page.locator('[data-doc-op="comp"]').click();
+  await page.locator("#lime-doc-components [data-doc-insert-comp]").click();
+
+  const firstId = await page.locator(topBlocks).nth(0).getAttribute("data-block-id");
+  const secondId = await page.locator(topBlocks).nth(1).getAttribute("data-block-id");
+  expect(firstId && secondId).toBeTruthy();
+  const first = page.locator(`[data-block-id="${firstId}"]`);
+  const second = page.locator(`[data-block-id="${secondId}"]`);
+
+  // Выбор первого инстанса → секция «Свойства компонента» с авто-полем «Текст».
+  await page.evaluate(id => (window as any).__LIME_SELECTION__.replace([id]), firstId);
+  const prop = page.locator('[data-doc-prop="text"]');
+  await expect(prop).toBeVisible();
+
+  // Правка свойства → локальный override; второй инстанс не меняется.
+  await prop.fill("Локальный заголовок");
+  await prop.evaluate(el => el.dispatchEvent(new Event("change", { bubbles: true })));
+  await expect(first).toContainText("Локальный заголовок");
+  await expect(second).not.toContainText("Локальный заголовок");
+
+  // Свойство переопределено → reset «↺» возвращает значение из компонента.
+  await expect(page.locator('[data-doc-prop-reset="text"]')).toBeVisible();
+  await page.locator('[data-doc-prop-reset="text"]').click();
+  await expect(first).not.toContainText("Локальный заголовок");
+});
+
+test("editor-v2 Stage 7: content edit patches only the affected node (@flow)", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1400 });
+  // Без ?canvas=1: кликаем реальную canvas-кнопку (video placeholder) — без overlay она доступна.
+  await page.goto("/Home/EditDoc?cmd=1");
+  if (await page.locator("#lime-doc-intro-skip").isVisible()) await page.locator("#lime-doc-intro-skip").click();
+  // Медиа-тайлы в свёрнутых <details>.lime-tile-group — раскрываем для кликабельности.
+  await page.evaluate(() => document.querySelectorAll(".lime-tile-group").forEach((d: any) => { d.open = true; }));
+
+  await page.locator('[data-doc-add="video"]').click();
+  await page.locator('[data-doc-add="video"]').click();
+  const aId = await page.locator(topBlocks).nth(0).getAttribute("data-block-id");
+  const bId = await page.locator(topBlocks).nth(1).getAttribute("data-block-id");
+  expect(aId && bId).toBeTruthy();
+  const a = page.locator(`[data-block-id="${aId}"]`);
+  const b = page.locator(`[data-block-id="${bId}"]`);
+
+  // Метим узел B DOM-атрибутом, которого НЕТ в модели — он переживёт только точечный патч.
+  await b.evaluate(el => el.setAttribute("data-perf-mark", "kept"));
+
+  // Правка контента узла A (setContentValue → patchBlockDom). Полный render() стёр бы метку B.
+  page.once("dialog", dialog => dialog.accept("https://youtu.be/AAAAAA1"));
+  await a.locator("[data-doc-video]").click();
+  await expect(a.locator('iframe[src*="embed/AAAAAA1"]')).toHaveCount(1);
+
+  // Узел B не пересобирался → метка на месте: доказательство точечного обновления, не полного render.
+  await expect(b).toHaveAttribute("data-perf-mark", "kept");
+});
+
+test("editor-v2 Stage 7: structural edits patch DOM without full rebuild (@flow)", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1400 });
+  await page.goto("/Home/EditDoc?canvas=1&cmd=1");
+  if (await page.locator("#lime-doc-intro-skip").isVisible()) await page.locator("#lime-doc-intro-skip").click();
+
+  await page.locator('[data-doc-add="heading"]').click();
+  const aId = await page.locator(topBlocks).nth(0).getAttribute("data-block-id");
+  const a = page.locator(`[data-block-id="${aId}"]`);
+  // Метим узел A — он переживёт только точечные структурные правки (insert/dup/delete соседей).
+  await a.evaluate(el => el.setAttribute("data-perf-mark", "kept"));
+
+  // INSERT: добавляем второй блок → A не пересобирается.
+  await page.locator('[data-doc-add="text"]').click();
+  await expect(page.locator(topBlocks)).toHaveCount(2);
+  await expect(a).toHaveAttribute("data-perf-mark", "kept");
+
+  // DUPLICATE: дублируем A (вставка по индексу) → A не пересобирается, всего 3.
+  await page.evaluate(id => (window as any).__LIME_SELECTION__.replace([id]), aId);
+  await page.locator('[data-doc-op="dup"]').click();
+  await expect(page.locator(topBlocks)).toHaveCount(3);
+  await expect(a).toHaveAttribute("data-perf-mark", "kept");
+
+  // DELETE: удаляем соседний блок → A не пересобирается, всего 2.
+  const midId = await page.locator(topBlocks).nth(1).getAttribute("data-block-id");
+  await page.evaluate(id => (window as any).__LIME_SELECTION__.replace([id]), midId);
+  page.once("dialog", dialog => dialog.accept());
+  await page.locator('[data-doc-op="del"]').click();
+  await expect(page.locator(topBlocks)).toHaveCount(2);
+  await expect(a).toHaveAttribute("data-perf-mark", "kept");
+
+  // MOVE: двигаем A вниз (кнопочный move → относительный перенос DOM-узла, не пересборка).
+  await page.evaluate(id => (window as any).__LIME_SELECTION__.replace([id]), aId);
+  await page.locator('[data-doc-op="down"]').click();
+  await expect(a).toHaveAttribute("data-perf-mark", "kept");
+  await expect(page.locator(topBlocks).nth(1)).toHaveAttribute("data-block-id", aId!);
+});
+
+test("editor-v2 Stage 7: perf instrument shows edits avoid full render on 300 nodes (@flow)", async ({ page }) => {
+  test.slow(); // тяжёлый: load(500)+bench; под нагрузкой полного прогона сервер может отвечать медленнее
+  await page.setViewportSize({ width: 1440, height: 1400 });
+  await page.goto("/Home/EditDoc?canvas=1&cmd=1&perf=1");
+  if (await page.locator("#lime-doc-intro-skip").isVisible()) await page.locator("#lime-doc-intro-skip").click();
+
+  // Заливаем ~300 узлов и меряем open-render (бюджет открытия — щедрая страховка).
+  const open = await page.evaluate(() => (window as any).__LIME_PERF__.load(300));
+  console.log("[perf] open(300 nodes):", JSON.stringify(open));
+  expect(open.nodes).toBeGreaterThanOrEqual(300);
+  expect(open.openMs).toBeLessThan(3000);
+  const layerWindow = await page.evaluate(async () => {
+    const box = document.getElementById("lime-doc-layers") as HTMLElement;
+    const before = box.querySelectorAll("[data-doc-layer]").length;
+    const total = Number(box.dataset.layerTotal || "0");
+    box.scrollTop = box.scrollHeight;
+    box.dispatchEvent(new Event("scroll"));
+    await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+    return {
+      total,
+      before,
+      after: box.querySelectorAll("[data-doc-layer]").length,
+      rendered: Number(box.dataset.layerRendered || "0"),
+    };
+  });
+  console.log("[perf] layers virtual window:", JSON.stringify(layerWindow));
+  expect(layerWindow.total).toBeGreaterThanOrEqual(300);
+  expect(layerWindow.before).toBeLessThan(80);
+  expect(layerWindow.after).toBeLessThan(80);
+
+  // Сбрасываем счётчики и делаем частые структурные правки — должны идти точечно, без полного render.
+  await page.evaluate(() => (window as any).__LIME_PERF__.reset());
+  await page.locator('[data-doc-add="text"]').click();            // insert → incremental
+  const newId = await page.locator(topBlocks).last().getAttribute("data-block-id");
+  await page.evaluate(id => (window as any).__LIME_SELECTION__.replace([id]), newId);
+  page.once("dialog", dialog => dialog.accept());
+  await page.locator('[data-doc-op="del"]').click();             // remove → incremental
+
+  const stat = await page.evaluate(() => (window as any).__LIME_PERF__.report());
+  console.log("[perf] after add+delete on 300 nodes:", JSON.stringify(stat));
+  expect(stat["incremental"].calls).toBeGreaterThanOrEqual(2); // обе правки точечные
+  expect(stat["full render"].calls).toBe(0);                   // ни одной полной пересборки
+
+  // Прямое сравнение на 500 узлах: полный render() против точечного patch одного leaf-узла.
+  const bench = await page.evaluate(() => { (window as any).__LIME_PERF__.load(500); return (window as any).__LIME_PERF__.bench(5); });
+  console.log("[perf] bench(500 nodes): full vs incremental:", JSON.stringify(bench));
+  expect(bench.speedup).toBeGreaterThan(1.5); // точечный заметно быстрее полной пересборки
+
+  await page.evaluate(() => (window as any).__LIME_PERF__.load(500));
+  await page.locator('[data-doc-add="text"]').click();
+  const undo = await page.evaluate(() => {
+    const btn = document.querySelector("[data-doc-undo]") as HTMLButtonElement;
+    const t0 = performance.now();
+    btn.click();
+    return { ms: +(performance.now() - t0).toFixed(1) };
+  });
+  console.log("[perf] undo after add on 500 nodes:", JSON.stringify(undo));
+  expect(undo.ms).toBeLessThan(150);
+
+  // Реальный pointermove-профиль поверх тяжёлого документа: первый видимый контейнер из
+  // 500-node fixture переводим в free-layout, resize-хэндл должен оставаться в 60fps бюджете.
+  await page.evaluate(() => {
+    const perf = (window as any).__LIME_V2_PERF__;
+    if (perf) { perf.move.length = 0; perf.resize.length = 0; perf.rotate.length = 0; }
+  });
+  const perfContainer = page.locator(`${topBlocks}[data-block-type="container"]`).first();
+  const perfContainerId = await perfContainer.getAttribute("data-block-id");
+  expect(perfContainerId).toBeTruthy();
+  const perfChild = perfContainer.locator(":scope > .lime-block__inner > .lime-block__children > .lime-block").first();
+  const perfChildId = await perfChild.getAttribute("data-block-id");
+  expect(perfChildId).toBeTruthy();
+  await perfContainer.scrollIntoViewIfNeeded();
+  await page.evaluate(id => (window as any).__LIME_SELECTION__.select(id), perfContainerId);
+  await page.locator('[data-v2-layout-mode="free"]').click();
+  await page.evaluate(id => (window as any).__LIME_SELECTION__.select(id), perfChildId);
+
+  const resizeBefore = await perfChild.boundingBox();
+  const perfChildBox = page.locator(`[data-selection-id="${perfChildId}"]`);
+  await expect(perfChildBox).toBeVisible();
+  expect(resizeBefore).toBeTruthy();
+  const pointerPerf = await page.evaluate((childId) => {
+    const perf = (window as any).__LIME_V2_PERF__;
+    if (perf) { perf.resize.length = 0; }
+    const overlay = document.getElementById("lime-selection-overlay") as HTMLElement;
+    const escaped = (window as any).CSS?.escape ? (window as any).CSS.escape(childId) : childId;
+    const box = document.querySelector(`[data-selection-id="${escaped}"]`) as HTMLElement;
+    const handle = box?.querySelector('[data-handle="e"]') as HTMLElement;
+    if (!overlay || !handle) return { samples: 0, p95: 0, missing: true };
+    const r = handle.getBoundingClientRect();
+    const x = r.left + r.width / 2;
+    const y = r.top + r.height / 2;
+    const base = { bubbles: true, cancelable: true, pointerId: 777, pointerType: "mouse", isPrimary: true };
+    handle.dispatchEvent(new PointerEvent("pointerdown", { ...base, clientX: x, clientY: y, buttons: 1 }));
+    for (let i = 1; i <= 20; i++) {
+      overlay.dispatchEvent(new PointerEvent("pointermove", { ...base, clientX: x + i * 6, clientY: y, buttons: 1 }));
+    }
+    overlay.dispatchEvent(new PointerEvent("pointerup", { ...base, clientX: x + 120, clientY: y, buttons: 0 }));
+    const values = ((window as any).__LIME_V2_PERF__?.resize || []) as number[];
+    const sorted = values.slice().sort((a, b) => a - b);
+    return { samples: sorted.length, p95: +(sorted[Math.max(0, Math.ceil(sorted.length * 0.95) - 1)] || 0).toFixed(2) };
+  }, perfChildId);
+  console.log("[perf] resize pointermove on 500 nodes:", JSON.stringify(pointerPerf));
+  expect(pointerPerf.samples).toBeGreaterThanOrEqual(10);
+  expect(pointerPerf.p95).toBeLessThanOrEqual(16);
+});
+
+test("editor-v2 Stage 5: breakpoint override shows reset and inherits back (@flow)", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1400 });
+  await page.goto("/Home/EditDoc?canvas=1&cmd=1");
+  if (await page.locator("#lime-doc-intro-skip").isVisible()) await page.locator("#lime-doc-intro-skip").click();
+
+  await page.locator('[data-doc-add="heading"]').click();
+  const block = page.locator(topBlocks).last();
+  const blockId = await block.getAttribute("data-block-id");
+  expect(blockId).toBeTruthy();
+  await page.evaluate(id => (window as any).__LIME_SELECTION__.replace([id]), blockId);
+
+  // На десктопе (base) задаём размер текста — базовое значение для проверки источника.
+  const fontSize = page.locator('[data-doc-style="fontSize"]');
+  await fontSize.evaluate(el => { (el as HTMLInputElement).value = "40"; el.dispatchEvent(new Event("input", { bubbles: true })); });
+  await page.waitForTimeout(450); // оседание gesture (на base инспектор не рефрешится — это ок)
+
+  // На мобильном брейкпоинте: размер текста не переопределён → секция показывает источник «← десктоп».
+  await page.locator('[data-doc-bp="mobile"]').click();
+  await expect(page.locator('[data-style-src="base"]').first()).toBeVisible();
+
+  // Радиус задаём на mobile — это override (base остаётся 0).
+  const radius = page.locator('[data-doc-style="borderRadius"]');
+  await radius.evaluate(el => { (el as HTMLInputElement).value = "30"; el.dispatchEvent(new Event("input", { bubbles: true })); });
+  await expect(block).toHaveCSS("border-top-left-radius", "30px");
+  // После оседания жеста (settle ~400мс) инспектор перерисуется и покажет «сбросить» у секции скругления.
+  const reset = page.locator('[data-doc-style-reset="borderRadius"]');
+  await expect(reset).toBeVisible();
+
+  // Сброс override → наследуется base (0px), кнопка исчезает.
+  await reset.click();
+  await expect(block).toHaveCSS("border-top-left-radius", "0px");
+  await expect(page.locator('[data-doc-style-reset="borderRadius"]')).toHaveCount(0);
+
+  // Undo восстанавливает override одной транзакцией.
+  await page.locator("[data-doc-undo]").click();
+  await expect(block).toHaveCSS("border-top-left-radius", "30px");
+});
+
+test("editor-v2 Stage 5: drag-to-adjust scrubs number fields (@flow)", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1400 });
+  await page.goto("/Home/EditDoc?canvas=1&cmd=1");
+  if (await page.locator("#lime-doc-intro-skip").isVisible()) await page.locator("#lime-doc-intro-skip").click();
+
+  await page.locator('[data-doc-add="container"]').click();
+  const container = page.locator(topBlocks).last();
+  const containerId = await container.getAttribute("data-block-id");
+  expect(containerId).toBeTruthy();
+  await page.evaluate(id => (window as any).__LIME_SELECTION__.select(id), containerId);
+
+  const children = container.locator(":scope > .lime-block__inner > .lime-block__children");
+  const gapInput = () => page.locator('[data-v2-design-field="layout"][data-v2-design-path="gap"]');
+  await expect(gapInput()).toHaveValue("0");
+  const gapLabel = page.locator('.lime-v2-field:has([data-v2-design-path="gap"]) [data-scrub]');
+  await expect(gapLabel).toBeVisible();
+
+  // Скраб: тянем подпись «Gap» вправо на 60px → +20 (60/3 шага × step 1).
+  const box = (await gapLabel.boundingBox())!;
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width / 2 + 60, box.y + box.height / 2, { steps: 6 });
+  await expect(children).toHaveCSS("gap", "20px");
+  await expect(gapInput()).toHaveValue("20");
+  await page.mouse.up();
+
+  await expect(children).toHaveCSS("gap", "20px");
+  await expect(gapInput()).toHaveValue("20");
+
+  // Один undo откатывает весь скраб (один change → одна команда).
+  await page.locator("[data-doc-undo]").click();
+  await expect(gapInput()).toHaveValue("0");
+});
+
+test("editor-v2 Stage 5: unit-flex values render through shared design CSS (@flow)", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1400 });
+  await page.goto("/Home/EditDoc?canvas=1&cmd=1");
+  if (await page.locator("#lime-doc-intro-skip").isVisible()) await page.locator("#lime-doc-intro-skip").click();
+
+  await page.locator('[data-doc-add="container"]').click();
+  const container = page.locator(topBlocks).last();
+  const containerId = await container.getAttribute("data-block-id");
+  expect(containerId).toBeTruthy();
+  await page.evaluate(id => (window as any).__LIME_SELECTION__.select(id), containerId);
+
+  const maxWidthInput = page.locator('[data-v2-design-field="size"][data-v2-design-path="width.max"]');
+  const maxWidthUnit = page.locator('.lime-v2-field:has([data-v2-design-path="width.max"]) [data-v2-unit-for="width.max"]');
+  await maxWidthUnit.selectOption("rem");
+  await maxWidthInput.evaluate(el => {
+    (el as HTMLInputElement).value = "20";
+    el.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+
+  await expect(container).toHaveCSS("max-width", "320px");
+  await page.locator("[data-doc-undo]").click();
+  await expect(container).not.toHaveCSS("max-width", "320px");
+});
+
+test("editor-v2 Stage 5: multi-select reset override clears all (@flow)", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1400 });
+  await page.goto("/Home/EditDoc?canvas=1&cmd=1");
+  if (await page.locator("#lime-doc-intro-skip").isVisible()) await page.locator("#lime-doc-intro-skip").click();
+
+  await page.locator('[data-doc-add="heading"]').click();
+  await page.locator('[data-doc-add="text"]').click();
+  const blocks = page.locator(topBlocks);
+  const firstId = await blocks.nth(0).getAttribute("data-block-id");
+  const secondId = await blocks.nth(1).getAttribute("data-block-id");
+  expect(firstId && secondId).toBeTruthy();
+  const first = page.locator(`[data-block-id="${firstId}"]`);
+  const second = page.locator(`[data-block-id="${secondId}"]`);
+
+  // На mobile: мульти-выбор обоих, задаём радиус на оба (override на mobile у обоих).
+  await page.locator('[data-doc-bp="mobile"]').click();
+  await page.evaluate(ids => (window as any).__LIME_SELECTION__.replace(ids), [firstId, secondId]);
+  const radius = page.locator('[data-doc-style="borderRadius"]');
+  await radius.evaluate(el => { (el as HTMLInputElement).value = "28"; el.dispatchEvent(new Event("input", { bubbles: true })); });
+  await expect(first).toHaveCSS("border-top-left-radius", "28px");
+  await expect(second).toHaveCSS("border-top-left-radius", "28px");
+
+  // Оба переопределены на mobile → появляется multi-reset; сброс чистит обоих.
+  const reset = page.locator('[data-doc-style-reset="borderRadius"]');
+  await expect(reset).toBeVisible();
+  await reset.click();
+  await expect(first).toHaveCSS("border-top-left-radius", "0px");
+  await expect(second).toHaveCSS("border-top-left-radius", "0px");
+
+  // Один undo возвращает override обоим (одна транзакция).
+  await page.locator("[data-doc-undo]").click();
+  await expect(first).toHaveCSS("border-top-left-radius", "28px");
+  await expect(second).toHaveCSS("border-top-left-radius", "28px");
+});
+
+test("editor-v2 Stage 5: class-sourced value shows class badge (@flow)", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1400 });
+  await page.goto("/Home/EditDoc?canvas=1&cmd=1");
+  if (await page.locator("#lime-doc-intro-skip").isVisible()) await page.locator("#lime-doc-intro-skip").click();
+
+  await page.locator('[data-doc-add="heading"]').click();
+  const block = page.locator(topBlocks).last();
+  const blockId = await block.getAttribute("data-block-id");
+  expect(blockId).toBeTruthy();
+  await page.evaluate(id => (window as any).__LIME_SELECTION__.replace([id]), blockId);
+
+  // Стиль на base → выносим в класс (createClassFromBlock переносит стили блока в класс).
+  const radius = page.locator('[data-doc-style="borderRadius"]');
+  await radius.evaluate(el => { (el as HTMLInputElement).value = "18"; el.dispatchEvent(new Event("input", { bubbles: true })); });
+  await page.waitForTimeout(450);
+  page.once("dialog", d => d.accept("Стиль-класс"));
+  await page.locator('[data-doc-class-new]').click();
+  // Выходим из режима правки класса и переселектим блок.
+  await page.keyboard.press("Escape");
+  await page.evaluate(id => (window as any).__LIME_SELECTION__.replace([id]), blockId);
+
+  // Скругление теперь приходит из класса → секция показывает «← класс».
+  await expect(page.locator('[data-style-src="class"]').first()).toBeVisible();
+});
+
+test("editor-v2 Stage 5: overflow control clips block (@flow)", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1400 });
+  await page.goto("/Home/EditDoc?canvas=1&cmd=1");
+  if (await page.locator("#lime-doc-intro-skip").isVisible()) await page.locator("#lime-doc-intro-skip").click();
+
+  await page.locator('[data-doc-add="container"]').click();
+  const container = page.locator(topBlocks).last();
+  const containerId = await container.getAttribute("data-block-id");
+  expect(containerId).toBeTruthy();
+  await page.evaluate(id => (window as any).__LIME_SELECTION__.select(id), containerId);
+
+  await expect(container).not.toHaveCSS("overflow-x", "hidden");
+  await page.locator('[data-v2-overflow="hidden"]').click();
+  await expect(container).toHaveCSS("overflow-x", "hidden");
+  await page.locator("[data-doc-undo]").click();
+  await expect(container).not.toHaveCSS("overflow-x", "hidden");
+});
+
+test("editor-v2 Stage 6.1: group and ungroup siblings through command history (@flow)", async ({ page }) => {
+  await page.goto("/Home/EditDoc?canvas=1&cmd=1");
+  if (await page.locator("#lime-doc-intro-skip").isVisible()) await page.locator("#lime-doc-intro-skip").click();
+
+  await page.locator('[data-doc-add="heading"]').click();
+  await page.locator('[data-doc-add="text"]').click();
+  const blocks = page.locator(topBlocks);
+  await expect(blocks).toHaveCount(2);
+  const firstId = await blocks.nth(0).getAttribute("data-block-id");
+  const secondId = await blocks.nth(1).getAttribute("data-block-id");
+  expect(firstId && secondId).toBeTruthy();
+
+  await page.evaluate(ids => (window as any).__LIME_SELECTION__.replace(ids), [firstId, secondId]);
+  await expect(page.locator("[data-selection-id]")).toHaveCount(2);
+  await expect(page.locator('[data-doc-op="group"]')).toBeVisible();
+  await page.locator('[data-doc-op="group"]').click();
+
+  await expect(page.locator(topBlocks)).toHaveCount(1);
+  const group = page.locator(topBlocks).first();
+  await expect(group).toHaveAttribute("data-block-type", "group");
+  await expect(page.locator(`${topBlocks} > .lime-block__inner > .lime-block__children > .lime-block`)).toHaveCount(2);
+  const groupId = await group.getAttribute("data-block-id");
+  expect(groupId).toBeTruthy();
+  await expect(page.locator(`[data-doc-layer="${groupId}"] .lime-doc-layer__name`)).toHaveText("Group");
+
+  await page.locator("[data-doc-undo]").click();
+  await expect(page.locator(topBlocks)).toHaveCount(2);
+  await page.locator("[data-doc-redo]").click();
+  await expect(page.locator(topBlocks)).toHaveCount(1);
+
+  const redoneGroupId = await page.locator(topBlocks).first().getAttribute("data-block-id");
+  expect(redoneGroupId).toBeTruthy();
+  await page.evaluate(id => (window as any).__LIME_SELECTION__.replace([id]), redoneGroupId);
+  await expect(page.locator('[data-doc-op="ungroup"]')).toBeVisible();
+  await page.locator('[data-doc-op="ungroup"]').click();
+
+  await expect(page.locator(topBlocks)).toHaveCount(2);
+  await expect(page.locator(topBlocks).nth(0)).toHaveAttribute("data-block-id", firstId!);
+  await expect(page.locator(topBlocks).nth(1)).toHaveAttribute("data-block-id", secondId!);
+  await page.locator("[data-doc-undo]").click();
+  await expect(page.locator(topBlocks)).toHaveCount(1);
+  await expect(page.locator(topBlocks).first()).toHaveAttribute("data-block-type", "group");
 });
 
 test("editor-b: blocks + container nesting + undo + save/reopen (@flow)", async ({ page }) => {

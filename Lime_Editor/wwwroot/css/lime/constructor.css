@@ -339,6 +339,14 @@
 .lime-block.sortable-chosen {
     cursor: grabbing;
 }
+/* Маркер циклической вложенности компонента (только в редакторе; в publish узел не выводится). */
+.lime-block--cycle > .lime-block__inner {
+    padding: var(--space-3);
+    border: 1px dashed var(--danger, #e5484d);
+    border-radius: var(--radius-2, 6px);
+    color: var(--danger, #e5484d);
+    font-size: var(--text-xs);
+}
 
 .lime-block-grip {
     position: absolute;
@@ -1255,8 +1263,22 @@
     font-size: var(--text-xs);
 }
 .lime-v2-field > span { min-width: 46px; }
+.lime-v2-scrub { cursor: ew-resize; user-select: none; touch-action: none; }
+.lime-v2-scrub:hover { color: var(--accent); }
 .lime-v2-field > .lime-input,
 .lime-v2-field > .lime-select { min-width: 0; width: 100%; }
+.lime-v2-field > .lime-unit-select,
+.lime-range-row > .lime-unit-select {
+    width: 56px;
+    min-width: 52px;
+    height: 28px;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    color: var(--fg-muted);
+    font-size: 11px;
+    padding: 0 4px;
+}
 .lime-v2-sources {
     display: flex;
     flex-wrap: wrap;
@@ -1308,6 +1330,23 @@
 .lime-segmented .lime-mixed-label {
     align-self: center;
     padding: 0 6px;
+}
+/* Stage 5: строка «переопределено на брейкпоинте» + сброс override. */
+.lime-style-override {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 6px;
+}
+.lime-style-override__badge {
+    color: var(--accent);
+    font-size: 10px;
+    line-height: 1;
+}
+.lime-style-override__src {
+    font-size: 11px;
+    color: var(--text-muted, #94a3b8);
+    opacity: .8;
 }
 .lime-color-input {
     width: 32px;
@@ -1426,8 +1465,10 @@
     display: flex;
     align-items: center;
     gap: 6px;
+    height: 30px;
     padding: 5px 8px;
     border-radius: var(--radius-sm);
+    box-sizing: border-box;
     cursor: pointer;
     font-size: var(--text-sm);
     color: var(--fg-muted);
@@ -1435,6 +1476,7 @@
     overflow: hidden;
     text-overflow: ellipsis;
 }
+.lime-doc-layer-spacer { pointer-events: none; }
 .lime-doc-layer:hover { background: var(--surface-glass); color: var(--fg); }
 .lime-doc-layer.is-active { background: var(--accent-soft); color: var(--accent); }
 .lime-doc-layer.is-node-hidden { opacity: .52; }

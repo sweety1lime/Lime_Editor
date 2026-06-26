@@ -51,8 +51,25 @@
         return doc.pages.reduce(function (n, p) { return n + p.blocks.length; }, 0);
     }
     // Цель правки: для компонента-инстанса — общий блок из doc.components (правка → все копии).
+    function componentRecord(ref) {
+        return doc.components && ref ? doc.components[ref] : null;
+    }
+    function componentVariantRecord(comp, variantId) {
+        var variants = (comp && comp.variants) || [];
+        if (!variantId) return null;
+        for (var i = 0; i < variants.length; i++) {
+            if (variants[i] && variants[i].id === variantId && variants[i].block) return variants[i];
+        }
+        return null;
+    }
+    function componentSourceBlock(inst) {
+        var comp = inst && inst.type === "component" ? componentRecord(inst.ref) : null;
+        if (!comp) return null;
+        var variant = componentVariantRecord(comp, inst.variant);
+        return (variant && variant.block) || comp.block || null;
+    }
     function targetBlock(b) {
-        if (b && b.type === "component" && doc.components[b.ref]) return doc.components[b.ref].block;
+        if (b && b.type === "component" && componentRecord(b.ref)) return componentSourceBlock(b) || b;
         return b;
     }
     var INSTANCE_DESIGN_FIELDS = { frame: 1, size: 1, constraints: 1, zIndex: 1 };
@@ -61,13 +78,42 @@
         return targetBlock(b);
     }
     function rawBlockDesign(b) {
-        if (b && b.type === "component" && doc.components[b.ref]) {
-            var definition = doc.components[b.ref].block || {};
+        if (b && b.type === "component" && componentRecord(b.ref)) {
+            var definition = componentSourceBlock(b) || {};
             return L.mergeInstanceDesign ? L.mergeInstanceDesign(definition.design, b.design) : (b.design || definition.design || {});
         }
         return b && b.design || {};
     }
     function resolvedBlockDesign(b, breakpoint) { return L.resolvedDesign(rawBlockDesign(b), breakpoint); }
+    // Стили для ЧТЕНИЯ (инспектор/живое превью): у компонента-инстанса — эффективные
+    // (definition.styles ⊕ instance.overrides.styles), у обычного блока — собственные. Запись
+    // override идёт отдельным путём (setComponentStyleOverride / setComponentStyleOverrideLocal).
+    function readStyles(b) {
+        if (b && b.type === "component" && componentRecord(b.ref)) {
+            var def = componentSourceBlock(b) || {};
+            var ovr = b.overrides && b.overrides.styles;
+            return ovr ? L.mergeDesign(def.styles || {}, ovr) : (def.styles || {});
+        }
+        return (b && b.styles) || {};
+    }
+    function setComponentStyleOverrideLocal(inst, bucket, prop, val, remove) {
+        if (!inst || inst.type !== "component") return false;
+        if (!inst.overrides) inst.overrides = {};
+        if (!inst.overrides.styles) inst.overrides.styles = {};
+        var styles = inst.overrides.styles;
+        if (remove || val === "" || val == null) {
+            if (styles[bucket]) {
+                delete styles[bucket][prop];
+                if (!Object.keys(styles[bucket]).length) delete styles[bucket];
+            }
+        } else {
+            if (!styles[bucket]) styles[bucket] = {};
+            styles[bucket][prop] = val;
+        }
+        if (!Object.keys(styles).length) delete inst.overrides.styles;
+        if (inst.overrides && !Object.keys(inst.overrides).length) delete inst.overrides;
+        return true;
+    }
     function escapeText(s) {
         return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
     }
@@ -173,6 +219,16 @@
         }
         return true;
     }
+    function setComponentContentOverrideLocal(inst, field, value, remove) {
+        if (!inst || inst.type !== "component") return false;
+        if (!inst.overrides) inst.overrides = {};
+        if (!inst.overrides.content) inst.overrides.content = {};
+        if (remove) deleteByPath(inst.overrides.content, field);
+        else setByPath(inst.overrides.content, field, value);
+        if (inst.overrides.content && !Object.keys(inst.overrides.content).length) delete inst.overrides.content;
+        if (inst.overrides && !Object.keys(inst.overrides).length) delete inst.overrides;
+        return true;
+    }
     function kebab(k) { return k.replace(/[A-Z]/g, function (m) { return "-" + m.toLowerCase(); }); }
 
     // Эффективные стили для превью текущего брейкпоинта (каскад base ⊕ tablet ⊕ mobile).
@@ -199,6 +255,63 @@
     var cmdOn = (/[?&]cmd=1\b/.test(location.search) || window.__LIME_CMD__) && !!window.LimeCommands;
     var canvasOn = /[?&]canvas=1\b/.test(location.search);
     var cmdStore = cmdOn ? window.LimeCommands.createStore(doc) : null;
+
+    // ===== Stage 7 perf-инструмент (за ?perf=1, иначе ноль стоимости) =====
+    // Считает вызовы полного render() против точечных patch/insert/remove/move и время в каждом.
+    // window.__LIME_PERF__.report() — таблица; .load(n) — залить n синтетических узлов и замерить open.
+    var perfOn = /[?&]perf=1\b/.test(location.search) || !!window.__LIME_PERF_ON__;
+    var perfStat = { full: { n: 0, ms: 0 }, inc: { n: 0, ms: 0 } };
+    function perfNow() { return (window.performance && performance.now) ? performance.now() : Date.now(); }
+    function perfRec(kind, t0) { if (perfOn) { perfStat[kind].n++; perfStat[kind].ms += perfNow() - t0; } }
+    if (perfOn) {
+        window.__LIME_PERF__ = {
+            stat: perfStat,
+            report: function () {
+                var row = function (b) { return { calls: b.n, totalMs: +b.ms.toFixed(1), avgMs: b.n ? +(b.ms / b.n).toFixed(2) : 0 }; };
+                var out = { "full render": row(perfStat.full), "incremental": row(perfStat.inc) };
+                if (window.console && console.table) console.table(out); else console.log(JSON.stringify(out));
+                return out;
+            },
+            reset: function () { perfStat.full = { n: 0, ms: 0 }; perfStat.inc = { n: 0, ms: 0 }; },
+            // Прямое сравнение на ТЕКУЩЕМ документе: полный render() против точечного patch одного
+            // leaf-узла. Усредняем по reps. Возвращает {fullMs, incMs, speedup}.
+            bench: function (reps) {
+                reps = reps || 5;
+                var leaf = null, top = pageBlocks();
+                for (var i = 0; i < top.length && !leaf; i++) { if (top[i].children && top[i].children.length) leaf = top[i].children[0]; }
+                if (!leaf) leaf = top[0];
+                var full = 0, inc = 0, k;
+                for (k = 0; k < reps; k++) { var a = perfNow(); render(); full += perfNow() - a; }
+                for (k = 0; k < reps; k++) { var b = perfNow(); patchBlockDom(leaf.id); inc += perfNow() - b; }
+                var fm = full / reps, im = inc / reps;
+                this.reset();
+                console.log("[LIME PERF] bench(" + reps + "): full render " + fm.toFixed(1) + "ms vs incremental patch " + im.toFixed(2) + "ms → ×" + (fm / im).toFixed(1) + " быстрее");
+                return { fullMs: +fm.toFixed(1), incMs: +im.toFixed(2), speedup: +(fm / im).toFixed(1) };
+            },
+            // Залить n синтетических узлов (контейнеры по ~6 текстов) и замерить open-render.
+            load: function (n) {
+                n = n || 500;
+                var blocks = [], made = 0;
+                while (made < n) {
+                    var kids = [], kc = Math.min(6, n - made);
+                    for (var i = 0; i < kc; i++) { made++; kids.push({ id: rid("b"), type: "text", content: { text: "Node " + made }, styles: { base: { color: "#222", fontSize: "16px" } } }); }
+                    made++;
+                    blocks.push({ id: rid("b"), type: "container", content: {}, children: kids });
+                }
+                doc.pages[active].blocks = blocks;
+                selectedId = null;
+                if (cmdStore && window.LimeCommands) { cmdStore = window.LimeCommands.createStore(doc); cmdPrev = JSON.stringify(doc); }
+                this.reset();
+                var t0 = perfNow();
+                render();
+                var dt = perfNow() - t0;
+                var total = blocks.length + blocks.reduce(function (a, b) { return a + b.children.length; }, 0);
+                this.reset(); // сам load не засчитываем в статистику правок
+                console.log("[LIME PERF] load(" + n + "): open render " + dt.toFixed(1) + "ms, ~" + total + " nodes. Делай правки и зови __LIME_PERF__.report()");
+                return { nodes: total, openMs: +dt.toFixed(1) };
+            }
+        };
+    }
     var cmdPrev = cmdStore ? JSON.stringify(doc) : null; // doc-снапшот предыдущей точки истории
 
     function snapshot() { return JSON.stringify({ doc: doc, active: active }); }
@@ -256,16 +369,28 @@
         updateHistButtons();
         return changed;
     }
-    // Частый шов для media/content-инспектора. Component definitions пока намеренно идут
-    // snapshot fallback: command engine ищет только реальные блоки в pages.
+    // Частый шов для media/content-инспектора (image/gallery/video/embed). У компонента-инстанса
+    // content-правки локальны: пишем в overrides.content, не трогая definition и другие копии —
+    // тем же путём, что inline-текст (6.2). Это закрывает «overrides изображений» из §8 этап 6.
     function setContentValue(source, field, value, remove) {
+        var componentInstance = source && source.type === "component" && componentRecord(source.ref);
+        if (componentInstance) {
+            if (runCommand("setComponentContentOverride", { id: source.id, field: field, value: value, remove: !!remove })) {
+                patchBlockDom(source.id); scheduleAutosave(); // Stage 7: точечно вместо полного render
+                return true;
+            }
+            beginCheckpointMutation();
+            setComponentContentOverrideLocal(source, field, value, !!remove);
+            patchBlockDom(source.id); markDirty();
+            return true;
+        }
         var target = targetBlock(source);
         if (!target) return false;
         if (cmdStore && target === source) {
             var changed = runCommand("setContent", {
                 id: source.id, field: field, value: value, remove: !!remove
             });
-            render();
+            patchBlockDom(source.id); // Stage 7: точечно вместо полного render
             if (changed) scheduleAutosave();
             return true;
         }
@@ -273,7 +398,7 @@
         if (!target.content) target.content = {};
         if (remove) deleteByPath(target.content, field);
         else setByPath(target.content, field, value);
-        render(); markDirty();
+        patchBlockDom(source.id); markDirty();
         return true;
     }
     function setBlockValue(source, prop, value, remove) {
@@ -283,13 +408,15 @@
             var changed = runCommand("setBlockProp", {
                 id: source.id, prop: prop, value: value, remove: !!remove
             });
-            render();
+            patchBlockDom(source.id, { allowChildren: true, refreshDesign: true });
             if (changed) scheduleAutosave();
             return true;
         }
         beginCheckpointMutation();
         if (remove) delete target[prop]; else target[prop] = value;
-        render(); markDirty();
+        if (target === source) patchBlockDom(source.id, { allowChildren: true, refreshDesign: true });
+        else render();
+        markDirty();
         return true;
     }
     function setDesignValue(source, breakpoint, field, value, remove) {
@@ -299,7 +426,7 @@
             var changed = runCommand("setDesign", {
                 id: source.id, breakpoint: breakpoint, field: field, value: value, remove: !!remove
             });
-            render();
+            patchBlockDom(source.id, { allowChildren: true, refreshDesign: true });
             if (changed) scheduleAutosave();
             return true;
         }
@@ -307,7 +434,9 @@
         if (!target.design) target.design = {};
         if (!target.design[breakpoint]) target.design[breakpoint] = {};
         if (remove) delete target.design[breakpoint][field]; else target.design[breakpoint][field] = value;
-        render(); markDirty();
+        if (target === source) patchBlockDom(source.id, { allowChildren: true, refreshDesign: true });
+        else render();
+        markDirty();
         return true;
     }
     function finishMutation(commandApplied) {
@@ -408,6 +537,7 @@
 
     // ===== RENDER =====
     function render() {
+        var __pt = perfNow();
         if (pageBlocks().length === 0) {
             ws.innerHTML = '<div class="lime-workspace__placeholder">' +
                 '<div class="lime-workspace__placeholder-icon">✨</div>' +
@@ -428,6 +558,152 @@
         initDnD(); // DOM пересобран — пересоздаём sortable-зоны
         initLayerDrag(); // и навешиваем drag на декор-слои
         refreshV2SelectionOverlay();
+        perfRec("full", __pt);
+    }
+
+    // Отложенный refresh дерева слоёв (Stage 7): серия быстрых правок не перестраивает дерево
+    // на каждую — один rAF на пачку. Имя/тип/видимость в слоях не критичны мгновенно.
+    var layersRefreshPending = false;
+    function scheduleLayersRefresh() {
+        if (layersRefreshPending) return;
+        layersRefreshPending = true;
+        var run = function () { layersRefreshPending = false; refreshLayers(); };
+        if (window.requestAnimationFrame) window.requestAnimationFrame(run); else setTimeout(run, 0);
+    }
+
+    // Stage 7: точечное обновление DOM одного блока вместо полной пересборки workspace.innerHTML.
+    // Применяется к content-правкам (текст/медиа/props), которые НЕ меняют структуру детей.
+    // Безопасный gate: если у блока есть дочерняя drop-зона (контейнер), Sortable пришлось бы
+    // пересоздавать — тогда откатываемся на полный render(). Делегированные обработчики (на ws)
+    // переживают replace; Sortable родителя не трогаем (позиция узла та же).
+    function patchBlockDom(id, opts) {
+        opts = opts || {};
+        var __pt = perfNow();
+        var sec = id && ws.querySelector('[data-block-id="' + id + '"]');
+        var r = id && findBlock(id);
+        if (!sec || !r || !r.block) { render(); return false; }
+        var tmp = document.createElement("div");
+        tmp.innerHTML = L.renderOneBlock(r.block, doc.components, { editable: true, data: editorCollectionData() });
+        var fresh = tmp.firstElementChild;
+        // Нет элемента или есть дочерние drop-зоны → безопасный полный путь.
+        if (!fresh || (!opts.allowChildren && fresh.querySelector(".lime-block__children"))) { render(); return false; }
+        sec.replaceWith(fresh);
+        if (id === selectedId) fresh.classList.add("is-selected");
+        if (opts.refreshDesign) applyPreviewStyles(); else applyPreviewStylesScoped(fresh);
+        if (fresh.querySelector(".lime-block__children")) initDnD();
+        initLayerDrag();
+        ensureDocFonts();
+        if (canvasOn) refreshV2SelectionOverlay();
+        scheduleLayersRefresh();
+        perfRec("inc", __pt);
+        return true;
+    }
+
+    // Stage 7: точечная вставка DOM нового блока в список родителя (или страницы) по индексу.
+    // false → caller делает полный render() (страховка). Модель уже изменена к этому моменту.
+    function insertBlockDom(block, parentId, index, opts) {
+        opts = opts || {};
+        var __pt = perfNow();
+        // В компонент-инстанс (дети резолвятся из определения) точечно не вставляем — полный путь.
+        if (parentId) { var pb = byId(parentId); if (!pb || pb.type === "component") return false; }
+        // v2 design-блок (frame/layout): его CSS живёт в основном <style>/design-preview, которые
+        // точечная вставка не пересобирает → безопаснее полный render (редко: dup free-child и т.п.).
+        if (block && block.design && !opts.allowDesign) return false;
+        var listEl;
+        if (parentId) {
+            var ps = ws.querySelector('[data-block-id="' + parentId + '"]');
+            listEl = ps ? ps.querySelector(":scope > .lime-block__inner > .lime-block__children") : null;
+        } else {
+            listEl = ws.querySelector(".lime-doc-page");
+        }
+        if (!listEl) return false; // пустая страница (placeholder) / список не найден
+        var tmp = document.createElement("div");
+        tmp.innerHTML = L.renderOneBlock(block, doc.components, { editable: true, data: editorCollectionData() });
+        var fresh = tmp.firstElementChild;
+        if (!fresh) return false;
+        var items = listEl.querySelectorAll(":scope > .lime-block");
+        if (index == null || index >= items.length) listEl.appendChild(fresh);
+        else listEl.insertBefore(fresh, items[index]);
+        if (block.id === selectedId) fresh.classList.add("is-selected");
+        if (opts.refreshDesign) applyPreviewStyles(); else applyPreviewStylesScoped(fresh);
+        ensureDocFonts();
+        initDnD();        // idempotent: Sortable только для новых вложенных списков fresh
+        initLayerDrag();
+        if (canvasOn) refreshV2SelectionOverlay();
+        scheduleLayersRefresh();
+        perfRec("inc", __pt);
+        return true;
+    }
+    // Stage 7: точечное удаление DOM узла. false → caller делает полный render().
+    function removeBlockDom(id) {
+        var __pt = perfNow();
+        if (pageBlocks().length === 0) return false; // страница опустела → нужен placeholder
+        var el = ws.querySelector('[data-block-id="' + id + '"]');
+        if (!el) return false;
+        el.remove();
+        initDnD();        // idempotent: чистит Sortable выпавшего поддерева
+        if (canvasOn) refreshV2SelectionOverlay();
+        scheduleLayersRefresh();
+        perfRec("inc", __pt);
+        return true;
+    }
+    function removeBlocksDom(ids) {
+        var __pt = perfNow();
+        if (pageBlocks().length === 0) return false;
+        var removed = 0;
+        for (var i = 0; i < ids.length; i++) {
+            var el = ws.querySelector('[data-block-id="' + ids[i] + '"]');
+            if (!el) return false;
+            el.remove();
+            removed++;
+        }
+        if (!removed) return false;
+        initDnD();
+        if (canvasOn) refreshV2SelectionOverlay();
+        scheduleLayersRefresh();
+        perfRec("inc", __pt);
+        return true;
+    }
+    function finishInsert(block, parentId, index, commandApplied) {
+        if (insertBlockDom(block, parentId, index)) refreshInspector(); else render();
+        if (commandApplied) scheduleAutosave(); else markDirty();
+    }
+    function finishRemove(id, commandApplied) {
+        if (removeBlockDom(id)) refreshInspector(); else render();
+        if (commandApplied) scheduleAutosave(); else markDirty();
+    }
+    // Stage 7: точечное перемещение СУЩЕСТВУЮЩЕГО DOM-узла в список родителя по индексу (кнопочные
+    // move/unwrap; для DnD Sortable уже двигает DOM сам). Поддерево узла переезжает целиком — его
+    // вложенные Sortable переживают (списки не пересоздаём). false → caller делает полный render().
+    function moveBlockDom(id, parentId, index) {
+        var __pt = perfNow();
+        if (parentId) { var pb = byId(parentId); if (!pb || pb.type === "component") return false; }
+        // v2 design-блок (frame/size зависят от родителя) → его CSS в основном <style> мог измениться;
+        // точечный путь его не пересобирает, поэтому безопаснее полный render.
+        var blk = byId(id); if (blk && blk.design) return false;
+        var el = ws.querySelector('[data-block-id="' + id + '"]');
+        if (!el) return false;
+        var listEl;
+        if (parentId) {
+            var ps = ws.querySelector('[data-block-id="' + parentId + '"]');
+            listEl = ps ? ps.querySelector(":scope > .lime-block__inner > .lime-block__children") : null;
+        } else {
+            listEl = ws.querySelector(".lime-doc-page");
+        }
+        if (!listEl) return false;
+        var items = [].slice.call(listEl.querySelectorAll(":scope > .lime-block")).filter(function (x) { return x !== el; });
+        if (el.parentNode) el.parentNode.removeChild(el);
+        if (index == null || index >= items.length) listEl.appendChild(el);
+        else listEl.insertBefore(el, items[index]);
+        applyPreviewStyles(); // новый родитель может менять design-preview (free-frame edge)
+        if (canvasOn) refreshV2SelectionOverlay();
+        scheduleLayersRefresh();
+        perfRec("inc", __pt);
+        return true;
+    }
+    function finishMove(id, parentId, index, commandApplied) {
+        if (moveBlockDom(id, parentId, index)) refreshInspector(); else render();
+        if (commandApplied) scheduleAutosave(); else markDirty();
     }
 
     // ===== DRAG-AND-DROP (полировка: SortableJS на всех уровнях вложенности) =====
@@ -483,21 +759,39 @@
             toArr.splice(Math.min(evt.newIndex, toArr.length), 0, moved);
         }
         selectedId = moved.id;
-        finishMutation(commandApplied);
+        // v2 design-блок: CSS frame/size зависит от родителя и живёт в основном <style> → полный render.
+        if (moved.design) { finishMutation(commandApplied); return; }
+        // Stage 7: Sortable УЖЕ переместил DOM-узел в нужную позицию, модель синхронна → полная
+        // пересборка не нужна, только вспомогательный UI (design-preview зависит от нового родителя).
+        var __dt = perfNow();
+        applyPreviewStyles();
+        refreshInspector();
+        if (canvasOn) refreshV2SelectionOverlay();
+        scheduleLayersRefresh();
+        perfRec("inc", __dt);
+        if (commandApplied) scheduleAutosave(); else markDirty();
     }
+    // Идемпотентно (Stage 7): создаёт Sortable только для НОВЫХ списков, выпавшие из DOM — чистит.
+    // Для полного render() поведение прежнее (innerHTML заменил всё → старые списки detached →
+    // destroy, новые → create). Для точечных insert/remove пересоздаётся только затронутый список,
+    // а не все 500. Метка `__limeDnd` на элементе-списке (не зависим от версии Sortable.get).
     function initDnD() {
         if (!window.Sortable) return;
+        var kept = [];
         for (var i = 0; i < sortables.length; i++) {
-            try { sortables[i].destroy(); } catch (e) { /* DOM уже выброшен */ }
+            var s = sortables[i];
+            if (s.el && ws.contains(s.el)) { kept.push(s); continue; }
+            try { if (s.el) delete s.el.__limeDnd; s.destroy(); } catch (e) { /* DOM уже выброшен */ }
         }
-        sortables = [];
+        sortables = kept;
         var lists = [];
         var page = ws.querySelector(".lime-doc-page");
         if (page) lists.push(page);
         var kids = ws.querySelectorAll(".lime-block__children");
         for (var k = 0; k < kids.length; k++) lists.push(kids[k]);
         for (var j = 0; j < lists.length; j++) {
-            sortables.push(new window.Sortable(lists[j], {
+            if (lists[j].__limeDnd) continue; // уже есть Sortable — не трогаем
+            var inst = new window.Sortable(lists[j], {
                 group: "lime-doc",
                 handle: ".lime-block-grip",
                 draggable: ".lime-block",
@@ -506,10 +800,32 @@
                 invertSwap: true,
                 ghostClass: "sortable-ghost",
                 onEnd: onDragEnd
-            }));
+            });
+            lists[j].__limeDnd = inst;
+            sortables.push(inst);
         }
     }
 
+    // Инлайн эффективных стилей текущего брейкпоинта для ОДНОГО блок-элемента (live preview).
+    function styleBlockEl(el) {
+        var id = el.getAttribute("data-block-id");
+        var b = byId(id);
+        if (!b) return;
+        var st = readStyles(b); // у инстанса — эффективные (definition ⊕ overrides.styles)
+        // Классы — база (0.1), свой стиль блока перебивает их.
+        var decls = effectiveClassStyles(b);
+        Object.assign(decls, effective(st, currentBp));
+        // При редактировании наведения показываем вид :hover прямо в холсте у выбранного блока.
+        if (currentState === "hover" && id === selectedId) {
+            if (currentClass) {
+                var cdef = findClassDef(currentClass);
+                if (cdef && cdef.styles && cdef.styles.hover) Object.assign(decls, cdef.styles.hover);
+            } else if (st && st.hover) {
+                Object.assign(decls, st.hover);
+            }
+        }
+        el.setAttribute("style", declsToCss(decls));
+    }
     // Инлайним эффективные стили текущего брейкпоинта поверх <style> движка — точное превью без iframe.
     function applyPreviewStyles() {
         if (canvasOn && L.compilePreviewDesignCss && pageBlocks().length) {
@@ -522,26 +838,14 @@
             designStyle.textContent = L.compilePreviewDesignCss(pageBlocks(), doc.components, currentBp);
         }
         var blocks = ws.querySelectorAll(".lime-block");
-        for (var i = 0; i < blocks.length; i++) {
-            var el = blocks[i];
-            var id = el.getAttribute("data-block-id");
-            var b = byId(id);
-            if (!b) continue;
-            var st = targetBlock(b).styles;
-            // Классы — база (0.1), свой стиль блока перебивает их.
-            var decls = effectiveClassStyles(b);
-            Object.assign(decls, effective(st, currentBp));
-            // При редактировании наведения показываем вид :hover прямо в холсте у выбранного блока.
-            if (currentState === "hover" && id === selectedId) {
-                if (currentClass) {
-                    var cdef = findClassDef(currentClass);
-                    if (cdef && cdef.styles && cdef.styles.hover) Object.assign(decls, cdef.styles.hover);
-                } else if (st && st.hover) {
-                    Object.assign(decls, st.hover);
-                }
-            }
-            el.setAttribute("style", declsToCss(decls));
-        }
+        for (var i = 0; i < blocks.length; i++) styleBlockEl(blocks[i]);
+    }
+    // Точечная версия для Stage 7 patchBlockDom: стили только для свежего поддерева (content-правка
+    // не меняет design → перекомпилировать общий design-preview <style> не нужно).
+    function applyPreviewStylesScoped(rootEl) {
+        styleBlockEl(rootEl);
+        var inner = rootEl.querySelectorAll(".lime-block");
+        for (var i = 0; i < inner.length; i++) styleBlockEl(inner[i]);
     }
 
     // Подключает в редакторе <link> для всех шрифтов, реально используемых в документе
@@ -580,7 +884,8 @@
         var field = f.getAttribute("data-field");
         var value = f.textContent;
         var directBlock = targetBlock(b) === b; // component definition пока остаётся checkpoint
-        if (cmdStore && directBlock) {
+        var componentInstance = b.type === "component" && doc.components[b.ref];
+        if (cmdStore && (directBlock || componentInstance)) {
             commitStyleEdit();
             commitBlockEdit();
             var key = b.id + ":" + field;
@@ -590,7 +895,8 @@
                 editTxn = true;
                 editTxnKey = key;
             }
-            if (cmdStore.dispatch("setContent", { id: b.id, field: field, value: value })) {
+            var commandType = componentInstance ? "setComponentContentOverride" : "setContent";
+            if (cmdStore.dispatch(commandType, { id: b.id, field: field, value: value })) {
                 doc = cmdStore.getDoc();
                 clearTimeout(editDebounce);
                 editDebounce = setTimeout(commitInlineEdit, 600);
@@ -600,7 +906,8 @@
             editTxn = false;
             editTxnKey = null;
         } else beginCheckpointMutation();
-        setByPath(targetBlock(b).content, field, value);
+        if (componentInstance) setComponentContentOverrideLocal(b, field, value, false);
+        else setByPath(targetBlock(b).content, field, value);
         clearTimeout(editDebounce);
         editDebounce = setTimeout(markDirty, 600);
     });
@@ -634,6 +941,15 @@
             }
             selectById(row.getAttribute("data-doc-layer"));
         });
+        layersBox.addEventListener("scroll", function () {
+            if (layerScrollQueued) return;
+            layerScrollQueued = true;
+            var run = function () {
+                layerScrollQueued = false;
+                renderLayersViewport(layersBox, layerRowsCache, false);
+            };
+            if (window.requestAnimationFrame) window.requestAnimationFrame(run); else setTimeout(run, 0);
+        }, { passive: true });
     }
 
     // Контекстное меню блока (ПКМ, этап 0.4)
@@ -831,19 +1147,24 @@
                                 { type: "setStyle", payload: { id: b.id, breakpoint: currentBp, prop: "backgroundImage", value: "url('" + item.dataset.url + "')" } },
                                 { type: "setContent", payload: { id: b.id, field: "bgMode", value: "image" } }
                             ], "pick-background");
-                            render(); if (bgChanged) scheduleAutosave();
+                            patchBlockDom(b.id, { allowChildren: true, refreshDesign: true });
+                            if (bgChanged) scheduleAutosave();
                         } else {
                             if (!tb.styles) tb.styles = {};
                             if (!tb.styles[currentBp]) tb.styles[currentBp] = {};
                             tb.styles[currentBp].backgroundImage = "url('" + item.dataset.url + "')";
                             if (!tb.content) tb.content = {};
                             tb.content.bgMode = "image";
-                            render(); markDirty();
+                            if (tb === b) patchBlockDom(b.id, { allowChildren: true, refreshDesign: true });
+                            else render();
+                            markDirty();
                         }
                     } else if (pickCtx.target === "blockpath") {
                         // Путь относительно самого блока (напр. layers.0.src — картинка декор-слоя).
                         setByPath(tb, pickCtx.field, item.dataset.url);
-                        render(); markDirty();
+                        if (tb === b) patchBlockDom(b.id, { allowChildren: true, refreshDesign: true });
+                        else render();
+                        markDirty();
                     } else {
                         setContentValue(b, pickCtx.field, item.dataset.url, false);
                     }
@@ -898,7 +1219,7 @@
                 }
             }
             selectedId = b.id;
-            finishMutation(commandApplied);
+            finishInsert(b, intoContainer ? sel.block.id : null, null, commandApplied); // Stage 7: append
             // V2 (canvas): держим selection-store в синхроне с legacy. Иначе add-block двигает
             // только legacy selectedId, V2-стор застревает на прежнем блоке, и повторный выбор
             // того же узла через стор становится no-op (replace при равенстве не эмитит) →
@@ -989,7 +1310,7 @@
         if (!commandApplied) {
             var tmp = r.parent[r.index]; r.parent[r.index] = r.parent[j]; r.parent[j] = tmp;
         }
-        finishMutation(commandApplied);
+        finishMove(r.block.id, r.parentBlock ? r.parentBlock.id : null, j, commandApplied); // Stage 7
     }
     function dupBlock() {
         var r = findBlock(selectedId);
@@ -1003,15 +1324,16 @@
         });
         if (!commandApplied) r.parent.splice(r.index + 1, 0, clone);
         selectedId = clone.id;
-        finishMutation(commandApplied);
+        finishInsert(clone, r.parentBlock ? r.parentBlock.id : null, r.index + 1, commandApplied); // Stage 7
     }
     function delBlock() {
         var r = findBlock(selectedId);
         if (!r) return;
+        var removedId = r.block.id;
         var commandApplied = runCommand("removeBlock", { id: r.block.id });
         if (!commandApplied) r.parent.splice(r.index, 1);
         selectedId = null;
-        finishMutation(commandApplied);
+        finishRemove(removedId, commandApplied); // Stage 7: точечное удаление вместо полного render
     }
     // «Наружу»: вытащить блок из контейнера на уровень самого контейнера (этап 1).
     function unwrapBlock() {
@@ -1029,7 +1351,170 @@
             r.parent.splice(r.index, 1);
             rp.parent.splice(rp.index + 1, 0, r.block);
         }
-        finishMutation(commandApplied);
+        // Stage 7: точечный перенос на уровень родителя контейнера (после самого контейнера).
+        finishMove(r.block.id, rp.parentBlock ? rp.parentBlock.id : null, rp.index + 1, commandApplied);
+    }
+    function selectedSiblingItems(ids) {
+        ids = ids || [];
+        if (ids.length < 2) return null;
+        var seen = {}, parent = null, parentBlock = null, items = [];
+        for (var i = 0; i < ids.length; i++) {
+            var id = ids[i];
+            if (!id || seen[id]) return null;
+            seen[id] = true;
+            var r = findBlock(id);
+            if (!r) return null;
+            if (parent && parent !== r.parent) return null;
+            parent = r.parent;
+            parentBlock = r.parentBlock;
+            items.push(r);
+        }
+        items.sort(function (a, b) { return a.index - b.index; });
+        return { parent: parent, parentBlock: parentBlock, items: items };
+    }
+    function frameNumber(v, fallback) {
+        if (typeof v === "number" && isFinite(v)) return v;
+        if (typeof v === "string" && /^-?(?:\d+|\d*\.\d+)/.test(v.trim())) return parseFloat(v);
+        return fallback;
+    }
+    function frameForGroup(block) {
+        var d = resolvedBlockDesign(block, currentBp);
+        var f = (d && d.frame) || {};
+        var out = {
+            x: frameNumber(f.x, 0),
+            y: frameNumber(f.y, 0),
+            width: Math.max(8, frameNumber(f.width, 100)),
+            height: Math.max(8, frameNumber(f.height, 100))
+        };
+        if (typeof f.rotation === "number" && isFinite(f.rotation)) out.rotation = f.rotation;
+        return out;
+    }
+    function parentLayoutIsFree(parentBlock) {
+        var t = parentBlock && targetBlock(parentBlock);
+        var d = t && L.resolvedDesign(t.design, currentBp);
+        return !!(d && d.layout && d.layout.mode === "free");
+    }
+    function blockWithFrame(block, frame) {
+        var out = clone(block);
+        if (!out.design) out.design = {};
+        if (!out.design[currentBp]) out.design[currentBp] = {};
+        out.design[currentBp].frame = frame;
+        return out;
+    }
+    function frameBounds(frames) {
+        var left = Infinity, top = Infinity, right = -Infinity, bottom = -Infinity;
+        for (var i = 0; i < frames.length; i++) {
+            var f = frames[i];
+            left = Math.min(left, f.x); top = Math.min(top, f.y);
+            right = Math.max(right, f.x + f.width); bottom = Math.max(bottom, f.y + f.height);
+        }
+        return {
+            x: Math.round(left), y: Math.round(top),
+            width: Math.max(8, Math.round(right - left)), height: Math.max(8, Math.round(bottom - top))
+        };
+    }
+    function buildGroupBlock(selection, freeParent) {
+        var group = L.createBlock("group");
+        group.name = "Group";
+        if (!freeParent) {
+            group.children = selection.items.map(function (item) { return item.block; });
+            return group;
+        }
+        var frames = selection.items.map(function (item) { return frameForGroup(item.block); });
+        var bounds = frameBounds(frames);
+        group.children = selection.items.map(function (item, i) {
+            var f = frames[i];
+            var next = {
+                x: Math.round(f.x - bounds.x),
+                y: Math.round(f.y - bounds.y),
+                width: Math.max(8, Math.round(f.width)),
+                height: Math.max(8, Math.round(f.height))
+            };
+            if (typeof f.rotation === "number" && f.rotation !== 0) next.rotation = f.rotation;
+            return blockWithFrame(item.block, next);
+        });
+        group.design = {};
+        group.design[currentBp] = {
+            layout: { mode: "free" },
+            size: {
+                width: { mode: "fixed", value: bounds.width },
+                height: { mode: "fixed", value: bounds.height }
+            },
+            frame: bounds
+        };
+        return group;
+    }
+    function finishGroupDom(group, parentBlock, index, oldIds, commandApplied) {
+        var parentId = parentBlock ? parentBlock.id : null;
+        var ok = removeBlocksDom(oldIds) &&
+            insertBlockDom(group, parentId, index, { allowDesign: true, refreshDesign: true });
+        if (ok) refreshInspector(); else render();
+        if (commandApplied) scheduleAutosave(); else markDirty();
+    }
+    function finishUngroupDom(groupId, parentBlock, index, children, commandApplied) {
+        var parentId = parentBlock ? parentBlock.id : null;
+        var ok = removeBlockDom(groupId);
+        for (var i = 0; ok && i < children.length; i++) {
+            ok = insertBlockDom(children[i], parentId, index + i, { allowDesign: true, refreshDesign: true });
+        }
+        if (ok) refreshInspector(); else render();
+        if (commandApplied) scheduleAutosave(); else markDirty();
+    }
+    function groupSelection() {
+        var selection = selectedSiblingItems(v2SelectionIds());
+        if (!selection) { setStatus("Select sibling blocks to group", "lime-text-danger"); return; }
+        var group = buildGroupBlock(selection, parentLayoutIsFree(selection.parentBlock));
+        var ids = selection.items.map(function (item) { return item.block.id; });
+        var groupIndex = selection.items[0].index;
+        var commandApplied = false;
+        if (cmdStore) {
+            commandApplied = runCommand("groupBlocks", { ids: ids, group: group });
+            if (!commandApplied) return;
+        } else {
+            beginCheckpointMutation();
+            for (var i = selection.items.length - 1; i >= 0; i--) selection.parent.splice(selection.items[i].index, 1);
+            selection.parent.splice(selection.items[0].index, 0, group);
+        }
+        selectedId = group.id;
+        finishGroupDom(group, selection.parentBlock, groupIndex, ids, commandApplied);
+        if (window.__LIME_SELECTION__) window.__LIME_SELECTION__.replace([group.id]);
+    }
+    function childrenForUngroup(r) {
+        var kids = r.block.children || [];
+        if (!parentLayoutIsFree(r.parentBlock)) return kids;
+        var groupFrame = frameForGroup(r.block);
+        return kids.map(function (child) {
+            var f = frameForGroup(child);
+            var next = {
+                x: Math.round(groupFrame.x + f.x),
+                y: Math.round(groupFrame.y + f.y),
+                width: Math.max(8, Math.round(f.width)),
+                height: Math.max(8, Math.round(f.height))
+            };
+            if (typeof f.rotation === "number" && f.rotation !== 0) next.rotation = f.rotation;
+            return blockWithFrame(child, next);
+        });
+    }
+    function ungroupBlock() {
+        var r = findBlock(selectedId);
+        if (!r || !r.block || r.block.type !== "group" || !r.block.children || !r.block.children.length) return;
+        var children = childrenForUngroup(r);
+        var childIds = children.map(function (child) { return child.id; });
+        var groupId = r.block.id;
+        var parentBlock = r.parentBlock;
+        var groupIndex = r.index;
+        var commandApplied = false;
+        if (cmdStore) {
+            commandApplied = runCommand("ungroupBlock", { id: r.block.id, children: children });
+            if (!commandApplied) return;
+        } else {
+            beginCheckpointMutation();
+            r.parent.splice(r.index, 1);
+            for (var i = 0; i < children.length; i++) r.parent.splice(r.index + i, 0, children[i]);
+        }
+        selectedId = childIds[0] || null;
+        finishUngroupDom(groupId, parentBlock, groupIndex, children, commandApplied);
+        if (window.__LIME_SELECTION__) window.__LIME_SELECTION__.replace(childIds);
     }
 
     // ===== COPY / PASTE (этап 0.4) — через localStorage, чтобы вставлять между страницами/сайтами =====
@@ -1082,12 +1567,16 @@
     }
 
     // ===== ДЕРЕВО СЛОЁВ (outline-навигатор, этап 0.4) =====
+    var LAYER_ROW_H = 30;
+    var LAYER_OVERSCAN = 8;
+    var layerRowsCache = [];
+    var layerScrollQueued = false;
     var TYPE_LABELS = {
         heading: "Заголовок", text: "Текст", cover: "Обложка", cta: "Призыв", buttonGroup: "Кнопки",
         stats: "Цифры", features: "Фичи", navbar: "Навбар", footer: "Подвал", accordion: "FAQ",
         pricing: "Тарифы", testimonials: "Отзывы", logos: "Логотипы", steps: "Шаги", imageText: "Картинка+текст",
         socials: "Соцсети", form: "Форма", image: "Картинка", gallery: "Галерея", video: "Видео", embed: "Embed",
-        collectionList: "Список", container: "Контейнер", columns: "Колонки", divider: "Разделитель", spacer: "Отступ"
+        collectionList: "Список", container: "Контейнер", columns: "Колонки", group: "Group", divider: "Разделитель", spacer: "Отступ"
     };
     function blockLabel(b) {
         if (b.name) return b.name;
@@ -1144,29 +1633,69 @@
     function refreshLayers() {
         var box = document.getElementById("lime-doc-layers");
         if (!box) return;
-        function rows(arr, depth) {
-            return arr.map(function (b) {
-                var t = targetBlock(b);
-                var isCont = t && L.isContainer(t.type);
-                var kids = (t && t.children && t.children.length) ? rows(t.children, depth + 1) : "";
-                var stateCls = (b.hidden ? " is-node-hidden" : "") + (b.locked ? " is-node-locked" : "");
-                var z = resolvedBlockDesign(b, currentBp).zIndex;
-                z = typeof z === "number" && isFinite(z) ? Math.round(z) : 0;
-                var controls = canvasOn ? '<span class="lime-doc-layer__controls">' +
-                    '<button type="button" data-node-toggle-hidden title="' + (b.hidden ? "Показать" : "Скрыть") + '">' + (b.hidden ? "◌" : "●") + '</button>' +
-                    '<button type="button" data-node-toggle-locked title="' + (b.locked ? "Разблокировать" : "Заблокировать") + '">' + (b.locked ? "◆" : "◇") + '</button>' +
-                    '<button type="button" data-node-rename title="Переименовать">✎</button>' +
-                    '<button type="button" data-node-z="-1" title="Опустить">−</button>' +
-                    '<span class="lime-doc-layer__z" title="z-index">' + z + '</span>' +
-                    '<button type="button" data-node-z="1" title="Поднять">+</button></span>' : "";
-                return '<div class="lime-doc-layer' + stateCls + (b.id === selectedId ? " is-active" : "") + '" data-doc-layer="' + b.id + '" style="padding-left:' + (8 + depth * 14) + 'px;">' +
-                    '<span class="lime-doc-layer__ico">' + (isCont ? "▣" : "▪") + '</span>' +
-                    '<span class="lime-doc-layer__name">' + escapeText(blockLabel(b)) + '</span>' + controls + '</div>' + kids;
-            }).join("");
+        layerRowsCache = flattenLayerRows(pageBlocks(), 0, []);
+        renderLayersViewport(box, layerRowsCache, true);
+    }
+    function flattenLayerRows(arr, depth, out) {
+        for (var i = 0; i < arr.length; i++) {
+            var b = arr[i];
+            out.push({ block: b, depth: depth });
+            var t = targetBlock(b);
+            if (t && t.children && t.children.length) flattenLayerRows(t.children, depth + 1, out);
         }
-        box.innerHTML = pageBlocks().length
-            ? rows(pageBlocks(), 0)
-            : '<p class="lime-text-muted" style="font-size:var(--text-xs);">Страница пуста.</p>';
+        return out;
+    }
+    function layerRowHtml(item) {
+        var b = item.block;
+        var t = targetBlock(b);
+        var isCont = t && L.isContainer(t.type);
+        var stateCls = (b.hidden ? " is-node-hidden" : "") + (b.locked ? " is-node-locked" : "");
+        var z = resolvedBlockDesign(b, currentBp).zIndex;
+        z = typeof z === "number" && isFinite(z) ? Math.round(z) : 0;
+        var controls = canvasOn ? '<span class="lime-doc-layer__controls">' +
+            '<button type="button" data-node-toggle-hidden title="' + (b.hidden ? "Показать" : "Скрыть") + '">' + (b.hidden ? "◌" : "●") + '</button>' +
+            '<button type="button" data-node-toggle-locked title="' + (b.locked ? "Разблокировать" : "Заблокировать") + '">' + (b.locked ? "◆" : "◇") + '</button>' +
+            '<button type="button" data-node-rename title="Переименовать">✎</button>' +
+            '<button type="button" data-node-z="-1" title="Опустить">−</button>' +
+            '<span class="lime-doc-layer__z" title="z-index">' + z + '</span>' +
+            '<button type="button" data-node-z="1" title="Поднять">+</button></span>' : "";
+        return '<div class="lime-doc-layer' + stateCls + (b.id === selectedId ? " is-active" : "") + '" data-doc-layer="' + b.id + '" style="padding-left:' + (8 + item.depth * 14) + 'px;">' +
+            '<span class="lime-doc-layer__ico">' + (isCont ? "▣" : "▪") + '</span>' +
+            '<span class="lime-doc-layer__name">' + escapeText(blockLabel(b)) + '</span>' + controls + '</div>';
+    }
+    function renderLayersViewport(box, rows, keepSelectionVisible) {
+        if (!box) return;
+        if (!rows || !rows.length) {
+            box.innerHTML = '<p class="lime-text-muted" style="font-size:var(--text-xs);">Страница пуста.</p>';
+            box.removeAttribute("data-layer-total");
+            box.removeAttribute("data-layer-rendered");
+            return;
+        }
+        var viewportH = box.clientHeight || 240;
+        var scrollTop = box.scrollTop || 0;
+        if (keepSelectionVisible && selectedId) {
+            var selectedIndex = -1;
+            for (var i = 0; i < rows.length; i++) {
+                if (rows[i].block.id === selectedId) { selectedIndex = i; break; }
+            }
+            if (selectedIndex >= 0) {
+                var firstVisible = Math.floor(scrollTop / LAYER_ROW_H);
+                var lastVisible = Math.floor((scrollTop + viewportH) / LAYER_ROW_H);
+                if (selectedIndex < firstVisible || selectedIndex > lastVisible) {
+                    scrollTop = Math.max(0, (selectedIndex - 2) * LAYER_ROW_H);
+                    box.scrollTop = scrollTop;
+                }
+            }
+        }
+        var start = Math.max(0, Math.floor(scrollTop / LAYER_ROW_H) - LAYER_OVERSCAN);
+        var visible = Math.ceil(viewportH / LAYER_ROW_H) + LAYER_OVERSCAN * 2;
+        var end = Math.min(rows.length, start + visible);
+        var html = '<div class="lime-doc-layer-spacer" style="height:' + (start * LAYER_ROW_H) + 'px"></div>';
+        for (var r = start; r < end; r++) html += layerRowHtml(rows[r]);
+        html += '<div class="lime-doc-layer-spacer" style="height:' + ((rows.length - end) * LAYER_ROW_H) + 'px"></div>';
+        box.dataset.layerTotal = String(rows.length);
+        box.dataset.layerRendered = String(end - start);
+        box.innerHTML = html;
     }
 
     // ===== КОНТЕКСТНОЕ МЕНЮ блока (ПКМ, этап 0.4) =====
@@ -1245,16 +1774,99 @@
         selectedId = r.parent[r.index].id;
         refreshComponents(); render(); markDirty();
     }
+    function componentVariantId(comp) {
+        var id, variants = (comp && comp.variants) || [];
+        do {
+            id = rid("v");
+            var exists = false;
+            for (var i = 0; i < variants.length; i++) {
+                if (variants[i] && variants[i].id === id) { exists = true; break; }
+            }
+        } while (exists);
+        return id;
+    }
+    function clearComponentContentOverride(inst) {
+        if (!inst || !inst.overrides || !inst.overrides.content) return;
+        delete inst.overrides.content;
+        if (!Object.keys(inst.overrides).length) delete inst.overrides;
+    }
+    function componentVariantSnapshot(inst) {
+        var copy = clone(componentSourceBlock(inst) || {});
+        if (inst.overrides && inst.overrides.content) {
+            copy.content = L.mergeDesign(copy.content || {}, inst.overrides.content);
+        }
+        delete copy.id;
+        return copy;
+    }
+    function addComponentVariantFromInstance() {
+        beginCheckpointMutation();
+        var r = findBlock(selectedId);
+        if (!r || !r.block || r.block.type !== "component") return;
+        var inst = r.block;
+        var comp = componentRecord(inst.ref);
+        if (!comp) return;
+        var defaultName = "Variant " + (((comp.variants && comp.variants.length) || 0) + 1);
+        var name = prompt("Variant name:", defaultName);
+        if (name === null) return;
+        if (!comp.variants) comp.variants = [];
+        var vid = componentVariantId(comp);
+        comp.variants.push({ id: vid, name: (name.trim() || defaultName), block: componentVariantSnapshot(inst) });
+        inst.variant = vid;
+        clearComponentContentOverride(inst);
+        finishMutation(false);
+    }
+    function setComponentVariant(value) {
+        var r = findBlock(selectedId);
+        if (!r || !r.block || r.block.type !== "component") return;
+        var inst = r.block;
+        var comp = componentRecord(inst.ref);
+        if (!comp) return;
+        var variant = value || "";
+        if (variant && !componentVariantRecord(comp, variant)) return;
+        if ((inst.variant || "") === variant) return;
+        var commandApplied = runCommand("setComponentVariant", { id: inst.id, variant: variant || null });
+        if (!commandApplied) {
+            beginCheckpointMutation();
+            if (variant) inst.variant = variant; else delete inst.variant;
+        }
+        finishMutation(commandApplied);
+    }
+    function detachedComponentBlock(inst) {
+        var def = componentSourceBlock(inst);
+        var copy = reid(JSON.parse(JSON.stringify(def || {})));
+        copy.id = inst.id;
+        if (inst.name) copy.name = inst.name;
+        if (inst.hidden) copy.hidden = true;
+        if (inst.locked) copy.locked = true;
+        if (inst.overrides && inst.overrides.content) {
+            copy.content = L.mergeDesign(copy.content || {}, inst.overrides.content);
+        }
+        if (inst.design) copy.design = L.mergeInstanceDesign(copy.design, inst.design);
+        return copy;
+    }
     function detachComponent() {
         var r = findBlock(selectedId);
         if (!r) return;
         var inst = r.block;
         if (inst.type !== "component" || !doc.components[inst.ref]) return;
-        beginCheckpointMutation();
-        var copy = reid(JSON.parse(JSON.stringify(doc.components[inst.ref].block)));
-        copy.id = inst.id;
-        r.parent[r.index] = copy;
-        render(); markDirty();
+        var copy = detachedComponentBlock(inst);
+        var commandApplied = runCommand("detachComponent", { id: inst.id, block: copy });
+        if (!commandApplied) {
+            beginCheckpointMutation();
+            r.parent[r.index] = copy;
+        }
+        finishMutation(commandApplied);
+    }
+    // Сброс ВСЕХ локальных правок инстанса (content + style overrides) к определению — без detach.
+    function resetComponentOverrides() {
+        var r = findBlock(selectedId);
+        if (!r || !r.block || r.block.type !== "component" || !r.block.overrides) return;
+        var commandApplied = runCommand("clearComponentOverrides", { id: r.block.id });
+        if (!commandApplied) {
+            beginCheckpointMutation();
+            delete r.block.overrides;
+        }
+        finishMutation(commandApplied);
     }
     function insertComponent(cid) {
         if (!doc.components[cid]) return;
@@ -1262,7 +1874,7 @@
         var inst = { id: rid("b"), type: "component", ref: cid };
         pageBlocks().push(inst);
         selectedId = inst.id;
-        render(); markDirty();
+        finishInsert(inst, null, null, false); // Stage 7: append, checkpoint → markDirty
     }
     function refreshComponents() {
         var box = document.getElementById("lime-doc-components");
@@ -1275,6 +1887,56 @@
         box.innerHTML = keys.map(function (cid) {
             return '<button type="button" class="lime-block-tile" data-doc-insert-comp="' + cid + '"><span class="lime-block-tile__icon">⊞</span><span>' + escapeText(doc.components[cid].name) + '</span></button>';
         }).join("");
+    }
+
+    function componentVariantControls(inst) {
+        var comp = inst && inst.type === "component" ? componentRecord(inst.ref) : null;
+        if (!comp) return "";
+        var selected = inst.variant || "";
+        var options = '<option value=""' + (!selected ? " selected" : "") + '>Default</option>';
+        var variants = comp.variants || [];
+        for (var i = 0; i < variants.length; i++) {
+            if (!variants[i] || !variants[i].id) continue;
+            options += '<option value="' + escapeText(variants[i].id) + '"' + (selected === variants[i].id ? " selected" : "") + '>' + escapeText(variants[i].name || variants[i].id) + '</option>';
+        }
+        return '<div style="display:flex;gap:6px;width:100%;">' +
+            '<select class="lime-select" data-doc-component-variant style="flex:1;">' + options + '</select>' +
+            '<button type="button" class="lime-btn lime-btn--ghost lime-btn--sm" data-doc-component-variant-add>+ Variant</button>' +
+            '</div>';
+    }
+
+    // ===== Component properties (минимальный вид) =====
+    // Без отдельного surface для правки определения: свойства АВТО-производятся из текстовых
+    // top-level content-полей определения. Инстанс правит их локально (overrides.content — путь 6.5),
+    // не трогая определение и другие копии. Не-текстовые/конфиг-поля исключены денилистом.
+    var PROP_LABELS = { text: "Текст", title: "Заголовок", subtitle: "Подзаголовок", caption: "Подпись", alt: "Alt-текст", quote: "Цитата", author: "Автор", label: "Кнопка", heading: "Заголовок", body: "Текст", name: "Имя" };
+    var NON_TEXT_CONTENT = { src: 1, url: 1, youtubeId: 1, embedUrl: 1, bgMode: 1, mode: 1, width: 1, layout: 1, cols: 1, items: 1, collection: 1, href: 1, poster: 1, videoUrl: 1 };
+    function attrVal(s) { return escapeText(s).replace(/"/g, "&quot;"); }
+    function componentTextProps(inst) {
+        if (!inst || inst.type !== "component" || !componentRecord(inst.ref)) return [];
+        var def = componentSourceBlock(inst) || {};
+        var defContent = def.content || {};
+        var ovr = (inst.overrides && inst.overrides.content) || {};
+        var out = [];
+        Object.keys(defContent).forEach(function (key) {
+            if (NON_TEXT_CONTENT[key] || typeof defContent[key] !== "string") return;
+            var overridden = hasOwn(ovr, key) && typeof ovr[key] === "string";
+            out.push({ key: key, label: PROP_LABELS[key] || key, value: overridden ? ovr[key] : defContent[key], overridden: overridden });
+        });
+        return out;
+    }
+    function componentPropsSection(b) {
+        var props = componentTextProps(b);
+        if (!props.length) return "";
+        var rows = props.map(function (p) {
+            var badge = p.overridden ? ' <span class="lime-style-override__badge" title="Локально переопределено">●</span>' : '';
+            var reset = p.overridden
+                ? '<button type="button" class="lime-btn lime-btn--ghost lime-btn--sm" data-doc-prop-reset="' + attrVal(p.key) + '" title="К значению компонента">↺</button>'
+                : '';
+            return '<label class="lime-v2-field"><span>' + escapeText(p.label) + badge + '</span>' +
+                '<input type="text" class="lime-input lime-input--sm" data-doc-prop="' + attrVal(p.key) + '" value="' + attrVal(p.value) + '">' + reset + '</label>';
+        }).join("");
+        return sec("Свойства компонента", rows);
     }
 
     // ===== PAGES =====
@@ -1398,9 +2060,8 @@
             var cs = (def && def.styles) || {};
             return (currentState === "hover" ? cs.hover : cs[currentBp]) || {};
         }
-        var t = targetBlock(b);
-        if (!t.styles) return {};
-        return (currentState === "hover" ? t.styles.hover : t.styles[currentBp]) || {};
+        var st = readStyles(b); // у инстанса — эффективные (definition ⊕ overrides.styles)
+        return (currentState === "hover" ? st.hover : st[currentBp]) || {};
     }
 
     function bpLabel() {
@@ -1412,9 +2073,39 @@
             return '<button type="button" class="' + (!isMixed && cur === o.v ? "is-active" : "") + '" data-doc-style="' + prop + '" data-val="' + o.v + '">' + o.l + '</button>';
         }).join("") + (isMixed ? '<span class="lime-mixed-label">Разные</span>' : '') + '</div>';
     }
-    function rng(prop, min, max, step, unit, cur, isMixed) {
-        var n = parseFloat(cur); if (isNaN(n)) n = min;
-        return '<div class="lime-range-row' + (isMixed ? ' is-mixed' : '') + '"' + (isMixed ? ' data-style-mixed="' + prop + '"' : '') + '><input type="range" class="lime-range" data-doc-style="' + prop + '" data-unit="' + unit + '" min="' + min + '" max="' + max + '" step="' + step + '" value="' + n + '"' + (isMixed ? ' data-mixed="true" aria-label="Разные значения"' : '') + '><span class="lime-range__val">' + (isMixed ? "Разные" : (cur || "—")) + '</span></div>';
+    var CSS_UNITS = ["px", "rem", "%"];
+    var CSS_UNITS_NO_PERCENT = ["px", "rem"];
+    function numText(n) {
+        n = parseFloat(n);
+        if (!isFinite(n)) return "0";
+        return String(Math.round(n * 1000) / 1000);
+    }
+    function splitCssLength(value, fallbackUnit) {
+        if (typeof value === "number" && isFinite(value)) return { num: value, unit: fallbackUnit || "px", empty: false };
+        if (typeof value === "string") {
+            var trimmed = value.trim();
+            var m = trimmed.match(/^(-?(?:\d+|\d*\.\d+))(px|%|rem)$/);
+            if (m) return { num: parseFloat(m[1]), unit: m[2], empty: false };
+            var plain = parseFloat(trimmed);
+            if (isFinite(plain)) return { num: plain, unit: fallbackUnit || "", empty: false };
+        }
+        return { num: 0, unit: fallbackUnit || "", empty: true };
+    }
+    function cssLengthValue(num, unit) {
+        return unit === "px" ? parseFloat(numText(num)) : numText(num) + unit;
+    }
+    function unitSelectHtml(kind, prop, unit, units) {
+        if (!units || !units.length) return "";
+        if (units.indexOf(unit) === -1) unit = units[0];
+        return '<select class="lime-unit-select" ' + kind + '="' + prop + '">' + units.map(function (u) {
+            return '<option value="' + u + '"' + (u === unit ? " selected" : "") + '>' + u + '</option>';
+        }).join("") + '</select>';
+    }
+    function rng(prop, min, max, step, unit, cur, isMixed, units) {
+        var parsed = splitCssLength(cur, unit);
+        var n = parsed.empty ? min : parsed.num;
+        var activeUnit = units && units.length ? (parsed.unit || units[0]) : unit;
+        return '<div class="lime-range-row' + (isMixed ? ' is-mixed' : '') + '"' + (isMixed ? ' data-style-mixed="' + prop + '"' : '') + '><input type="range" class="lime-range" data-doc-style="' + prop + '" data-unit="' + activeUnit + '" min="' + min + '" max="' + max + '" step="' + step + '" value="' + n + '"' + (isMixed ? ' data-mixed="true" aria-label="Разные значения"' : '') + '><span class="lime-range__val">' + (isMixed ? "Разные" : (cur || "—")) + '</span>' + unitSelectHtml("data-doc-style-unit", prop, activeUnit, units) + '</div>';
     }
     function tokenSwatches(prop) {
         return '<div class="lime-color-row__swatches">' + L.THEME_TOKENS.map(function (t) {
@@ -1473,27 +2164,27 @@
     var STYLE_REGISTRY = [
         { title: "Шрифт", kind: "font", prop: "fontFamily" },
         { title: "Цвет текста", kind: "color", prop: "color", tokens: true },
-        { title: "Размер текста", kind: "range", prop: "fontSize", min: 12, max: 80, step: 1, unit: "px" },
+        { title: "Размер текста", kind: "range", prop: "fontSize", min: 12, max: 80, step: 1, unit: "px", units: CSS_UNITS },
         { title: "Жирность", kind: "seg", prop: "fontWeight", options: WEIGHTS },
         { title: "Межстрочный", kind: "range", prop: "lineHeight", min: 1, max: 2.4, step: 0.05, unit: "" },
-        { title: "Трекинг (межбуквенный)", kind: "range", prop: "letterSpacing", min: -2, max: 12, step: 0.5, unit: "px" },
+        { title: "Трекинг (межбуквенный)", kind: "range", prop: "letterSpacing", min: -2, max: 12, step: 0.5, unit: "px", units: CSS_UNITS_NO_PERCENT },
         { title: "Регистр", kind: "seg", prop: "textTransform", options: TRANSFORM },
         { title: "Выравнивание текста", kind: "seg", prop: "textAlign", options: ALIGN },
         { title: "Внутренние отступы", kind: "seg", prop: "padding", options: "PAD" },
         { title: "Внешние отступы (↑ / ↓)", kind: "ranges", items: [
-            { prop: "marginTop", min: 0, max: 200, step: 2, unit: "px" },
-            { prop: "marginBottom", min: 0, max: 200, step: 2, unit: "px" }
+            { prop: "marginTop", min: 0, max: 200, step: 2, unit: "px", units: CSS_UNITS },
+            { prop: "marginBottom", min: 0, max: 200, step: 2, unit: "px", units: CSS_UNITS }
         ] },
         { title: "Граница", kind: "group", parts: [
-            { kind: "range", prop: "borderWidth", min: 0, max: 12, step: 1, unit: "px" },
+            { kind: "range", prop: "borderWidth", min: 0, max: 12, step: 1, unit: "px", units: CSS_UNITS_NO_PERCENT },
             { kind: "seg", prop: "borderStyle", options: BORDER_STYLE },
             { kind: "color", prop: "borderColor" }
         ] },
-        { title: "Скругление", kind: "range", prop: "borderRadius", min: 0, max: 64, step: 1, unit: "px" },
+        { title: "Скругление", kind: "range", prop: "borderRadius", min: 0, max: 64, step: 1, unit: "px", units: CSS_UNITS },
         { title: "Тень", kind: "shadow", prop: "boxShadow" },
         { title: "Прозрачность", kind: "range", prop: "opacity", min: 0, max: 1, step: 0.05, unit: "" },
         { title: "Смешивание (blend)", kind: "seg", prop: "mixBlendMode", options: BLEND },
-        { title: "Мин. высота", kind: "range", prop: "minHeight", min: 0, max: 800, step: 10, unit: "px" }
+        { title: "Мин. высота", kind: "range", prop: "minHeight", min: 0, max: 800, step: 10, unit: "px", units: CSS_UNITS }
     ];
 
     function renderControl(c, s, mixed) {
@@ -1502,8 +2193,8 @@
         switch (c.kind) {
             case "select": return selectRow(c.prop, c.options, s[c.prop], isMixed);
             case "font": return fontSelect(c.prop, s[c.prop], true, isMixed);
-            case "range": return rng(c.prop, c.min, c.max, c.step, c.unit, s[c.prop], isMixed);
-            case "ranges": return c.items.map(function (it) { return rng(it.prop, it.min, it.max, it.step, it.unit, s[it.prop], !!mixed[it.prop]); }).join("");
+            case "range": return rng(c.prop, c.min, c.max, c.step, c.unit, s[c.prop], isMixed, c.units);
+            case "ranges": return c.items.map(function (it) { return rng(it.prop, it.min, it.max, it.step, it.unit, s[it.prop], !!mixed[it.prop], it.units); }).join("");
             case "seg": return seg(c.prop, c.options === "PAD" ? padSegOpts() : c.options, s[c.prop], isMixed);
             case "color": return colorRow(c.prop, s[c.prop], isMixed) + (c.tokens ? tokenSwatches(c.prop) : "");
             case "shadow": return (isMixed ? '<div class="lime-mixed-note" data-style-mixed="' + c.prop + '">Разные значения</div>' : '') + shadowBuilder(s[c.prop]);
@@ -1511,8 +2202,59 @@
             default: return "";
         }
     }
-    function renderStyleSections(s, mixed) {
-        return STYLE_REGISTRY.map(function (item) { return sec(item.title, renderControl(item, s, mixed)); }).join("");
+    function hasOwn(o, k) { return !!o && Object.prototype.hasOwnProperty.call(o, k); }
+    // Пропы секции реестра (для подсветки override и сброса всей секции одной командой).
+    function registryProps(item) {
+        if (item.prop) return [item.prop];
+        if (item.items) return item.items.map(function (i) { return i.prop; });
+        if (item.parts) return item.parts.map(function (p) { return p.prop; }).filter(Boolean);
+        return [];
+    }
+    // Пропы секции, переопределённые на бакете bp у ВСЕХ выбранных узлов (для multi-reset).
+    function ownOverrideProps(ids, bp) {
+        var buckets = ids.map(function (id) { var t = targetBlock(byId(id)); return (t && t.styles && t.styles[bp]) || {}; });
+        if (!buckets.length) return {};
+        var out = {};
+        Object.keys(buckets[0]).forEach(function (p) {
+            if (buckets.every(function (bk) { return hasOwn(bk, p); })) out[p] = true;
+        });
+        return out;
+    }
+    // Источник значения секции: "own" (переопределено здесь → reset), "tablet"/"base" (унаследовано
+    // с нижнего бр.), "class" (значение из класса) или null (значение блока на base / ничего).
+    function sectionSource(props, info) {
+        if (!info) return null;
+        // Инстанс компонента: единственная ось — локальный override относительно определения
+        // (на любом бакете, включая base). Bp-каскад определения для инстанса не показываем —
+        // его reset правил бы определение, а не копию.
+        if (info.instance) return props.some(function (p) { return hasOwn(info.instOwn, p); }) ? "instance-own" : null;
+        if (info.bp !== "base" && props.some(function (p) { return hasOwn(info.own, p); })) return "own";
+        if (info.bp === "mobile" && props.some(function (p) { return hasOwn(info.tablet, p); })) return "tablet";
+        if (info.bp !== "base" && props.some(function (p) { return hasOwn(info.base, p); })) return "base";
+        if (props.some(function (p) { return hasOwn(info.cls, p) && !hasOwn(info.own, p) && !hasOwn(info.tablet, p) && !hasOwn(info.base, p); })) return "class";
+        return null;
+    }
+    function renderStyleSections(s, mixed, sourceInfo) {
+        return STYLE_REGISTRY.map(function (item) {
+            var body = renderControl(item, s, mixed);
+            var props = registryProps(item);
+            var src = sectionSource(props, sourceInfo);
+            if (src === "instance-own") {
+                var instOv = props.filter(function (p) { return hasOwn(sourceInfo.instOwn, p); });
+                body = '<div class="lime-style-override"><span class="lime-style-override__badge" title="Переопределено в этой копии компонента">●</span>' +
+                    '<button type="button" class="lime-btn lime-btn--ghost lime-btn--sm" data-doc-style-reset="' + instOv.join(",") + '">↺ к компоненту</button></div>' + body;
+            } else if (src === "own") {
+                var ov = props.filter(function (p) { return hasOwn(sourceInfo.own, p); });
+                body = '<div class="lime-style-override"><span class="lime-style-override__badge" title="Переопределено на этом брейкпоинте">●</span>' +
+                    '<button type="button" class="lime-btn lime-btn--ghost lime-btn--sm" data-doc-style-reset="' + ov.join(",") + '">↺ сбросить</button></div>' + body;
+            } else if (src === "tablet" || src === "base") {
+                body = '<div class="lime-style-override lime-style-override--inherited"><span class="lime-style-override__src" data-style-src="' + src + '">← ' +
+                    (src === "tablet" ? "планшет" : "десктоп") + '</span></div>' + body;
+            } else if (src === "class") {
+                body = '<div class="lime-style-override lime-style-override--inherited"><span class="lime-style-override__src" data-style-src="class">← класс</span></div>' + body;
+            }
+            return sec(item.title, body);
+        }).join("");
     }
 
     // ----- Панель «Классы» (этап 0.1): назначение/снятие/создание/правка классов блока -----
@@ -1752,8 +2494,22 @@
                 ? ' <button type="button" data-v2-design-reset="' + field + '">сбросить</button>' : '') + '</span>';
         }).join("") + '</div>';
     }
-    function patchDesignObject(source, field, path, value) {
-        if (!source || designTarget(source, field) !== source) return;
+    function isCssLengthValue(value) {
+        if (typeof value === "number") return isFinite(value);
+        return typeof value === "string" && /^-?(?:\d+|\d*\.\d+)(?:px|%|rem)$/.test(value.trim());
+    }
+    function clampCssLengthValue(value, min) {
+        var parsed = splitCssLength(value, "px");
+        var n = Math.max(min == null ? -Infinity : min, parsed.num);
+        return cssLengthValue(n, parsed.unit || "px");
+    }
+    function designInputValue(input) {
+        var n = parseFloat(input.value);
+        if (!isFinite(n)) return null;
+        var unit = input.getAttribute("data-v2-unit") || "";
+        return unit ? cssLengthValue(n, unit) : n;
+    }
+    function buildDesignObjectPatch(source, field, path, value) {
         var next = ownDesignField(source, field);
         // Inspector treats a missing layout as the default stack. Persist that mode with the
         // first nested edit; otherwise the renderer sees a partial { direction/gap/... } object
@@ -1772,15 +2528,15 @@
         }
         if (value !== undefined) {
             if (field === "layout" && path === "columns" && typeof value === "number") value = Math.max(1, Math.round(value));
-            if (field === "layout" && path === "columns.min") value = Math.max(40, Math.round(value));
-            if (field === "layout" && (path === "gap" || path === "rowGap" || path === "columnGap" || path === "autoRows" || /^padding\./.test(path))) value = Math.max(0, value);
-            if (field === "frame" && (path === "width" || path === "height")) value = Math.max(8, value);
-            if (field === "size" && (/\.value$/.test(path) || /\.(min|max)$/.test(path))) value = Math.max(0, value);
+            if (field === "layout" && path === "columns.min") value = clampCssLengthValue(value, 40);
+            if (field === "layout" && (path === "gap" || path === "rowGap" || path === "columnGap" || path === "autoRows" || /^padding\./.test(path))) value = clampCssLengthValue(value, 0);
+            if (field === "frame" && (path === "width" || path === "height")) value = clampCssLengthValue(value, 8);
+            if (field === "size" && (/\.value$/.test(path) || /\.(min|max)$/.test(path))) value = clampCssLengthValue(value, 0);
             setByPath(next, path, value);
         } else deleteByPath(next, path);
         if (field === "size" && /^(width|height)\.mode$/.test(path) && value === "fixed") {
             var axis = path.split(".")[0];
-            if (!next[axis] || typeof next[axis].value !== "number" || !isFinite(next[axis].value)) {
+            if (!next[axis] || !isCssLengthValue(next[axis].value)) {
                 if (!next[axis]) next[axis] = {};
                 var blockEl = ws.querySelector('[data-block-id="' + source.id + '"]');
                 var scale = ws.offsetWidth ? ws.getBoundingClientRect().width / ws.offsetWidth : 1;
@@ -1789,21 +2545,31 @@
                 next[axis].value = Math.max(0, Math.round((rect ? rect[axis] : 100) / scale));
             }
         }
+        return next;
+    }
+    function patchDesignObject(source, field, path, value) {
+        if (!source || designTarget(source, field) !== source) return;
+        var next = buildDesignObjectPatch(source, field, path, value);
         setDesignValue(source, currentBp, field, next, false);
+        refreshInspector();
     }
-    function v2Number(label, field, path, value, min) {
-        var n = typeof value === "number" && isFinite(value) ? value : 0;
-        return '<label class="lime-v2-field"><span>' + label + '</span><input class="lime-input lime-input--sm" type="number" step="1"' +
-            (min == null ? "" : ' min="' + min + '"') + ' value="' + n + '" data-v2-design-field="' + field + '" data-v2-design-path="' + path + '"></label>';
+    function v2Number(label, field, path, value, min, units) {
+        var parsed = units && units.length ? splitCssLength(value, "px") : { num: (typeof value === "number" && isFinite(value) ? value : 0), unit: "", empty: false };
+        var n = parsed.empty ? 0 : parsed.num;
+        return '<label class="lime-v2-field"><span class="lime-v2-scrub" data-scrub title="Тяни, чтобы менять (Shift ×10, Alt ×0.1)">' + label + '</span><input class="lime-input lime-input--sm" type="number" step="1"' +
+            (min == null ? "" : ' min="' + min + '"') + ' value="' + n + '"' + (units && units.length ? ' data-v2-unit="' + (parsed.unit || "px") + '"' : "") +
+            ' data-v2-design-field="' + field + '" data-v2-design-path="' + path + '">' + unitSelectHtml("data-v2-unit-for", path, parsed.unit || "px", units) + '</label>';
     }
-    function v2OptionalNumber(label, field, path, value, min) {
-        var shown = typeof value === "number" && isFinite(value) ? String(value) : "";
-        return '<label class="lime-v2-field"><span>' + label + '</span><input class="lime-input lime-input--sm" type="number" step="1"' +
-            (min == null ? "" : ' min="' + min + '"') + ' value="' + shown + '" placeholder="—" data-v2-design-optional data-v2-design-field="' + field + '" data-v2-design-path="' + path + '"></label>';
+    function v2OptionalNumber(label, field, path, value, min, units) {
+        var parsed = units && units.length ? splitCssLength(value, "px") : { num: (typeof value === "number" && isFinite(value) ? value : 0), unit: "", empty: value == null };
+        var shown = value == null || parsed.empty ? "" : String(parsed.num);
+        return '<label class="lime-v2-field"><span class="lime-v2-scrub" data-scrub title="Тяни, чтобы менять">' + label + '</span><input class="lime-input lime-input--sm" type="number" step="1"' +
+            (min == null ? "" : ' min="' + min + '"') + ' value="' + shown + '" placeholder="—"' + (units && units.length ? ' data-v2-unit="' + (parsed.unit || "px") + '"' : "") +
+            ' data-v2-design-optional data-v2-design-field="' + field + '" data-v2-design-path="' + path + '">' + unitSelectHtml("data-v2-unit-for", path, parsed.unit || "px", units) + '</label>';
     }
     function v2ChildNumber(label, field, value, min) {
         var n = typeof value === "number" && isFinite(value) ? value : (field === "order" ? 0 : 1);
-        return '<label class="lime-v2-field"><span>' + label + '</span><input class="lime-input lime-input--sm" type="number" step="1" min="' + min + '" value="' + n + '" data-v2-child-field="' + field + '"></label>';
+        return '<label class="lime-v2-field"><span class="lime-v2-scrub" data-scrub title="Тяни, чтобы менять">' + label + '</span><input class="lime-input lime-input--sm" type="number" step="1" min="' + min + '" value="' + n + '" data-v2-child-field="' + field + '"></label>';
     }
     function v2Select(label, field, path, value, options) {
         return '<label class="lime-v2-field"><span>' + label + '</span><select class="lime-select" data-v2-design-field="' + field + '" data-v2-design-path="' + path + '">' +
@@ -1819,12 +2585,12 @@
             v2Select("Высота", "size", "height.mode", height.mode || "hug", modes) + '</div>';
         if (width.mode === "fixed" || height.mode === "fixed") {
             body += '<div class="lime-v2-fields">' +
-                (width.mode === "fixed" ? v2Number("W", "size", "width.value", width.value, 0) : "") +
-                (height.mode === "fixed" ? v2Number("H", "size", "height.value", height.value, 0) : "") + '</div>';
+                (width.mode === "fixed" ? v2Number("W", "size", "width.value", width.value, 0, CSS_UNITS) : "") +
+                (height.mode === "fixed" ? v2Number("H", "size", "height.value", height.value, 0, CSS_UNITS) : "") + '</div>';
         }
         body += '<div class="lime-v2-subtitle">Min / Max</div><div class="lime-v2-fields">' +
-            v2OptionalNumber("Min W", "size", "width.min", width.min, 0) + v2OptionalNumber("Max W", "size", "width.max", width.max, 0) +
-            v2OptionalNumber("Min H", "size", "height.min", height.min, 0) + v2OptionalNumber("Max H", "size", "height.max", height.max, 0) + '</div>';
+            v2OptionalNumber("Min W", "size", "width.min", width.min, 0, CSS_UNITS) + v2OptionalNumber("Max W", "size", "width.max", width.max, 0, CSS_UNITS) +
+            v2OptionalNumber("Min H", "size", "height.min", height.min, 0, CSS_UNITS) + v2OptionalNumber("Max H", "size", "height.max", height.max, 0, CSS_UNITS) + '</div>';
         return body;
     }
     function v2LayoutInspector(source, found) {
@@ -1856,21 +2622,21 @@
                 out += '<div class="lime-segmented"><button type="button" class="' + (!colsAuto ? "is-active" : "") + '" data-v2-grid-auto="0">Фикс.</button>' +
                     '<button type="button" class="' + (colsAuto ? "is-active" : "") + '" data-v2-grid-auto="1">Авто</button></div>';
                 if (colsAuto) {
-                    out += '<div class="lime-v2-fields">' + v2Number("Min, px", "layout", "columns.min", layout.columns.min || 240, 40) + '</div>' +
+                    out += '<div class="lime-v2-fields">' + v2Number("Min", "layout", "columns.min", layout.columns.min || 240, 40, CSS_UNITS) + '</div>' +
                         '<div class="lime-segmented"><button type="button" class="' + (!layout.columns.fill ? "is-active" : "") + '" data-v2-grid-fill="0">Auto-fit</button>' +
                         '<button type="button" class="' + (layout.columns.fill ? "is-active" : "") + '" data-v2-grid-fill="1">Auto-fill</button></div>';
                 } else {
                     out += '<div class="lime-v2-fields">' + v2Number("Колонки", "layout", "columns", (typeof layout.columns === "number" ? layout.columns : 2), 1) + '</div>';
                 }
-                out += '<div class="lime-v2-fields">' + v2OptionalNumber("Auto rows, px", "layout", "autoRows", layout.autoRows, 1) + '</div>';
+                out += '<div class="lime-v2-fields">' + v2OptionalNumber("Auto rows", "layout", "autoRows", layout.autoRows, 1, CSS_UNITS) + '</div>';
             }
             out += '<div class="lime-v2-fields">' +
-                (mode !== "free" ? v2Number("Gap", "layout", "gap", layout.gap || 0, 0) : "") + '</div>' + v2SizeControls(design);
+                (mode !== "free" ? v2Number("Gap", "layout", "gap", layout.gap || 0, 0, CSS_UNITS) : "") + '</div>' + v2SizeControls(design);
             if (mode !== "free") {
                 var padding = layout.padding || {};
                 out += '<div class="lime-v2-subtitle">Padding</div><div class="lime-v2-fields">' +
-                    v2Number("Top", "layout", "padding.top", padding.top || 0, 0) + v2Number("Right", "layout", "padding.right", padding.right || 0, 0) +
-                    v2Number("Bottom", "layout", "padding.bottom", padding.bottom || 0, 0) + v2Number("Left", "layout", "padding.left", padding.left || 0, 0) + '</div>';
+                    v2Number("Top", "layout", "padding.top", padding.top || 0, 0, CSS_UNITS) + v2Number("Right", "layout", "padding.right", padding.right || 0, 0, CSS_UNITS) +
+                    v2Number("Bottom", "layout", "padding.bottom", padding.bottom || 0, 0, CSS_UNITS) + v2Number("Left", "layout", "padding.left", padding.left || 0, 0, CSS_UNITS) + '</div>';
             }
             if (mode === "free") out += '<div class="lime-inspector__hint">Дети можно двигать и растягивать прямо на холсте. Стрелки: move, Shift: 10px, Ctrl/Cmd: resize.</div>';
             if (mode === "free") lockedReset.size = true;
@@ -1903,6 +2669,15 @@
             out += '<div class="lime-v2-subtitle">Grid</div><div class="lime-v2-fields">' +
                 v2ChildNumber("Column span", "span", spanVal, 1) + v2ChildNumber("Row span", "rowSpan", rowSpanVal, 1) + '</div>';
         }
+        // Overflow: показывать или обрезать содержимое за рамкой блока (не для instance — geometry-only).
+        if (!isInstance) {
+            fields.push("overflow");
+            var ovf = design.overflow === "hidden" ? "hidden" : "visible";
+            out += '<div class="lime-v2-subtitle">Overflow</div><div class="lime-segmented">' +
+                [["visible", "Видно"], ["hidden", "Обрезать"]].map(function (o) {
+                    return '<button type="button" class="' + (ovf === o[0] ? "is-active" : "") + '" data-v2-overflow="' + o[0] + '">' + o[1] + '</button>';
+                }).join("") + '</div>';
+        }
         return sec("Layout · V2", out + v2SourceRow(source, fields, lockedReset));
     }
     function switchV2LayoutMode(mode) {
@@ -1912,7 +2687,7 @@
         if (((effective.layout && effective.layout.mode) || "stack") === mode) return;
         var layout = ownDesignField(source, "layout");
         layout.mode = mode;
-        if (mode !== "free") { setDesignValue(source, currentBp, "layout", layout, false); return; }
+        if (mode !== "free") { setDesignValue(source, currentBp, "layout", layout, false); refreshInspector(); return; }
 
         var children = source.children || [];
         var parentEl = ws.querySelector('[data-block-id="' + source.id + '"]');
@@ -1970,14 +2745,35 @@
         var multiStyles = multiSel ? multiStyleModel(multiIds, currentState === "hover" ? "hover" : currentBp) : null;
         var styleSecBucket = multiStyles ? multiStyles.values : s;
         var styleMixed = multiStyles ? multiStyles.mixed : {};
+        // Stage 5 source/reset: секция показывает провенанс — own (переопределено здесь → «сбросить»),
+        // tablet/base (унаследовано), class (из класса). Multi: reset, когда все выбранные переопределены
+        // на этом бр. (own = пересечение); inherited/class-бейджи для multi не показываем (гетерогенно).
+        var singleInstance = !multiSel && b.type === "component" && componentRecord(b.ref);
+        var styleSourceInfo = (!currentClass && currentState === "normal")
+            ? (multiSel
+                ? { bp: currentBp, own: currentBp !== "base" ? ownOverrideProps(multiIds, currentBp) : {}, tablet: {}, base: {}, cls: {} }
+                : singleInstance
+                    // Инстанс: ось «локальный override → к компоненту» (на текущем бакете, в т.ч. base).
+                    ? { bp: currentBp, instance: true,
+                        instOwn: (b.overrides && b.overrides.styles && b.overrides.styles[currentBp]) || {} }
+                    : { bp: currentBp,
+                        own: (currentBp !== "base" && targetBlock(b).styles && targetBlock(b).styles[currentBp]) || {},
+                        tablet: (targetBlock(b).styles && targetBlock(b).styles.tablet) || {},
+                        base: (targetBlock(b).styles && targetBlock(b).styles.base) || {},
+                        cls: effectiveClassStyles(b) })
+            : null;
         var multiBanner = multiSel
-            ? '<div class="lime-inspector__section"><div class="lime-doc-comp-banner" data-multi-select>▣ Выбрано узлов: ' + multiIds.length + ' — стили применяются ко всем; различия отмечены как «Разные».</div></div>'
+            ? '<div class="lime-inspector__section"><div class="lime-doc-comp-banner" data-multi-select>Selected nodes: ' + multiIds.length + ' — style edits apply to all. <button type="button" class="lime-btn lime-btn--ghost lime-btn--sm" data-doc-op="group">Group</button></div></div>'
             : '';
         var isComp = b.type === "component";
         var compName = (isComp && doc.components[b.ref]) ? doc.components[b.ref].name : "";
-        var banner = isComp
-            ? '<div class="lime-inspector__section"><div class="lime-doc-comp-banner">⊞ Компонент «' + escapeText(compName) + '» — правки применяются ко всем копиям. <button type="button" class="lime-btn lime-btn--ghost lime-btn--sm" data-doc-op="detach">Отвязать</button></div></div>'
+        var resetOverridesBtn = (isComp && b.overrides)
+            ? '<button type="button" class="lime-btn lime-btn--ghost lime-btn--sm" data-doc-op="reset-overrides" title="Снять все локальные правки этой копии">↺ Сбросить правки</button> '
             : '';
+        var banner = isComp
+            ? '<div class="lime-inspector__section"><div class="lime-doc-comp-banner">⊞ Компонент «' + escapeText(compName) + '» — правки текста/медиа/стиля локальны для этой копии. ' + resetOverridesBtn + '<button type="button" class="lime-btn lime-btn--ghost lime-btn--sm" data-doc-op="detach">Отвязать</button></div></div>'
+            : '';
+        if (isComp) banner = banner.replace("</div></div>", componentVariantControls(b) + "</div></div>");
         var found = findBlock(selectedId);
         var nested = !!(found && found.parentBlock); // вложен в контейнер → доступно «Наружу»
         var t = targetBlock(b);
@@ -2001,6 +2797,7 @@
                     (t && t.content && typeof t.content.text === "string"
                         ? '<button type="button" class="lime-block-toolbar__btn" data-doc-op="ai" title="Переписать текст (AI)">✨</button>' : "") +
                     '<button type="button" class="lime-block-toolbar__btn" data-doc-op="dup" title="Дублировать">⎘</button>' +
+                    (b.type === "group" ? '<button type="button" class="lime-block-toolbar__btn" data-doc-op="ungroup" title="Ungroup">G-</button>' : "") +
                     (isComp ? "" : '<button type="button" class="lime-block-toolbar__btn" data-doc-op="comp" title="Сделать компонентом">⊞</button>') +
                     '<button type="button" class="lime-block-toolbar__btn lime-block-toolbar__btn--danger" data-doc-op="del" title="Удалить">✕</button>' +
                 '</div>' +
@@ -2024,11 +2821,11 @@
         var styleBody;
         if (currentClass) {
             // Режим правки класса: только баннер + переключатель состояния + стили (контент/фон/колонки — это про блок).
-            styleBody = classEditBanner() + stateSeg + renderStyleSections(styleSecBucket, styleMixed);
+            styleBody = classEditBanner() + stateSeg + renderStyleSections(styleSecBucket, styleMixed, styleSourceInfo);
         } else if (currentState === "hover") {
-            styleBody = classesSection(b) + stateSeg + renderStyleSections(styleSecBucket, styleMixed);
+            styleBody = classesSection(b) + stateSeg + renderStyleSections(styleSecBucket, styleMixed, styleSourceInfo);
         } else {
-            styleBody = v2LayoutInspector(b, found) + classesSection(b) + containerHint + colsSec + contentExtras(t) + bgInspector(b, s) + stateSeg + renderStyleSections(styleSecBucket, styleMixed);
+            styleBody = componentPropsSection(b) + v2LayoutInspector(b, found) + classesSection(b) + containerHint + colsSec + contentExtras(t) + bgInspector(b, s) + stateSeg + renderStyleSections(styleSecBucket, styleMixed, styleSourceInfo);
         }
         var fxBody = fxInspector(t) + animInspector(t);
         var motionBody = motionInspector(t) + sceneInspector(t) + layersInspector(t);
@@ -2353,6 +3150,18 @@
         updateHistButtons();
         scheduleAutosave();
     }
+    // Оседание стиль-жеста (debounce-конец): коммитим и на НЕ-base брейкпоинте (single-select,
+    // обычное состояние) перерисовываем инспектор — чтобы появилась/исчезла кнопка «сбросить»
+    // override. На base/мульти/hover — без лишнего ре-рендера (не теряем фокус контролов).
+    function settleStyleGesture() {
+        commitStyleEdit();
+        // На не-base брейкпоинте перерисовываем инспектор после оседания правки, чтобы появились/исчезли
+        // индикаторы источника и кнопка «сбросить» (в т.ч. multi-reset, когда все выбранные переопределены).
+        // Для одиночного инстанса — рефрешим и на base: ось override «к компоненту» работает на любом бакете.
+        var sb = selectedId ? byId(selectedId) : null;
+        var singleInst = sb && sb.type === "component" && componentRecord(sb.ref) && v2SelectionIds().length < 2;
+        if (!currentClass && currentState === "normal" && (currentBp !== "base" || singleInst)) refreshInspector();
+    }
     function commandStyle(b, bucket, prop, val) {
         if (!cmdStore || targetBlock(b) !== b) return false;
         commitInlineEdit();
@@ -2378,7 +3187,33 @@
         }
         doc = cmdStore.getDoc();
         clearTimeout(styleDebounce);
-        styleDebounce = setTimeout(commitStyleEdit, 400);
+        styleDebounce = setTimeout(settleStyleGesture, 400);
+        return true;
+    }
+    // Локальный style-override инстанса компонента: тот же gesture-txn, что commandStyle, но цель —
+    // overrides.styles[bucket][prop] (не definition). Один undo на жест; debounce → settle/refresh.
+    function commandStyleOverride(inst, bucket, prop, val) {
+        if (!cmdStore) return false;
+        commitInlineEdit();
+        commitBlockEdit();
+        var key = inst.id + ":ovr:" + bucket + ":" + prop;
+        if (styleTxn && styleTxnKey !== key) commitStyleEdit();
+        if (!styleTxn) {
+            cmdStore.begin("style-gesture");
+            styleTxn = true;
+            styleTxnKey = key;
+        }
+        if (!cmdStore.dispatch("setComponentStyleOverride", {
+            id: inst.id, breakpoint: bucket, prop: prop, value: val, remove: val === "" || val == null
+        })) {
+            cmdStore.cancel();
+            styleTxn = false;
+            styleTxnKey = null;
+            return true; // поддержанная no-op-команда: не проваливаемся в snapshot fallback
+        }
+        doc = cmdStore.getDoc();
+        clearTimeout(styleDebounce);
+        styleDebounce = setTimeout(settleStyleGesture, 400);
         return true;
     }
     // Stage 5 multi-select: id'шники V2-выбора (≥1). Один блок — обычный путь, несколько —
@@ -2394,8 +3229,7 @@
     // common (одно явное значение), mixed (значения/наличие расходятся), unset (нет у всех).
     function multiStyleModel(ids, bucketName) {
         var buckets = ids.map(function (id) {
-            var t = targetBlock(byId(id));
-            return (t && t.styles && t.styles[bucketName]) || {};
+            return readStyles(byId(id))[bucketName] || {}; // у инстанса — эффективные стили
         });
         var props = {}, values = {}, mixed = {};
         buckets.forEach(function (bk) { Object.keys(bk).forEach(function (p) { props[p] = 1; }); });
@@ -2416,23 +3250,26 @@
         var seen = {}, targets = [];
         for (var i = 0; i < ids.length; i++) {
             var source = byId(ids[i]);
-            var target = targetBlock(source);
-            // Определения компонентов пока не адресуются command engine: вся группа должна
-            // перейти на единый state-checkpoint, иначе часть selection молча не изменится.
-            if (!source || !target || target !== source) return false;
-            if (!seen[source.id]) { seen[source.id] = true; targets.push(source.id); }
+            if (!source) return false;
+            var isInst = source.type === "component" && componentRecord(source.ref);
+            // Обычный блок адресуем напрямую; компонент-инстанс — через локальный style-override.
+            // Определение компонента (target !== source и не инстанс) command engine пока не трогает.
+            if (!isInst && targetBlock(source) !== source) return false;
+            if (!seen[source.id]) { seen[source.id] = true; targets.push({ id: source.id, inst: !!isInst }); }
         }
         if (!targets.length) return false;
         commitInlineEdit(); commitBlockEdit();
-        var key = "multi:" + targets.join(",") + ":" + bucket + ":" + prop;
+        var key = "multi:" + targets.map(function (t) { return t.id; }).join(",") + ":" + bucket + ":" + prop;
         if (styleTxn && styleTxnKey !== key) commitStyleEdit();
         if (!styleTxn) { cmdStore.begin("style-gesture"); styleTxn = true; styleTxnKey = key; }
-        targets.forEach(function (id) {
-            cmdStore.dispatch("setStyle", { id: id, breakpoint: bucket, prop: prop, value: val, remove: val === "" || val == null });
+        var rm = val === "" || val == null;
+        targets.forEach(function (t) {
+            if (t.inst) cmdStore.dispatch("setComponentStyleOverride", { id: t.id, breakpoint: bucket, prop: prop, value: val, remove: rm });
+            else cmdStore.dispatch("setStyle", { id: t.id, breakpoint: bucket, prop: prop, value: val, remove: rm });
         });
         doc = cmdStore.getDoc();
         clearTimeout(styleDebounce);
-        styleDebounce = setTimeout(commitStyleEdit, 400);
+        styleDebounce = setTimeout(settleStyleGesture, 400);
         return true;
     }
     function setStyle(prop, val) {
@@ -2445,7 +3282,16 @@
             beginCheckpointMutation();
             var changedTargets = [];
             ids.forEach(function (id) {
-                var mb = targetBlock(byId(id));
+                var src = byId(id);
+                if (!src) return;
+                // Компонент-инстанс — локальный style-override (не трогаем определение/копии).
+                if (src.type === "component" && componentRecord(src.ref)) {
+                    if (changedTargets.indexOf(src) !== -1) return;
+                    changedTargets.push(src);
+                    setComponentStyleOverrideLocal(src, bucket, prop, val, val === "" || val == null);
+                    return;
+                }
+                var mb = targetBlock(src);
                 if (!mb || changedTargets.indexOf(mb) !== -1) return;
                 changedTargets.push(mb);
                 if (!mb.styles) mb.styles = {};
@@ -2458,6 +3304,17 @@
             return;
         }
         var source = byId(selectedId);
+        if (!source) return;
+        // Компонент-инстанс (single-select): стиль-правка локальна (overrides.styles), как текст/медиа.
+        if (source.type === "component" && componentRecord(source.ref)) {
+            if (cmdStore && commandStyleOverride(source, bucket, prop, val)) { applyPreviewStyles(); return; }
+            commitStyleEdit();
+            beginCheckpointMutation();
+            setComponentStyleOverrideLocal(source, bucket, prop, val, val === "" || val == null);
+            applyPreviewStyles();
+            markDirty();
+            return;
+        }
         var b = targetBlock(source);
         if (!b) return;
         if (commandStyle(source, bucket, prop, val)) {
@@ -2472,6 +3329,47 @@
         if (!Object.keys(b.styles[bucket]).length) delete b.styles[bucket]; // не плодим пустые бакеты
         applyPreviewStyles();
         markDirty();
+    }
+    // Stage 5 reset override: снять переопределения секции на текущем бакете → значение наследуется
+    // с base/tablet. Одна транзакция на все пропы секции (и все выбранные узлы), затем re-render.
+    function resetStyleProps(props) {
+        if (!props || !props.length || currentClass) return;
+        commitStyleEdit();
+        var ids = v2SelectionIds();
+        var bucket = currentState === "hover" ? "hover" : currentBp;
+        var isInst = function (src) { return src && src.type === "component" && componentRecord(src.ref); };
+        if (cmdStore) {
+            cmdStore.begin("style-reset");
+            ids.forEach(function (id) {
+                var src = byId(id);
+                if (!src) return;
+                // Инстанс — снимаем локальный override (к компоненту); обычный блок — свой стиль.
+                if (isInst(src)) {
+                    props.forEach(function (p) { cmdStore.dispatch("setComponentStyleOverride", { id: src.id, breakpoint: bucket, prop: p, remove: true }); });
+                } else {
+                    var t = targetBlock(src);
+                    if (t) props.forEach(function (p) { cmdStore.dispatch("setStyle", { id: t.id, breakpoint: bucket, prop: p, value: "", remove: true }); });
+                }
+            });
+            cmdStore.commit("style-reset");
+            doc = cmdStore.getDoc(); cmdPrev = JSON.stringify(doc); updateHistButtons(); scheduleAutosave();
+        } else {
+            ids.forEach(function (id) {
+                var src = byId(id);
+                if (!src) return;
+                if (isInst(src)) {
+                    props.forEach(function (p) { setComponentStyleOverrideLocal(src, bucket, p, "", true); });
+                    return;
+                }
+                var t = targetBlock(src);
+                if (!t || !t.styles || !t.styles[bucket]) return;
+                props.forEach(function (p) { delete t.styles[bucket][p]; });
+                if (!Object.keys(t.styles[bucket]).length) delete t.styles[bucket];
+            });
+            markDirty();
+        }
+        applyPreviewStyles();
+        refreshInspector();
     }
     // Запись стиля в определение класса (0.1): живое превью через applyPreviewStyles
     // обновит ВСЕ блоки с этим классом без полного ре-рендера (ползунок не теряет фокус).
@@ -2729,8 +3627,129 @@
         return sec("Фон", tabs + body + overlayRow + videoRow);
     }
 
+    function scrubPreviewStyle() {
+        var style = ws.querySelector("style[data-lime-design-scrub-preview]");
+        if (!style) {
+            style = document.createElement("style");
+            style.setAttribute("data-lime-design-scrub-preview", "1");
+            ws.appendChild(style);
+        }
+        return style;
+    }
+    function clearScrubPreview() {
+        var style = ws.querySelector("style[data-lime-design-scrub-preview]");
+        if (style) style.remove();
+    }
+    function withTemporaryDesign(source, field, value, fn) {
+        var target = designTarget(source, field);
+        if (!target) return;
+        var before = target.design;
+        target.design = clone(before || {});
+        if (!target.design[currentBp]) target.design[currentBp] = {};
+        if (value === undefined) delete target.design[currentBp][field];
+        else target.design[currentBp][field] = value;
+        try { fn(); }
+        finally { if (before === undefined) delete target.design; else target.design = before; }
+    }
+    function previewDesignInput(input) {
+        var source = selectedId && byId(selectedId);
+        var field = input.getAttribute("data-v2-design-field");
+        var path = input.getAttribute("data-v2-design-path");
+        if (!source || !field || !path || designTarget(source, field) !== source) return;
+        if (input.hasAttribute("data-v2-design-optional") && input.value.trim() === "") {
+            clearScrubPreview();
+            return;
+        }
+        var value = designInputValue(input);
+        if (value == null) return;
+        var next = buildDesignObjectPatch(source, field, path, value);
+        withTemporaryDesign(source, field, next, function () {
+            scrubPreviewStyle().textContent = L.compilePreviewDesignCss(pageBlocks(), doc.components, currentBp);
+        });
+    }
+    function previewChildDesignInput(input) {
+        var source = selectedId && byId(selectedId);
+        var childField = input.getAttribute("data-v2-child-field");
+        if (!source || !childField) return;
+        var value = Math.round(parseFloat(input.value));
+        if (!isFinite(value)) return;
+        if (childField === "span" || childField === "rowSpan") value = Math.max(1, value);
+        withTemporaryDesign(source, childField, value, function () {
+            scrubPreviewStyle().textContent = L.compilePreviewDesignCss(pageBlocks(), doc.components, currentBp);
+        });
+    }
+
     if (inspectorEl) {
+        // Stage 5 drag-to-adjust: тянешь подпись числового поля → значение скрабится (Shift ×10,
+        // Alt ×0.1). На отпускании шлём один `change` → существующий commit-путь (один undo).
+        // Превью блока обновляется на отпускании (live-превью design-полей — отдельный инкремент).
+        var scrub = null;
+        inspectorEl.addEventListener("pointerdown", function (e) {
+            var label = e.target.closest("[data-scrub]");
+            if (!label) return;
+            var field = label.closest(".lime-v2-field");
+            var input = field && field.querySelector('input[type="number"]');
+            if (!input) return;
+            var startVal = parseFloat(input.value); if (!isFinite(startVal)) startVal = 0;
+            scrub = {
+                input: input, label: label, pointerId: e.pointerId, startX: e.clientX, startVal: startVal,
+                step: parseFloat(input.step) || 1, min: input.min !== "" ? parseFloat(input.min) : -Infinity, changed: false
+            };
+            try { label.setPointerCapture(e.pointerId); } catch (_) { /* no-op */ }
+            e.preventDefault();
+        });
+        inspectorEl.addEventListener("pointermove", function (e) {
+            if (!scrub || scrub.pointerId !== e.pointerId) return;
+            var mod = e.shiftKey ? 10 : (e.altKey ? 0.1 : 1);
+            var delta = Math.round((e.clientX - scrub.startX) / 3) * scrub.step * mod;
+            if (!delta) return;
+            var dec = scrub.step < 1 ? 2 : 0;
+            var val = Math.max(scrub.min, parseFloat((scrub.startVal + delta).toFixed(dec)));
+            if (String(val) !== scrub.input.value) {
+                scrub.input.value = String(val);
+                scrub.changed = true;
+                if (scrub.input.hasAttribute("data-v2-design-field")) previewDesignInput(scrub.input);
+                else if (scrub.input.hasAttribute("data-v2-child-field")) previewChildDesignInput(scrub.input);
+            }
+        });
+        function endScrub(e) {
+            if (!scrub || scrub.pointerId !== e.pointerId) return;
+            try { scrub.label.releasePointerCapture(e.pointerId); } catch (_) { /* no-op */ }
+            if (scrub.changed) scrub.input.dispatchEvent(new Event("change", { bubbles: true }));
+            clearScrubPreview();
+            scrub = null;
+        }
+        inspectorEl.addEventListener("pointerup", endScrub);
+        inspectorEl.addEventListener("pointercancel", endScrub);
         inspectorEl.addEventListener("change", function (e) {
+            if (e.target.hasAttribute("data-doc-component-variant")) {
+                setComponentVariant(e.target.value);
+                return;
+            }
+            // Component property (минимальный вид): коммит на blur/Enter → локальный content-override.
+            if (e.target.hasAttribute("data-doc-prop")) {
+                var propSource = selectedId && byId(selectedId);
+                if (propSource) { setContentValue(propSource, e.target.getAttribute("data-doc-prop"), e.target.value, false); refreshInspector(); }
+                return;
+            }
+            var styleUnit = e.target.getAttribute("data-doc-style-unit");
+            if (styleUnit) {
+                var styleInput = e.target.closest(".lime-range-row").querySelector("[data-doc-style]");
+                if (!styleInput) return;
+                styleInput.dataset.unit = e.target.value;
+                setStyle(styleUnit, styleInput.value === "" ? "" : styleInput.value + e.target.value);
+                var styleLabel = styleInput.parentNode.querySelector(".lime-range__val");
+                if (styleLabel) styleLabel.textContent = styleInput.value + e.target.value;
+                return;
+            }
+            var v2Unit = e.target.getAttribute("data-v2-unit-for");
+            if (v2Unit) {
+                var v2Input = e.target.closest(".lime-v2-field").querySelector("[data-v2-design-field]");
+                if (!v2Input) return;
+                v2Input.setAttribute("data-v2-unit", e.target.value);
+                if (v2Input.value.trim() !== "") v2Input.dispatchEvent(new Event("change", { bubbles: true }));
+                return;
+            }
             var childField = e.target.getAttribute("data-v2-child-field");
             if (childField) {
                 var childSource = selectedId && byId(selectedId);
@@ -2749,8 +3768,8 @@
                 patchDesignObject(source, field, path, undefined);
                 return;
             }
-            var value = e.target.type === "number" ? parseFloat(e.target.value) : e.target.value;
-            if (e.target.type === "number" && !isFinite(value)) return;
+            var value = e.target.type === "number" ? designInputValue(e.target) : e.target.value;
+            if (e.target.type === "number" && value == null) return;
             patchDesignObject(source, field, path, value);
         });
         inspectorEl.addEventListener("input", function (e) {
@@ -2838,7 +3857,16 @@
             var el;
             if ((el = e.target.closest("[data-v2-design-reset]"))) {
                 var resetSource = selectedId && byId(selectedId);
-                if (resetSource) setDesignValue(resetSource, currentBp, el.dataset.v2DesignReset, null, true);
+                if (resetSource) { setDesignValue(resetSource, currentBp, el.dataset.v2DesignReset, null, true); refreshInspector(); }
+                return;
+            }
+            if ((el = e.target.closest("[data-doc-style-reset]"))) { // Stage 5: сброс override стиля
+                resetStyleProps(el.getAttribute("data-doc-style-reset").split(","));
+                return;
+            }
+            if ((el = e.target.closest("[data-doc-prop-reset]"))) { // 6.8: сброс свойства к значению компонента
+                var propResetSource = selectedId && byId(selectedId);
+                if (propResetSource) { setContentValue(propResetSource, el.getAttribute("data-doc-prop-reset"), "", true); refreshInspector(); }
                 return;
             }
             if ((el = e.target.closest("[data-v2-layout-mode]"))) { switchV2LayoutMode(el.dataset.v2LayoutMode); return; }
@@ -2858,6 +3886,12 @@
             }
             if ((el = e.target.closest("[data-v2-grid-fill]"))) {
                 patchDesignObject(selectedId && byId(selectedId), "layout", "columns.fill", el.dataset.v2GridFill === "1");
+                return;
+            }
+            if ((el = e.target.closest("[data-v2-overflow]"))) { // hidden → set; visible (дефолт) → убрать
+                var ovfSource = selectedId && byId(selectedId);
+                var ovfHidden = el.dataset.v2Overflow === "hidden";
+                if (ovfSource) { setDesignValue(ovfSource, currentBp, "overflow", ovfHidden ? "hidden" : null, !ovfHidden); refreshInspector(); }
                 return;
             }
             if ((el = e.target.closest("[data-doc-insp-tab]"))) {
@@ -2961,15 +3995,22 @@
                 }
                 return;
             }
+            if ((el = e.target.closest("[data-doc-component-variant-add]"))) {
+                addComponentVariantFromInstance();
+                return;
+            }
             if ((el = e.target.closest("[data-doc-op]"))) {
                 var op = el.dataset.docOp;
                 if (op === "up") moveBlock(-1);
                 else if (op === "down") moveBlock(1);
                 else if (op === "unwrap") unwrapBlock();
+                else if (op === "group") groupSelection();
+                else if (op === "ungroup") ungroupBlock();
                 else if (op === "ai") aiRewrite();
                 else if (op === "dup") dupBlock();
                 else if (op === "comp") makeComponent();
                 else if (op === "detach") detachComponent();
+                else if (op === "reset-overrides") resetComponentOverrides();
                 else if (op === "del") { if (confirm("Удалить блок?")) delBlock(); }
             }
         });

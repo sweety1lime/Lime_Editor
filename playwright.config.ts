@@ -1,6 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 
 const baseURL = process.env.LIME_E2E_BASE_URL || "https://localhost:5001";
+const hasAdminAuth = !!process.env.LIME_TEST_ADMIN && !!process.env.LIME_TEST_ADMIN_PASSWORD;
 
 /**
  * Playwright config для Lime_Editor (ASP.NET Core 8 + PostgreSQL).
@@ -73,8 +74,9 @@ export default defineConfig({
       },
       dependencies: ["setup"],
     },
-    // Admin
-    {
+    // Admin — включается только когда есть креды; иначе полный `playwright test`
+    // падал до выполнения тестов из-за отсутствующего playwright/.auth/admin.json.
+    ...(hasAdminAuth ? [{
       name: "chromium-admin",
       testMatch: /flows\/admin\.spec\.ts/,
       use: {
@@ -83,7 +85,7 @@ export default defineConfig({
         storageState: "playwright/.auth/admin.json",
       },
       dependencies: ["setup"],
-    },
+    }] : []),
     // Mobile viewport
     {
       name: "mobile-chrome",

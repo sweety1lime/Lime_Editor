@@ -234,6 +234,110 @@
             return ops;
         },
         // Стиль блока на брейкпоинте: block.styles[bp][prop] = value (создаёт бакеты при отсутствии).
+        setComponentVariant: function (doc, c) {
+            var f = findPath(doc, c.id);
+            if (!f || !f.block || f.block.type !== "component") return [];
+            var comp = doc.components && doc.components[f.block.ref];
+            if (!comp) return [];
+            var variant = typeof c.variant === "string" ? c.variant.trim() : "";
+            if (!variant) {
+                return Object.prototype.hasOwnProperty.call(f.block, "variant")
+                    ? [{ kind: "unset", path: f.path.concat("variant") }] : [];
+            }
+            var variants = comp.variants || [];
+            var exists = false;
+            for (var vi = 0; vi < variants.length; vi++) {
+                if (variants[vi] && variants[vi].id === variant && variants[vi].block) { exists = true; break; }
+            }
+            if (!exists || f.block.variant === variant) return [];
+            return [{ kind: "set", path: f.path.concat("variant"), value: variant }];
+        },
+        setComponentContentOverride: function (doc, c) {
+            var f = findPath(doc, c.id);
+            if (!f || !f.block || f.block.type !== "component") return [];
+            var rel = fieldPath(c.field);
+            if (!rel.length) return [];
+            var base = f.path.concat("overrides", "content");
+            var ops = [];
+            if (c.remove || c.value === undefined) {
+                if (!f.block.overrides || !f.block.overrides.content) return [];
+                var nodes = [f.block.overrides.content];
+                var node = f.block.overrides.content;
+                for (var ri = 0; ri < rel.length - 1; ri++) {
+                    if (node == null || typeof node !== "object" || !Object.prototype.hasOwnProperty.call(node, rel[ri])) return [];
+                    node = node[rel[ri]];
+                    nodes.push(node);
+                }
+                var leafParent = nodes[nodes.length - 1];
+                var leaf = rel[rel.length - 1];
+                if (leafParent == null || !Object.prototype.hasOwnProperty.call(leafParent, leaf)) return [];
+                ops.push({ kind: "unset", path: base.concat(rel) });
+                var removesContent = false;
+                for (var rd = rel.length - 1; rd >= 0; rd--) {
+                    var parent = nodes[rd];
+                    if (!parent || Object.keys(parent).length !== 1) break;
+                    var branchPath = rd === 0 ? base : base.concat(rel.slice(0, rd));
+                    if (rd === 0) removesContent = true;
+                    ops.push({ kind: "unset", path: branchPath });
+                }
+                if (removesContent && f.block.overrides && Object.keys(f.block.overrides).length === 1) {
+                    ops.push({ kind: "unset", path: f.path.concat("overrides") });
+                }
+                return ops;
+            }
+            var cursor = f.block.overrides && f.block.overrides.content;
+            if (!f.block.overrides) {
+                cursor = {};
+                ops.push({ kind: "set", path: f.path.concat("overrides"), value: { content: cursor } });
+            } else if (!cursor || typeof cursor !== "object") {
+                cursor = {};
+                ops.push({ kind: "set", path: base, value: cursor });
+            }
+            for (var oi = 0; oi < rel.length - 1; oi++) {
+                var key = rel[oi];
+                if (cursor[key] == null || typeof cursor[key] !== "object") {
+                    var child = (typeof rel[oi + 1] === "number") ? [] : {};
+                    ops.push({ kind: "set", path: base.concat(rel.slice(0, oi + 1)), value: child });
+                    cursor = child;
+                } else cursor = cursor[key];
+            }
+            ops.push({ kind: "set", path: base.concat(rel), value: c.value });
+            return ops;
+        },
+        // Локальный style-override инстанса компонента: пишет в overrides.styles[bp][prop],
+        // не трогая definition. Зеркалит setStyle, но цель — overrides.styles (как content-override).
+        setComponentStyleOverride: function (doc, c) {
+            var f = findPath(doc, c.id);
+            if (!f || !f.block || f.block.type !== "component" || !c.prop) return [];
+            var bp = c.breakpoint || "base";
+            var ovr = f.block.overrides;
+            var styles = ovr && ovr.styles;
+            var base = f.path.concat("overrides", "styles");
+            var ops = [];
+            if (c.remove || c.value === "" || c.value == null) {
+                if (!styles || !styles[bp] || !Object.prototype.hasOwnProperty.call(styles[bp], c.prop)) return [];
+                ops.push({ kind: "unset", path: base.concat(bp, c.prop) });
+                if (Object.keys(styles[bp]).length === 1) {
+                    ops.push({ kind: "unset", path: base.concat(bp) });
+                    if (Object.keys(styles).length === 1) {
+                        ops.push({ kind: "unset", path: base });
+                        if (ovr && Object.keys(ovr).length === 1) ops.push({ kind: "unset", path: f.path.concat("overrides") });
+                    }
+                }
+                return ops;
+            }
+            if (!ovr) ops.push({ kind: "set", path: f.path.concat("overrides"), value: {} });
+            if (!styles) ops.push({ kind: "set", path: base, value: {} });
+            if (!styles || !styles[bp]) ops.push({ kind: "set", path: base.concat(bp), value: {} });
+            ops.push({ kind: "set", path: base.concat(bp, c.prop), value: c.value });
+            return ops;
+        },
+        // Сброс ВСЕХ локальных правок инстанса (content + style overrides) к определению — без detach.
+        clearComponentOverrides: function (doc, c) {
+            var f = findPath(doc, c.id);
+            if (!f || !f.block || f.block.type !== "component" || !f.block.overrides) return [];
+            return [{ kind: "unset", path: f.path.concat("overrides") }];
+        },
         setStyle: function (doc, c) {
             var f = findPath(doc, c.id);
             if (!f) return [];
@@ -312,6 +416,52 @@
             return [
                 { kind: "remove", path: f.parentPath, index: f.index },
                 insertOp
+            ];
+        },
+        groupBlocks: function (doc, c) {
+            if (!Array.isArray(c.ids) || c.ids.length < 2 || !c.group || c.group.type !== "group" || !Array.isArray(c.group.children)) return [];
+            if (!c.group.id || findPath(doc, c.group.id)) return [];
+            var seen = {}, items = [], parentPath = null;
+            for (var i = 0; i < c.ids.length; i++) {
+                var id = c.ids[i];
+                if (!id || seen[id]) return [];
+                seen[id] = true;
+                var f = findPath(doc, id);
+                if (!f) return [];
+                if (parentPath && !samePath(parentPath, f.parentPath)) return [];
+                parentPath = f.parentPath;
+                items.push(f);
+            }
+            items.sort(function (a, b) { return a.index - b.index; });
+            if (c.group.children.length !== items.length) return [];
+            for (var ci = 0; ci < items.length; ci++) {
+                if (!c.group.children[ci] || c.group.children[ci].id !== items[ci].block.id) return [];
+            }
+            var ops = [];
+            for (var ri = items.length - 1; ri >= 0; ri--) {
+                ops.push({ kind: "remove", path: parentPath, index: items[ri].index });
+            }
+            ops.push({ kind: "insert", path: parentPath, index: items[0].index, value: c.group });
+            return ops;
+        },
+        ungroupBlock: function (doc, c) {
+            var f = findPath(doc, c.id);
+            if (!f || !f.block || f.block.type !== "group" || !Array.isArray(f.block.children) || !f.block.children.length) return [];
+            var children = Array.isArray(c.children) ? c.children : f.block.children;
+            if (!children.length) return [];
+            var ops = [{ kind: "remove", path: f.parentPath, index: f.index }];
+            for (var i = 0; i < children.length; i++) {
+                if (!children[i] || !children[i].id) return [];
+                ops.push({ kind: "insert", path: f.parentPath, index: f.index + i, value: children[i] });
+            }
+            return ops;
+        },
+        detachComponent: function (doc, c) {
+            var f = findPath(doc, c.id);
+            if (!f || !f.block || f.block.type !== "component" || !c.block || c.block.type === "component" || c.block.id !== f.block.id) return [];
+            return [
+                { kind: "remove", path: f.parentPath, index: f.index },
+                { kind: "insert", path: f.parentPath, index: f.index, value: c.block }
             ];
         }
     };

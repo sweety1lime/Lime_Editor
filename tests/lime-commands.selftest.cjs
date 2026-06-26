@@ -164,6 +164,112 @@ const blocks = (s) => s.getDoc().pages[0].blocks;
     check("setDesign instance: undo removes only override", !blocks(s)[3].design && s.getDoc().components.card.block.design.base.zIndex === 1);
 }
 
+{
+    const doc = freshDoc();
+    doc.components.hero = { block: { type: "heading", content: { text: "Shared title" } } };
+    doc.pages[0].blocks.push({ id: "hero-a", type: "component", ref: "hero" }, { id: "hero-b", type: "component", ref: "hero" });
+    const s = C.createStore(doc);
+    s.dispatch("setComponentContentOverride", { id: "hero-a", field: "text", value: "Local title" });
+    check("component override: stored on instance", blocks(s)[3].overrides.content.text === "Local title");
+    check("component override: definition untouched", s.getDoc().components.hero.block.content.text === "Shared title");
+    check("component override: renderer sees local+shared", L.renderSite(s.getDoc()).includes("Local title") && L.renderSite(s.getDoc()).includes("Shared title"));
+    s.undo();
+    check("component override: undo clears overrides", !blocks(s)[3].overrides && s.getDoc().components.hero.block.content.text === "Shared title");
+    s.redo();
+    s.dispatch("setComponentContentOverride", { id: "hero-a", field: "text", remove: true });
+    check("component override: remove cleans empty branch", !blocks(s)[3].overrides);
+
+    const detached = { id: "hero-a", type: "heading", content: { text: "Detached" } };
+    s.dispatch("detachComponent", { id: "hero-a", block: detached });
+    check("detach component: instance replaced with concrete block", blocks(s)[3].type === "heading" && blocks(s)[3].content.text === "Detached");
+    s.undo();
+    check("detach component: undo restores component instance", blocks(s)[3].type === "component" && blocks(s)[3].ref === "hero");
+}
+
+// --- image/gallery content override на инстансе: локально, массив заменяется целиком (Stage 6.5) ---
+{
+    const doc = freshDoc();
+    doc.components.media = { block: { type: "image", content: { src: "/def.jpg", alt: "Def" } } };
+    doc.components.grid = { block: { type: "gallery", content: { items: [{ src: "/a.jpg" }, { src: "/b.jpg" }, { src: "/c.jpg" }] } } };
+    doc.pages[0].blocks.push(
+        { id: "img-a", type: "component", ref: "media" },
+        { id: "img-b", type: "component", ref: "media" },
+        { id: "gal-a", type: "component", ref: "grid" }
+    );
+    const s = C.createStore(doc);
+    s.dispatch("setComponentContentOverride", { id: "img-a", field: "src", value: "/local.jpg" });
+    check("image override: src stored on instance", blocks(s)[3].overrides.content.src === "/local.jpg");
+    check("image override: definition + sibling instance untouched", s.getDoc().components.media.block.content.src === "/def.jpg" && !blocks(s)[4].overrides);
+    const imgHtml = L.renderSite(s.getDoc());
+    check("image override: renderer shows local src + shared src", imgHtml.includes("/local.jpg") && imgHtml.includes("/def.jpg"));
+    s.undo();
+    check("image override: undo clears instance override", !blocks(s)[3].overrides);
+
+    s.dispatch("setComponentContentOverride", { id: "gal-a", field: "items", value: [{ src: "/only.jpg" }] });
+    const galHtml = L.renderSite(s.getDoc());
+    check("gallery override: array replaces whole (no element-merge)", blocks(s)[5].overrides.content.items.length === 1 && galHtml.includes("/only.jpg") && !galHtml.includes("/b.jpg"));
+    s.undo();
+    check("gallery override: undo restores definition array", !blocks(s)[5].overrides && L.renderSite(s.getDoc()).includes("/b.jpg"));
+}
+
+// --- style-property override на инстансе: локально, definition не меняется (Stage 6.6) ---
+{
+    const doc = freshDoc();
+    doc.components.card = { block: { type: "text", content: { text: "Shared" }, styles: { base: { color: "#ffffff" } } } };
+    doc.pages[0].blocks.push(
+        { id: "card-a", type: "component", ref: "card" },
+        { id: "card-b", type: "component", ref: "card" }
+    );
+    const s = C.createStore(doc);
+    s.dispatch("setComponentStyleOverride", { id: "card-a", breakpoint: "base", prop: "color", value: "#ff0000" });
+    check("style override: stored on instance bucket", blocks(s)[3].overrides.styles.base.color === "#ff0000");
+    check("style override: definition + sibling instance untouched", s.getDoc().components.card.block.styles.base.color === "#ffffff" && !blocks(s)[4].overrides);
+    const styleCss = L.compileDocCss(s.getDoc());
+    check("style override: renderer emits local override + shared", styleCss.includes('[data-block-id="card-a"]{color:#ff0000;}') && styleCss.includes('[data-block-id="card-b"]{color:#ffffff;}'));
+    s.undo();
+    check("style override: undo clears override (back to definition)", !blocks(s)[3].overrides && L.compileDocCss(s.getDoc()).includes('[data-block-id="card-a"]{color:#ffffff;}'));
+    s.redo();
+    // Override на втором бакете + точечный remove чистит только его, не трогая base.
+    s.dispatch("setComponentStyleOverride", { id: "card-a", breakpoint: "mobile", prop: "fontSize", value: "12px" });
+    check("style override: second bucket coexists", blocks(s)[3].overrides.styles.base.color === "#ff0000" && blocks(s)[3].overrides.styles.mobile.fontSize === "12px");
+    s.dispatch("setComponentStyleOverride", { id: "card-a", breakpoint: "mobile", prop: "fontSize", remove: true });
+    check("style override: remove drops only that bucket", !blocks(s)[3].overrides.styles.mobile && blocks(s)[3].overrides.styles.base.color === "#ff0000");
+    s.dispatch("setComponentStyleOverride", { id: "card-a", breakpoint: "base", prop: "color", remove: true });
+    check("style override: removing last prop cleans overrides", !blocks(s)[3].overrides);
+}
+
+// --- clearComponentOverrides: сброс ВСЕХ правок инстанса (content+style) к определению (Stage 6.7) ---
+{
+    const doc = freshDoc();
+    doc.components.card = { block: { type: "text", content: { text: "Shared" }, styles: { base: { color: "#ffffff" } } } };
+    doc.pages[0].blocks.push({ id: "ov", type: "component", ref: "card", overrides: { content: { text: "Local" }, styles: { base: { color: "#ff0000" } } } });
+    const s = C.createStore(doc);
+    s.dispatch("clearComponentOverrides", { id: "ov" });
+    const ovHtml = L.renderSite(s.getDoc());
+    check("clear overrides: instance reset to definition", !blocks(s)[3].overrides && ovHtml.includes("Shared") && !ovHtml.includes("Local"));
+    s.undo();
+    check("clear overrides: undo restores content+style", blocks(s)[3].overrides.content.text === "Local" && blocks(s)[3].overrides.styles.base.color === "#ff0000");
+    check("clear overrides: no-op on non-component block", !s.dispatch("clearComponentOverrides", { id: "b1" }));
+}
+
+{
+    const doc = freshDoc();
+    doc.components.hero = {
+        block: { type: "heading", content: { text: "Default title" } },
+        variants: [{ id: "alt", name: "Alt", block: { type: "heading", content: { text: "Alt title" } } }]
+    };
+    doc.pages[0].blocks.push({ id: "hero-v", type: "component", ref: "hero" });
+    const s = C.createStore(doc);
+    s.dispatch("setComponentVariant", { id: "hero-v", variant: "alt" });
+    check("component variant: stored on instance", blocks(s)[3].variant === "alt");
+    check("component variant: renderer resolves variant", L.renderSite(s.getDoc()).includes("Alt title"));
+    s.undo();
+    check("component variant: undo returns default", !blocks(s)[3].variant && L.renderSite(s.getDoc()).includes("Default title"));
+    s.redo();
+    s.dispatch("setComponentVariant", { id: "hero-v", variant: "" });
+    check("component variant: empty value clears variant", !blocks(s)[3].variant);
+}
+
 // --- insert / remove блока + undo ---
 {
     const s = C.createStore(freshDoc());
@@ -217,6 +323,25 @@ const blocks = (s) => s.getDoc().pages[0].blocks;
 
     check("move: нельзя перенести parent в descendant", s.dispatch("moveBlock", { id: "box", parentId: "k1", toIndex: 0 }) === false);
     check("move: запрет цикла не пишет history", s.depth().undo === 0);
+}
+
+// --- groupBlocks / ungroupBlock: sibling nodes collapse into a structural group with undo ---
+{
+    const s = C.createStore(freshDoc());
+    const group = { id: "g1", type: "group", content: {}, children: [blocks(s)[0], blocks(s)[1]] };
+    check("groupBlocks: rejects cross-parent selection", s.dispatch("groupBlocks", { ids: ["b1", "k1"], group }) === false);
+    s.dispatch("groupBlocks", { ids: ["b1", "b2"], group });
+    check("groupBlocks: siblings wrapped at first index", blocks(s).map(b => b.id).join(",") === "g1,box" && blocks(s)[0].children.map(b => b.id).join(",") === "b1,b2");
+    check("groupBlocks: one undo entry", s.depth().undo === 1);
+    s.undo();
+    check("groupBlocks: undo restores siblings", blocks(s).map(b => b.id).join(",") === "b1,b2,box");
+    s.redo();
+    check("groupBlocks: redo restores group", blocks(s)[0].id === "g1" && blocks(s)[0].children.length === 2);
+
+    s.dispatch("ungroupBlock", { id: "g1" });
+    check("ungroupBlock: children restored at group index", blocks(s).map(b => b.id).join(",") === "b1,b2,box");
+    s.undo();
+    check("ungroupBlock: undo restores group node", blocks(s)[0].id === "g1" && blocks(s)[0].children.map(b => b.id).join(",") === "b1,b2");
 }
 
 // --- вложенность: команда работает на блоке внутри children ---

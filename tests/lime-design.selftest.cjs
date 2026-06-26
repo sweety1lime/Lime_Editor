@@ -61,6 +61,15 @@ function tiny(block) {
         padding: { top: 8, right: 16, bottom: 8, left: 16 }
     } } } });
     check("validator: full stack contract accepted", D.validateDoc(good).length === 0);
+    const unitGood = tiny({ id: "stack-unit", type: "container", content: {}, design: { base: {
+        size: { width: { mode: "fixed", value: "20rem", max: "80%" } },
+        layout: { mode: "stack", gap: "2rem", padding: { top: "1rem", right: "5%", bottom: "1rem", left: "5%" } }
+    } } });
+    check("validator: unit-flex px/rem/% lengths accepted", D.validateDoc(unitGood).length === 0);
+    const unitBad = tiny({ id: "stack-unit-bad", type: "container", content: {}, design: { base: {
+        layout: { mode: "stack", gap: "2vw" }
+    } } });
+    check("validator: unsupported length unit rejected", D.validateDoc(unitBad).some(e => e.code === "invalid_length"));
 }
 
 {
