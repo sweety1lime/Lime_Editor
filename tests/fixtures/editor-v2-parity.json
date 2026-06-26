@@ -1,0 +1,104 @@
+{
+  "version": 2,
+  "theme": {
+    "accent": "#7c5cff",
+    "bg": "#0b0b12",
+    "palette": ["#7c5cff", "#22d3ee"],
+    "classes": [
+      { "cls": "pill", "name": "Пилюля", "styles": { "base": { "borderRadius": "999px", "padding": "8px 16px" }, "hover": { "color": "#22d3ee" } } }
+    ]
+  },
+  "customCss": ".lime-doc-page{scroll-behavior:smooth}</style><script>alert('x')</script>",
+  "components": {
+    "promoCard": {
+      "name": "Промо-карточка",
+      "block": {
+        "type": "heading",
+        "content": { "text": "Промо" },
+        "styles": { "base": { "background": "#15151f", "borderRadius": "16px", "padding": "16px" } }
+      },
+      "variants": [
+        { "id": "alt", "name": "Альт", "block": {
+          "type": "heading",
+          "content": { "text": "Альт-промо" },
+          "styles": { "base": { "background": "#1f1430" } }
+        } }
+      ]
+    }
+  },
+  "pages": [
+    {
+      "id": "home", "slug": "", "title": "Главная",
+      "blocks": [
+        { "id": "nav", "type": "navbar", "content": { "brand": "Lime", "links": [ { "label": "Главная" }, { "label": "О нас" } ], "cta": "Начать" } },
+
+        { "id": "hero", "type": "cover",
+          "content": { "uptitle": "Студия", "title": "Свобода как в Figma", "desc": "Адаптив, который не ломается.", "cta": "Поехали →",
+            "bg": { "videoSrc": "/media/u1/hero.mp4", "poster": "/media/u1/hero.jpg", "overlay": "rgba(11,11,18,.55)", "blur": "6px" } },
+          "anim": "fade-up", "animDelay": "100", "parallax": "0.2", "fx": ["glass", "glow"],
+          "layers": [ { "id": "ly1", "kind": "shape", "shape": "blob", "color": "#7c5cff", "x": 70, "y": 12, "w": 220, "z": 2, "depth": 0.4 } ] },
+
+        { "id": "free", "type": "container", "content": {},
+          "design": { "base": {
+            "layout": { "mode": "free" },
+            "size": { "width": { "mode": "fill" }, "height": { "mode": "fixed", "value": 420 } } } },
+          "children": [
+            { "id": "free-a", "type": "heading", "content": { "text": "Свободный заголовок" },
+              "design": { "base": { "frame": { "x": 48, "y": 64, "width": 420, "height": 96, "rotation": 0 } },
+                          "mobile": { "frame": { "x": 16, "y": 32, "width": 280, "height": 120 } } } },
+            { "id": "free-b", "type": "text", "content": { "text": "Свободный текст поверх." },
+              "design": { "base": { "frame": { "x": 64, "y": 200, "width": 360, "height": 80 }, "zIndex": 3 } } }
+          ] },
+
+        { "id": "grid", "type": "container", "content": {},
+          "design": { "base": { "layout": { "mode": "grid", "columns": 3, "gap": 16, "autoRows": 160 } },
+                      "tablet": { "layout": { "columns": 2 } },
+                      "mobile": { "layout": { "columns": 1 } } },
+          "children": [
+            { "id": "g1", "type": "pricing", "content": { "plans": [ { "name": "Free", "price": "0", "period": "/мес", "features": ["A", "B"], "cta": "Выбрать" } ] }, "design": { "base": { "span": 2 } } },
+            { "id": "g2", "type": "text", "content": { "text": "Ячейка" } }
+          ] },
+
+        { "id": "stackbar", "type": "container", "content": {},
+          "design": { "base": { "layout": { "mode": "stack", "direction": "horizontal", "gap": 24, "align": "center", "justify": "space-between" } },
+                      "mobile": { "layout": { "direction": "vertical" } } },
+          "children": [
+            { "id": "sb1", "type": "text", "content": { "text": "Лого" } },
+            { "id": "sb2", "type": "text", "content": { "text": "Меню" } }
+          ] },
+
+        { "id": "inst0", "type": "component", "ref": "promoCard" },
+        { "id": "inst1", "type": "component", "ref": "promoCard", "overrides": { "content": { "text": "Локальный текст" } } },
+        { "id": "inst2", "type": "component", "ref": "promoCard", "variant": "alt" },
+
+        { "id": "img1", "type": "image", "content": { "src": "/media/u1/p.jpg", "alt": "Фото", "caption": "Подпись" } },
+        { "id": "gal1", "type": "gallery", "content": { "items": [ { "src": "/media/u1/a.jpg" }, { "src": "/media/u1/b.jpg" } ] } },
+        { "id": "vidEmpty", "type": "video", "content": {} },
+
+        { "id": "form1", "type": "form", "content": { "collection": "leads", "fields": [ { "type": "text", "label": "Имя", "name": "name" }, { "type": "email", "label": "Email", "name": "email" } ], "submitLabel": "Отправить" } },
+        { "id": "cms1", "type": "collectionList", "content": { "collection": "goods" } },
+
+        { "id": "cls1", "type": "heading", "content": { "text": "С классом и css" }, "classes": ["pill"], "css": "letter-spacing:1px",
+          "styles": { "base": { "color": "#fff" }, "tablet": { "fontSize": "20px" }, "mobile": { "fontSize": "18px" } } },
+
+        { "id": "hid1", "type": "text", "hidden": true, "content": { "text": "СЕКРЕТ-не-в-публикации" } },
+        { "id": "lock1", "type": "text", "locked": true, "content": { "text": "Залочен но виден" } },
+
+        { "id": "future1", "type": "text", "content": { "text": "Будущее поле" }, "experimentalGlow": { "intensity": 5 }, "unknownArray": [1, 2, 3] },
+        { "id": "unk1", "type": "futuristicWidget3000", "content": { "text": "x" }, "weird": true }
+      ]
+    },
+    {
+      "id": "about", "slug": "about", "title": "О нас",
+      "blocks": [
+        { "id": "abText", "type": "text", "content": { "text": "Мы делаем конструктор." } },
+        { "id": "abAcc", "type": "accordion", "content": { "items": [ { "q": "Вопрос?", "a": "Ответ." } ] } },
+        { "id": "abMarq", "type": "columns", "content": { "cols": 2 }, "marquee": { "speed": 50, "reverse": true },
+          "children": [ { "id": "abM1", "type": "text", "content": { "text": "Бренд" } } ] },
+        { "id": "abScene", "type": "columns", "content": { "cols": 3 }, "scene": { "mode": "horizontal", "length": 3 },
+          "children": [ { "id": "abS1", "type": "text", "content": { "text": "S1" } }, { "id": "abS2", "type": "text", "content": { "text": "S2" } } ] },
+        { "id": "abFoot", "type": "footer", "content": { "brand": "Lime", "tagline": "Сайты без кода", "copyright": "© 2026" } }
+      ]
+    }
+  ]
+}

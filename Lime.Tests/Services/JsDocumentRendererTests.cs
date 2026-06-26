@@ -55,6 +55,51 @@ namespace Lime.Tests.Services
             ] }]
         }";
 
+        // Stage 8.2: общий комплексный fixture (тот же файл гоняет node self-test) — 5 эталонных
+        // макетов + v2 design + компоненты/варианты/overrides + формы/медиа/CMS/анимации старого
+        // формата + неизвестный тип/поля. Критерий §8: один fixture без структурных различий.
+        private static string ParityFixturePath()
+        {
+            var dir = AppContext.BaseDirectory;
+            var root = Path.GetFullPath(Path.Combine(dir, "..", "..", "..", ".."));
+            var path = Path.Combine(root, "tests", "fixtures", "editor-v2-parity.json");
+            Assert.True(File.Exists(path), $"parity fixture не найден: {path}");
+            return path;
+        }
+
+        [Fact]
+        public void ParityFixture_PublishAndExport_MatchNodeOutput_Golden()
+        {
+            var enginePath = EnginePath();
+            var docFile = ParityFixturePath();
+            // publish (renderSite), export-CSS (compileDocCss) и per-page (renderPage) — сервер==node.
+            var nodeSite = TryRunNode(enginePath, docFile, "L.renderSite(doc)");
+            var nodeCss = TryRunNode(enginePath, docFile, "L.compileDocCss(doc)");
+            var nodePage = TryRunNode(enginePath, docFile, "L.renderPage(doc,'about',{baseUrl:'/u/user/site'}).body");
+            if (nodeSite == null || nodeCss == null || nodePage == null) return; // node не установлен
+            var docJson = File.ReadAllText(docFile);
+            var renderer = new JsDocumentRenderer(enginePath);
+            Assert.Equal(nodeSite, renderer.RenderSite(docJson));
+            Assert.Equal(nodeCss, renderer.CompileCss(docJson));
+            Assert.Equal(nodePage, renderer.RenderPage(docJson, "about", "/u/user/site").Body);
+        }
+
+        [Fact]
+        public void ParityFixture_Publish_HasNoEditorOnlyArtifacts()
+        {
+            var docJson = File.ReadAllText(ParityFixturePath());
+            var html = new JsDocumentRenderer(EnginePath()).RenderSite(docJson);
+            foreach (var marker in new[] { "contenteditable", "data-field", "data-doc-pick", "data-doc-video",
+                "data-doc-embed", "data-doc-gallery-add", "data-layer-id", "lime-block-grip",
+                "lime-doc-drop-hint", "lime-doc-media-swap", "data-node-hidden", "data-node-locked" })
+            {
+                Assert.DoesNotContain(marker, html);
+            }
+            Assert.DoesNotContain("СЕКРЕТ", html);                              // hidden-узел не публикуется
+            Assert.Contains("Неизвестный блок: futuristicWidget3000", html);    // неизвестный тип → fallback, не краш
+            Assert.DoesNotContain("experimentalGlow", html);                    // неизвестные поля не утекают
+        }
+
         private static string EnginePath()
         {
             // Lime.Tests/bin/Debug/net8.0 → корень репо → Lime_Editor/wwwroot/js/lime/lime-doc.js
@@ -124,6 +169,39 @@ namespace Lime.Tests.Services
             Assert.Contains("--lt-text-2xl:1.5rem;", html);
         }
 
+        // Stage 8.1: значения/имена стилей и сырой block.css не должны выходить из CSS-правила (})
+        // или закрывать <style> (</style>) на серверном publish-пути (он НЕ прогоняет HTML-санитайзер
+        // — экранирование рендерера и есть граница безопасности, см. PublishedSiteController).
+        private const string MaliciousStylesDoc = /*lang=json*/ @"{
+            ""version"": 1,
+            ""theme"": { ""classes"": [
+                { ""cls"": ""evil"", ""styles"": { ""base"": { ""color"": ""red}body{display:none"" } } },
+                { ""cls"": ""safe"", ""styles"": { ""base"": { ""color"": ""#0f0"", ""padding"": ""10px"" } } }
+            ] },
+            ""pages"": [ { ""slug"": """", ""title"": ""T"", ""blocks"": [
+                { ""id"": ""m1"", ""type"": ""text"", ""content"": { ""text"": ""x"" }, ""styles"": { ""base"": {
+                    ""color"": ""red}html{display:none"", ""boxShadow"": ""0 8px 24px rgba(0,0,0,.3)"", ""fontSize"": ""16px"" } } },
+                { ""id"": ""m2"", ""type"": ""text"", ""content"": { ""text"": ""y"" },
+                  ""css"": ""color:red} body{display:none} </style><script>alert(1)</script>"" }
+            ] } ]
+        }";
+
+        [Fact]
+        public void RenderSite_StyleValues_AreSanitizedAgainstCssBreakout()
+        {
+            // CompileCss = сырой CSS документа (без <style>-обёртки renderSite) — на нём проверяем,
+            // что компиляция не образует постороннее правило и не закрывает <style>.
+            var css = new JsDocumentRenderer(EnginePath()).CompileCss(MaliciousStylesDoc);
+            // Breakout-значение/класс отброшены; безопасные соседи уцелели.
+            Assert.DoesNotContain("}html{display:none", css);
+            Assert.DoesNotContain("color:red}body", css);
+            Assert.Contains("box-shadow:0 8px 24px rgba(0,0,0,.3)", css);
+            Assert.Contains(".lime-c-safe{color:#0f0;padding:10px;}", css);
+            // Граница безопасности: ни стиль-значение, ни сырой block.css не могут ЗАКРЫТЬ <style>
+            // (</style>), поэтому любой оставшийся текст остаётся инертным внутри <style>-блока.
+            Assert.DoesNotContain("</style", css);
+        }
+
         [Fact]
         public void RenderSite_NullAndEmptyDoc_DoNotThrow()
         {
@@ -132,16 +210,51 @@ namespace Lime.Tests.Services
             Assert.Contains("lime-doc-page", renderer.RenderSite("{}"));
         }
 
+        // Циклическая вложенность компонента: instance внутри собственного definition'а.
+        private const string CyclicDoc = /*lang=json*/ @"{ ""version"": 1, ""theme"": {},
+            ""components"": { ""loop"": { ""block"": { ""type"": ""frame"",
+                ""children"": [
+                    { ""id"": ""inner"", ""type"": ""text"", ""content"": { ""text"": ""Внутри"" } },
+                    { ""id"": ""s1"", ""type"": ""component"", ""ref"": ""loop"" }
+                ] } } },
+            ""pages"": [ { ""slug"": """", ""title"": ""T"",
+                ""blocks"": [ { ""id"": ""c1"", ""type"": ""component"", ""ref"": ""loop"" } ] } ] }";
+
         [Fact]
-        public void RenderSite_CyclicComponent_TerminatesByDepthLimit()
+        public void RenderSite_CyclicComponent_GuardRendersInnerOnce()
         {
             var renderer = new JsDocumentRenderer(EnginePath());
-            var doc = @"{ ""version"": 1,
-                ""components"": { ""loop"": { ""block"": { ""type"": ""spacer"",
-                    ""children"": [ { ""id"": ""s1"", ""type"": ""component"", ""ref"": ""loop"" } ] } } },
-                ""blocks"": [ { ""id"": ""c1"", ""type"": ""component"", ""ref"": ""loop"" } ] }";
-            var html = renderer.RenderSite(doc); // не должен зависнуть/упасть
+            var html = renderer.RenderSite(CyclicDoc); // не должен зависнуть/упасть/раздуться
             Assert.Contains("lime-doc-page", html);
+            // Cycle guard вырождает вложенный instance в пустоту → внутренний текст ровно один раз,
+            // никакого взрыва на MAX_DEPTH уровней.
+            Assert.Equal(1, CountOccurrences(html, "Внутри"));
+            // В publish маркер цикла не выводится.
+            Assert.DoesNotContain("__component_cycle", html);
+        }
+
+        [Fact]
+        public void RenderSite_CyclicComponent_MatchesNodeOutput_Golden()
+        {
+            var enginePath = EnginePath();
+            var docFile = WriteTempDoc(CyclicDoc);
+            try
+            {
+                var nodeHtml = TryRunNode(enginePath, docFile, "L.renderSite(doc)");
+                var nodeCss = TryRunNode(enginePath, docFile, "L.compileDocCss(doc)");
+                if (nodeHtml == null || nodeCss == null) return; // node не установлен
+                var renderer = new JsDocumentRenderer(enginePath);
+                Assert.Equal(nodeHtml, renderer.RenderSite(CyclicDoc));
+                Assert.Equal(nodeCss, renderer.CompileCss(CyclicDoc));
+            }
+            finally { File.Delete(docFile); }
+        }
+
+        private static int CountOccurrences(string haystack, string needle)
+        {
+            int count = 0, i = 0;
+            while ((i = haystack.IndexOf(needle, i, StringComparison.Ordinal)) >= 0) { count++; i += needle.Length; }
+            return count;
         }
 
         [Fact]

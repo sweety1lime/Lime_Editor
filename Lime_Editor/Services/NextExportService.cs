@@ -390,6 +390,10 @@ const SIMPLE = new Set(['heading','text','cover','cta','buttonGroup','features',
 
 function fxClass(b) { return (b.fx && b.fx.length) ? ' ' + b.fx.map((k) => 'lime-fx-' + k).join(' ') : ''; }
 
+// Пользовательские reusable-классы (lime-c-*) с тем же whitelist, что и движок (safeCls): их CSS
+// уже в blocks.css (classesCss), поэтому идиоматичная секция обязана нести класс — иначе стиль теряется.
+function clsClass(b) { return (b.classes && b.classes.length) ? b.classes.filter((k) => /^[A-Za-z0-9_-]+$/.test(k)).map((k) => ' lime-c-' + k).join('') : ''; }
+
 function motionAttrs(b) {
   const a = {};
   if (b.anim) { a['data-anim'] = b.anim; if (b.animDelay) a['data-anim-delay'] = b.animDelay; if (b.animDuration) a['data-anim-duration'] = b.animDuration; }
@@ -406,7 +410,7 @@ function ed(v, fb) { return (v === undefined || v === null || v === '') ? (fb ||
 function Section({ block, children }) {
   const b = block;
   return (
-    <section className={'lime-block' + fxClass(b)} data-block-type={b.type} data-block-id={b.id} {...motionAttrs(b)}>
+    <section className={'lime-block' + fxClass(b) + clsClass(b)} data-block-type={b.type} data-block-id={b.id} {...motionAttrs(b)}>
       <div className="lime-block__inner">{children}</div>
     </section>
   );
@@ -577,7 +581,11 @@ function RawBlock({ block, components, data }) {
 
 export function Block({ block, components, data }) {
   const b = block, c = b.content || {};
-  const complex = (c && c.bg) || (b.layers && b.layers.length) || (b.children && b.children.length) || b.marquee || b.scene;
+  // Сложное → рендерит движок (lib/limedoc.cjs) = байт-в-байт как на хостинге: фон/слои/дети,
+  // marquee/scene и ЛЮБОЙ v2 design (frame/layout/size — геометрия + breakpoint-сбросы). Простые
+  // листовые блоки рендерятся настоящими React-компонентами (классы+motion навешиваются, их CSS
+  // приходит из blocks.css). Дефолтный плейсхолдер-текст ПУСТЫХ блоков может косметически отличаться.
+  const complex = (c && c.bg) || (b.layers && b.layers.length) || (b.children && b.children.length) || b.marquee || b.scene || b.design;
   if (b.type === 'collectionList') return <CollectionList block={b} data={data} />;
   if (!complex && SIMPLE.has(b.type)) return <Section block={b}><Content block={b} /></Section>;
   return <RawBlock block={b} components={components} data={data} />;

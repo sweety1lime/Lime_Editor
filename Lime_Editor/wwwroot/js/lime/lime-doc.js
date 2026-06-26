@@ -43,6 +43,9 @@
 
     // Потолок вложенности children — защита от циклических компонентов.
     var MAX_DEPTH = 20;
+    // Тип-маркер узла, в который вырождается component-instance при обнаружении циклической
+    // вложенности (компонент содержит сам себя прямо или транзитивно). Рантайм-only, не персистится.
+    var COMPONENT_CYCLE = "__component_cycle";
 
     // Белый список универсальных эффектов (Фаза 6.3): только эти ключи превращаются
     // в классы lime-fx-* на секции — защита от инъекции произвольных классов из документа.
@@ -149,17 +152,45 @@
         return k.replace(/[A-Z]/g, function (m) { return "-" + m.toLowerCase(); });
     }
 
-    // {fontSize:'40px', color:'#fff'} -> "font-size:40px;color:#fff;"
+    // Имя CSS-свойства из ключа стиля. Документ может быть подделан (прямой save, импорт,
+    // AI, клон чужого сайта), а styleDecls эмитит в <style>-блок без HTML-экранирования —
+    // поэтому имя сводим к camel→kebab и пропускаем только безопасный идентификатор
+    // (буквы/дефис + кастомные --vars). Без этого имя вроде "a}html{display" вышло бы из
+    // правила. Возвращает null для отброшенного ключа. (Аналог safeCls для имён классов.)
+    function safeStyleProp(k) {
+        if (typeof k !== "string" || !k) return null;
+        var prop = k.indexOf("--") === 0 ? k : camelToKebab(k);
+        return /^(?:--[A-Za-z0-9-]+|-?[A-Za-z][A-Za-z-]*)$/.test(prop) ? prop : null;
+    }
+    // Значение CSS-свойства не должно содержать символы выхода из правила/<style>-блока:
+    // "}"/"{" закрыли бы/открыли правило, "</style" — закрыл бы тег (HTML-инъекция, как в
+    // customCssOf). Прочие символы (скобки, запятые, ; внутри data-URI) легитимны, поэтому
+    // фильтр узкий — не ломает градиенты/тени/шрифты/SVG-data-URI. Возвращает null для отброса.
+    function safeStyleValue(v) {
+        if (v == null) return null;
+        var s = String(v);
+        if (s.indexOf("{") !== -1 || s.indexOf("}") !== -1) return null;
+        if (/<\/style/i.test(s)) return null;
+        return s;
+    }
+    // {fontSize:'40px', color:'#fff'} -> "font-size:40px;color:#fff;" (небезопасные пары отброшены)
     function styleDecls(obj) {
         if (!obj) return "";
-        return Object.keys(obj).map(function (k) {
-            return camelToKebab(k) + ":" + obj[k] + ";";
-        }).join("");
+        var out = "";
+        Object.keys(obj).forEach(function (k) {
+            var prop = safeStyleProp(k);
+            var val = safeStyleValue(obj[k]);
+            if (prop && val != null) out += prop + ":" + val + ";";
+        });
+        return out;
     }
 
     // Ограничивает пользовательский CSS селектором блока (flat-правила; @-правила не трогаем).
     function scopeCss(css, sel) {
         if (!css) return "";
+        // Нельзя закрыть <style> изнутри блочного CSS (как в customCssOf): иначе сырой css
+        // блока вышел бы из <style>-блока и инжектил произвольную разметку (HTML-инъекция).
+        css = String(css).replace(/<\/style/gi, "");
         if (css.indexOf("{") === -1) return sel + "{" + css + "}";
         return css.replace(/([^{}]+)\{([^{}]*)\}/g, function (whole, selectors, body) {
             if (selectors.trim().charAt(0) === "@") return whole;
@@ -212,6 +243,11 @@
     function cssNum(v, suffix) {
         return typeof v === "number" && isFinite(v) ? v + (suffix || "") : null;
     }
+    function cssLength(v, suffix) {
+        if (typeof v === "number" && isFinite(v)) return v + (suffix || "");
+        if (typeof v === "string" && /^-?(?:\d+|\d*\.\d+)(?:px|%|rem)$/.test(v.trim())) return v.trim();
+        return null;
+    }
     function pushDecl(list, prop, value) { if (value != null) list.push(prop + ":" + value); }
     function flexValue(v, justify) {
         var common = { start: "flex-start", end: "flex-end", center: "center" };
@@ -227,19 +263,19 @@
         ["width", "height"].forEach(function (axis) {
             var s = size[axis];
             if (!s) return;
-            if (s.mode === "fixed") pushDecl(own, axis, cssNum(s.value, "px"));
+            if (s.mode === "fixed") pushDecl(own, axis, cssLength(s.value, "px"));
             else if (s.mode === "fill") pushDecl(own, axis, "100%");
             else if (s.mode === "hug") pushDecl(own, axis, axis === "width" ? "max-content" : "auto");
-            pushDecl(own, "min-" + axis, cssNum(s.min, "px"));
-            pushDecl(own, "max-" + axis, cssNum(s.max, "px"));
+            pushDecl(own, "min-" + axis, cssLength(s.min, "px"));
+            pushDecl(own, "max-" + axis, cssLength(s.max, "px"));
         });
         var frame = value.frame;
         if (frame) {
             own.push("position:absolute");
-            pushDecl(own, "left", cssNum(frame.x, "px"));
-            pushDecl(own, "top", cssNum(frame.y, "px"));
-            pushDecl(own, "width", cssNum(frame.width, "px"));
-            pushDecl(own, "height", cssNum(frame.height, "px"));
+            pushDecl(own, "left", cssLength(frame.x, "px"));
+            pushDecl(own, "top", cssLength(frame.y, "px"));
+            pushDecl(own, "width", cssLength(frame.width, "px"));
+            pushDecl(own, "height", cssLength(frame.height, "px"));
             if (typeof frame.rotation === "number" && isFinite(frame.rotation) && frame.rotation !== 0) own.push("transform:rotate(" + frame.rotation + "deg)");
         }
         pushDecl(own, "z-index", cssNum(value.zIndex, ""));
@@ -263,21 +299,21 @@
                 if (typeof layout.columns === "number" && isFinite(layout.columns) && layout.columns > 0) {
                     kids.push("grid-template-columns:repeat(" + Math.floor(layout.columns) + ",minmax(0,1fr))");
                 } else if (layout.columns && layout.columns.mode === "auto") {
-                    var minCol = cssNum(layout.columns.min, "px") || "240px";
-                    var maxCol = cssNum(layout.columns.max, "px") || "1fr"; // нет max → растягиваемся (1fr)
+                    var minCol = cssLength(layout.columns.min, "px") || "240px";
+                    var maxCol = cssLength(layout.columns.max, "px") || "1fr"; // нет max → растягиваемся (1fr)
                     var fitMode = layout.columns.fill ? "auto-fill" : "auto-fit";
                     kids.push("grid-template-columns:repeat(" + fitMode + ",minmax(" + minCol + "," + maxCol + "))");
                 }
-                pushDecl(kids, "grid-auto-rows", cssNum(layout.autoRows, "px"));
+                pushDecl(kids, "grid-auto-rows", cssLength(layout.autoRows, "px"));
             } else {
                 kids.push("display:block", "position:relative", "height:100%");
             }
-            pushDecl(kids, "gap", cssNum(layout.gap, "px"));
-            pushDecl(kids, "row-gap", cssNum(layout.rowGap, "px"));
-            pushDecl(kids, "column-gap", cssNum(layout.columnGap, "px"));
+            pushDecl(kids, "gap", cssLength(layout.gap, "px"));
+            pushDecl(kids, "row-gap", cssLength(layout.rowGap, "px"));
+            pushDecl(kids, "column-gap", cssLength(layout.columnGap, "px"));
             if (layout.padding) {
                 ["top", "right", "bottom", "left"].forEach(function (side) {
-                    pushDecl(kids, "padding-" + side, cssNum(layout.padding[side], "px"));
+                    pushDecl(kids, "padding-" + side, cssLength(layout.padding[side], "px"));
                 });
             }
         }
@@ -321,13 +357,14 @@
     }
 
     // CSS блока: base + media(tablet) + media(mobile) + свой scoped css + рекурсивно children.
-    function compileBlockCss(block, components, depth, parentDesign) {
+    function compileBlockCss(block, components, depth, parentDesign, chain) {
         var sel = '[data-block-id="' + block.id + '"]';
         var css = bucketsCss(sel, block.styles || {}) + compileDesignCss(block, sel, parentDesign || {});
         if (block.css) css += scopeCss(block.css, sel);
         if ((depth || 0) < MAX_DEPTH) {
+            var childChain = block.__chain || chain || [];
             (block.children || []).forEach(function (ch) {
-                css += compileBlockCss(resolve(ch, components), components, (depth || 0) + 1, block.design || {});
+                css += compileBlockCss(resolve(ch, components, childChain), components, (depth || 0) + 1, block.design || {}, childChain);
             });
         }
         return css;
@@ -336,7 +373,7 @@
     // Editor preview has a fixed wide viewport and switches breakpoints virtually. Compile the
     // effective design bucket without media queries so the selected tablet/mobile state can be
     // layered after publish CSS. This does not participate in render/renderSite output.
-    function compilePreviewDesignBlock(block, components, bp, depth, parentDesign) {
+    function compilePreviewDesignBlock(block, components, bp, depth, parentDesign, chain) {
         if (!block) return "";
         var sel = '[data-block-id="' + block.id + '"]';
         var css = "";
@@ -351,8 +388,9 @@
             css += designRules(sel, contextualDesign(block.design, bp, parentDesign));
         }
         if ((depth || 0) < MAX_DEPTH) {
+            var childChain = block.__chain || chain || [];
             (block.children || []).forEach(function (ch) {
-                css += compilePreviewDesignBlock(resolve(ch, components), components, bp, (depth || 0) + 1, block.design || {});
+                css += compilePreviewDesignBlock(resolve(ch, components, childChain), components, bp, (depth || 0) + 1, block.design || {}, childChain);
             });
         }
         return css;
@@ -361,7 +399,7 @@
         if (bp !== "tablet" && bp !== "mobile") bp = "base";
         components = components || {};
         return (blocks || []).map(function (block) {
-            return compilePreviewDesignBlock(resolve(block, components), components, bp, 0, {});
+            return compilePreviewDesignBlock(resolve(block, components, []), components, bp, 0, {}, []);
         }).join("\n");
     }
 
@@ -654,11 +692,17 @@
                 return '<div class="lime-doc-drop-hint">Пустые колонки — перетащи блоки за ⠿ сюда: каждый занимает следующую колонку</div>';
             }
             return "";
+        },
+        group: function (b, o) {
+            if (o && o.editable && (!b.children || !b.children.length)) {
+                return '<div class="lime-doc-drop-hint">Empty group</div>';
+            }
+            return "";
         }
     };
 
     // Контейнерные типы: новые блоки из сайдбара добавляются ВНУТРЬ выбранного контейнера.
-    var CONTAINER_TYPES = { container: true, columns: true };
+    var CONTAINER_TYPES = { container: true, columns: true, group: true };
     function isContainer(type) { return !!CONTAINER_TYPES[type]; }
 
     // Дефолтный контент по типу — материализуется в block.content при создании,
@@ -726,7 +770,8 @@
         embed: { embedUrl: "", provider: "" },
         collectionList: { collection: "", layout: "cards", limit: 12 },
         container: {},
-        columns: { cols: 2 }
+        columns: { cols: 2 },
+        group: {}
     };
 
     var idSeq = 0;
@@ -803,8 +848,16 @@
         return out + "</div>";
     }
 
-    function renderBlock(block, opts, components, depth) {
+    function renderBlock(block, opts, components, depth, chain) {
         var editable = !!(opts && opts.editable);
+        // Циклическая вложенность компонента: в publish ничего не выводим, в редакторе — заметный
+        // маркер, чтобы пользователь увидел сломанную вложенность (узел остаётся выбираемым по id).
+        if (block.type === COMPONENT_CYCLE) {
+            if (!editable) return "";
+            return '<section class="lime-block lime-block--cycle" data-block-type="' + escAttr(COMPONENT_CYCLE) +
+                '" data-block-id="' + escAttr(block.id) + '" title="Циклическая вложенность компонента">' +
+                '<div class="lime-block__inner">⚠ Циклическая вложенность компонента</div></section>';
+        }
         // Hidden — persisted node-state: в publish узел и его subtree отсутствуют. В редакторе
         // оставляем скрытый DOM-якорь, чтобы слой можно было выбрать и вернуть через outline.
         if (block.hidden && !editable) return "";
@@ -843,8 +896,9 @@
             }
             // Горизонтальная сцена: дети в ряд, рантайм пинит секцию и едет по X (этап 8.2).
             if (block.scene && block.scene.mode === "horizontal") kidsCls += " lime-block__children--scene";
+            var childChain = block.__chain || chain || [];
             kids = '<div class="' + kidsCls + '"' + kidsAttr + ">" + (block.children || []).map(function (ch) {
-                return renderBlock(resolve(ch, components), opts, components, (depth || 0) + 1);
+                return renderBlock(resolve(ch, components, childChain), opts, components, (depth || 0) + 1, childChain);
             }).join("") + "</div>";
         }
         // Колонки: число колонок уходит в data-cols, сетку рисует CSS (на мобиле — одна).
@@ -887,11 +941,37 @@
 
     // Резолв компонента-инстанса: подставляет блок из doc.components, но с id инстанса
     // (стили/контент общие — правка компонента отражается на всех копиях).
-    function resolve(block, components) {
+    // chain — ref'ы компонентов, уже разворачиваемых выше по дереву (защита от цикла, см. resolve).
+    function componentSourceBlock(component, variantId) {
+        if (!component) return null;
+        var variants = component.variants || [];
+        if (variantId) {
+            for (var i = 0; i < variants.length; i++) {
+                if (variants[i] && variants[i].id === variantId && variants[i].block) return variants[i].block;
+            }
+        }
+        return component.block || null;
+    }
+
+    // chain хранит ref'ы компонентов, разворачиваемых выше по дереву. Повтор ref'а означает
+    // циклическую вложенность (компонент содержит сам себя прямо или транзитивно) — вместо
+    // бесконечного разворачивания отдаём безопасный fallback-узел. __chain (рантайм-only,
+    // не персистится) несёт обновлённую цепочку к детям резолвнутого блока.
+    function resolve(block, components, chain) {
         if (block && block.type === "component" && components && components[block.ref]) {
-            var c = (components[block.ref] && components[block.ref].block) || {};
+            var ref = block.ref;
+            if (chain && chain.indexOf(ref) !== -1) {
+                return { id: block.id, type: COMPONENT_CYCLE, ref: ref, name: block.name || "" };
+            }
+            var c = componentSourceBlock(components[ref], block.variant) || {};
+            var content = mergeDesign(c.content, block.overrides && block.overrides.content);
+            // Instance может локально переопределить стиль-пропы (overrides.styles, по бакетам
+            // base/tablet/mobile/hover), не трогая definition и другие копии. Прочее (структура,
+            // классы, css) остаётся общим. Сами CSS-пропы санитизируются общим style-пайплайном.
+            var styleOverride = block.overrides && block.overrides.styles;
+            var styles = styleOverride ? mergeDesign(c.styles || {}, styleOverride) : c.styles;
             return {
-                id: block.id, type: c.type, content: c.content, styles: c.styles, css: c.css,
+                id: block.id, type: c.type, content: content, styles: styles, css: c.css,
                 anim: c.anim, animDelay: c.animDelay, animDuration: c.animDuration,
                 parallax: c.parallax, sticky: c.sticky, stickyOffset: c.stickyOffset,
                 marquee: c.marquee, scene: c.scene, layers: c.layers, fx: c.fx,
@@ -899,17 +979,23 @@
                 locked: !!block.locked, hidden: !!block.hidden,
                 // V2: внутренний design остаётся общим, но instance может переопределить
                 // geometry (frame/size/constraints/zIndex) своим additive design bucket.
-                design: mergeInstanceDesign(c.design, block.design)
+                design: mergeInstanceDesign(c.design, block.design),
+                __chain: (chain || []).concat(ref)
             };
         }
         return block;
     }
 
+    // Рендер ОДНОГО блока (резолв инстанса + cycle chain) → HTML его <section>. Для точечного
+    // DOM-патча в редакторе (Stage 7): обновить затронутый узел, не пересобирая всю страницу.
+    function renderOneBlock(block, components, opts) {
+        return renderBlock(resolve(block, components, []), opts, components, 0, []);
+    }
     function renderBlocks(blocks, components, opts) {
-        var resolved = (blocks || []).map(function (b) { return resolve(b, components); });
+        var resolved = (blocks || []).map(function (b) { return resolve(b, components, []); });
         return {
-            css: resolved.map(function (b) { return compileBlockCss(b, components); }).join("\n"),
-            html: resolved.map(function (b) { return renderBlock(b, opts, components); }).join("\n")
+            css: resolved.map(function (b) { return compileBlockCss(b, components, 0, {}, []); }).join("\n"),
+            html: resolved.map(function (b) { return renderBlock(b, opts, components, 0, []); }).join("\n")
         };
     }
 
@@ -1024,7 +1110,7 @@
         var css = themeCss(doc.theme) + "\n" + classesCss(doc.theme);
         pages.forEach(function (p) {
             (p.blocks || []).forEach(function (b) {
-                css += "\n" + compileBlockCss(resolve(b, comps), comps);
+                css += "\n" + compileBlockCss(resolve(b, comps, []), comps, 0, {}, []);
             });
         });
         css += customCssOf(doc); // глобальный CSS сайта — и в Next-экспорт (этап 0.2)
@@ -1045,6 +1131,7 @@
         renderPage: renderPage,
         pagesOf: pagesOf,
         renderBlock: renderBlock,
+        renderOneBlock: renderOneBlock,
         compileBlockCss: compileBlockCss,
         compileDesignCss: compileDesignCss,
         compilePreviewDesignCss: compilePreviewDesignCss,
@@ -1055,6 +1142,8 @@
         themeCss: themeCss,
         classesCss: classesCss,
         safeCls: safeCls,
+        safeStyleProp: safeStyleProp,
+        safeStyleValue: safeStyleValue,
         scopeCss: scopeCss,
         styleDecls: styleDecls
     };

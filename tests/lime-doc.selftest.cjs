@@ -88,6 +88,23 @@ function check(name, cond) {
     const autoFill = JSON.parse(JSON.stringify(gridSpan));
     autoFill.pages[0].blocks[0].design.base.layout = { mode: "grid", columns: { mode: "auto", min: 200, max: 400, fill: true } };
     check("v2 grid: auto-fill minmax(min,maxpx)", L.compileDocCss(autoFill).includes("grid-template-columns:repeat(auto-fill,minmax(200px,400px))"));
+    const unitFlex = JSON.parse(JSON.stringify(gridSpan));
+    unitFlex.pages[0].blocks[0].design.base.size = { width: { mode: "fixed", value: "50%" }, height: { mode: "fixed", value: "20rem" } };
+    unitFlex.pages[0].blocks[0].design.base.layout = {
+        mode: "grid",
+        columns: { mode: "auto", min: "12rem", max: "50%", fill: true },
+        gap: "2rem",
+        autoRows: "6rem",
+        padding: { top: "1rem", right: "5%", bottom: "1rem", left: "5%" }
+    };
+    const unitFlexCss = L.compileDocCss(unitFlex);
+    check("v2 unit-flex: px/rem/% lengths rendered", unitFlexCss.includes("width:50%") && unitFlexCss.includes("height:20rem") && unitFlexCss.includes("minmax(12rem,50%)") && unitFlexCss.includes("gap:2rem") && unitFlexCss.includes("grid-auto-rows:6rem") && unitFlexCss.includes("padding-right:5%"));
+
+    const group = L.createBlock("group");
+    group.children.push({ id: "group-child", type: "text", content: { text: "Inside group" } });
+    const groupOut = L.render({ version: 1, blocks: [group] }, { editable: true });
+    check("v2 group: createBlock is structural container", L.isContainer("group") && Array.isArray(group.children));
+    check("v2 group: renders child wrapper and children", groupOut.html.includes('data-block-type="group"') && groupOut.html.includes('data-block-id="group-child"') && groupOut.html.includes("lime-block__children"));
 
     const componentFrames = {
         version: 1, theme: {},
@@ -101,6 +118,64 @@ function check(name, cond) {
     const componentFrameCss = L.compileDocCss(componentFrames);
     check("v2 component instance: frame overrides definition independently", componentFrameCss.includes('[data-block-id="inst-a"]{box-sizing:border-box;position:absolute;left:40px;top:30px;width:120px;height:60px;z-index:2}') && componentFrameCss.includes('[data-block-id="inst-b"]{box-sizing:border-box;position:absolute;left:220px;top:90px;width:120px;height:60px;z-index:2}'));
     check("v2 component instance: internal layout override ignored", !componentFrameCss.includes('[data-block-id="inst-a"]>.lime-block__inner>.lime-block__children'));
+    const componentContent = {
+        version: 1, theme: {},
+        components: { hero: { block: { type: "heading", content: { text: "Shared title" } } } },
+        pages: [{ id: "p", slug: "", title: "T", blocks: [
+            { id: "inst-local", type: "component", ref: "hero", overrides: { content: { text: "Local title" } } },
+            { id: "inst-shared", type: "component", ref: "hero" }
+        ] }]
+    };
+    const componentContentHtml = L.renderSite(componentContent);
+    check("v2 component instance: content override is local", componentContentHtml.includes('data-block-id="inst-local"') && componentContentHtml.includes("Local title") && componentContentHtml.includes('data-block-id="inst-shared"') && componentContentHtml.includes("Shared title"));
+    const componentStyle = {
+        version: 1, theme: {},
+        components: { card: { block: { type: "text", content: { text: "Card" }, styles: { base: { color: "#ffffff" } } } } },
+        pages: [{ id: "p", slug: "", title: "T", blocks: [
+            { id: "st-local", type: "component", ref: "card", overrides: { styles: { base: { color: "#ff0000" }, mobile: { fontSize: "12px" } } } },
+            { id: "st-shared", type: "component", ref: "card" }
+        ] }]
+    };
+    const componentStyleCss = L.compileDocCss(componentStyle);
+    check("v2 component instance: style override is local", componentStyleCss.includes('[data-block-id="st-local"]{color:#ff0000;}') && componentStyleCss.includes('[data-block-id="st-shared"]{color:#ffffff;}'));
+    check("v2 component instance: override adds breakpoint bucket", componentStyleCss.includes('@media(max-width:640px)') && componentStyleCss.includes('font-size:12px'));
+
+    const componentVariants = {
+        version: 1, theme: {},
+        components: { hero: { block: { type: "heading", content: { text: "Default title" } }, variants: [{ id: "alt", name: "Alt", block: { type: "heading", content: { text: "Alt title" } } }] } },
+        pages: [{ id: "p", slug: "", title: "T", blocks: [
+            { id: "inst-default", type: "component", ref: "hero" },
+            { id: "inst-alt", type: "component", ref: "hero", variant: "alt" }
+        ] }]
+    };
+    const componentVariantsHtml = L.renderSite(componentVariants);
+    check("v2 component variant: instance resolves selected variant", componentVariantsHtml.includes('data-block-id="inst-default"') && componentVariantsHtml.includes("Default title") && componentVariantsHtml.includes('data-block-id="inst-alt"') && componentVariantsHtml.includes("Alt title"));
+
+    // --- Cycle guard: компонент не может содержать сам себя (прямо или транзитивно) ---
+    const selfCycle = {
+        version: 1, theme: {}, components: {
+            loop: { block: { type: "frame", content: {}, children: [
+                { id: "inner-text", type: "text", content: { text: "Inside" } },
+                { id: "self-ref", type: "component", ref: "loop" }
+            ] } }
+        },
+        pages: [{ id: "p", slug: "", title: "T", blocks: [{ id: "inst-loop", type: "component", ref: "loop" }] }]
+    };
+    const selfCyclePub = L.renderSite(selfCycle);
+    check("v2 cycle: self-referential component renders inner once (no explosion)", (selfCyclePub.match(/Inside/g) || []).length === 1 && !selfCyclePub.includes("__component_cycle"));
+    const selfCycleEd = L.render({ theme: {}, components: selfCycle.components, blocks: selfCycle.pages[0].blocks }, { editable: true }).html;
+    check("v2 cycle: editor shows cycle marker on inner instance", selfCycleEd.includes('data-block-type="__component_cycle"') && selfCycleEd.includes('data-block-id="self-ref"'));
+    check("v2 cycle: compileDocCss completes without recursion blow-up", L.compileDocCss(selfCycle).length < 5000);
+
+    const mutualCycle = {
+        version: 1, theme: {}, components: {
+            a: { block: { type: "frame", children: [ { id: "a-text", type: "text", content: { text: "AAA" } }, { id: "a-b", type: "component", ref: "b" } ] } },
+            b: { block: { type: "frame", children: [ { id: "b-text", type: "text", content: { text: "BBB" } }, { id: "b-a", type: "component", ref: "a" } ] } }
+        },
+        pages: [{ id: "p", slug: "", title: "T", blocks: [{ id: "inst-a", type: "component", ref: "a" }] }]
+    };
+    const mutualPub = L.renderSite(mutualCycle);
+    check("v2 cycle: mutual A↔B components terminate (each rendered once)", (mutualPub.match(/AAA/g) || []).length === 1 && (mutualPub.match(/BBB/g) || []).length === 1);
 
     const legacy = L.renderSite({ version: 1, pages: [{ id: "p", slug: "", title: "T", blocks: [{ id: "legacy", type: "text", content: { text: "v1" } }] }] });
     check("v2 additive: v1 markup has no design marker", !legacy.includes("data-design"));
@@ -563,6 +638,137 @@ function check(name, cond) {
 
     // мигрированный документ рендерится тем же движком (parity сохранён)
     check("migrate: результат рендерится (renderSite)", L.renderSite(m).includes("Old"));
+}
+
+// --- Stage 7 performance tripwire: 500-node fixture, renderer build budget + renderOneBlock ---
+{
+    function buildPerfDoc(target) {
+        const blocks = []; let made = 0;
+        while (made < target) {
+            const kids = []; const kc = Math.min(6, target - made);
+            for (let i = 0; i < kc; i++) { made++; kids.push({ id: "k" + made, type: "text", content: { text: "Node " + made }, styles: { base: { color: "#222", fontSize: "16px" }, mobile: { fontSize: "14px" } } }); }
+            made++;
+            blocks.push({ id: "s" + made, type: "container", content: {}, styles: { base: { padding: "24px" } }, design: { base: { layout: { mode: "stack", gap: "12px" } } }, children: kids });
+        }
+        return { version: 1, theme: { accent: "#4a8" }, components: {}, pages: [{ id: "p0", slug: "", title: "Perf", blocks }] };
+    }
+    let nodeCount = 0;
+    const perfDoc = buildPerfDoc(500);
+    (function walk(bs) { bs.forEach(b => { nodeCount++; if (b.children) walk(b.children); }); })(perfDoc.pages[0].blocks);
+    check("perf fixture: 500+ nodes built", nodeCount >= 500);
+    const t0 = Date.now();
+    const html = L.renderSite(perfDoc);
+    const css = L.compileDocCss(perfDoc);
+    const ms = Date.now() - t0;
+    // Строковый рендер 500 узлов измеряется единицами мс; бюджет щедрый — это tripwire против
+    // регрессии до O(n²)/экспоненты, а не точный SLA (тот — про DOM в браузере, Stage 7 §7).
+    check("perf: renderSite+compileDocCss(500) under budget (" + ms + "ms)", ms < 400 && html.length > 0 && css.length > 0);
+    // renderOneBlock: точечный рендер одного блока даёт тот же <section>, что и полный путь.
+    const firstSection = perfDoc.pages[0].blocks[0];
+    const one = L.renderOneBlock(firstSection, perfDoc.components, { editable: true });
+    check("perf: renderOneBlock matches full-page section markup",
+        one.includes('data-block-id="' + firstSection.id + '"') && html.includes('data-block-id="' + firstSection.id + '"'));
+    // Инстанс через renderOneBlock резолвится (контент из определения).
+    const compDoc = { version: 1, theme: {}, components: { card: { block: { type: "text", content: { text: "Shared one" } } } }, pages: [] };
+    const oneInst = L.renderOneBlock({ id: "i1", type: "component", ref: "card" }, compDoc.components, { editable: true });
+    check("perf: renderOneBlock resolves component instance", oneInst.includes('data-block-id="i1"') && oneInst.includes("Shared one"));
+}
+
+// --- Stage 8.1: sanitization стилевых пропов (block.styles/theme.classes/block.css) ---
+// designRules уже валидирует v2-значения; styleDecls/scopeCss были «сырыми» сиблингами и
+// могли вывести из CSS-правила (}) или закрыть <style> (</style>) — HTML/CSS-инъекция.
+{
+    const doc = {
+        version: 1,
+        theme: { classes: [
+            { cls: "evil", styles: { base: { color: "red}body{display:none" } } }, // breakout через }
+            { cls: "safe", styles: { base: { color: "#0f0", padding: "10px" } } }
+        ] },
+        blocks: [
+            { id: "sx1", type: "text", content: { text: "x" }, styles: { base: {
+                color: "red}html{display:none",                 // breakout-значение → отброшено
+                background: "url(\"data:image/svg+xml;base64,AAAA\")", // легитимный ;/: → сохранён
+                boxShadow: "0 8px 24px rgba(0,0,0,.3)",         // скобки/запятые → сохранён
+                fontSize: "16px"
+            } } },
+            { id: "sx2", type: "text", content: { text: "y" }, styles: { base: {
+                "color</style><img src=x>": "#fff",             // breakout в ИМЕНИ свойства → отброшено
+                margin: "8px"
+            } } },
+            { id: "sx3", type: "text", content: { text: "z" }, styles: { base: {
+                background: "#000;\n</style><script>alert(1)</script>" // breakout-значение → отброшено
+            } } },
+            { id: "sx4", type: "text", content: { text: "w" },
+              css: "color:red} body{display:none} </style><script>alert(1)</script>" } // сырой block.css
+        ]
+    };
+    const css = L.render(doc, {}).css;
+    check("sanitize: breakout-значение стиля отброшено", !css.includes("}html{display:none") && !css.includes("}body{display:none"));
+    check("sanitize: безопасные пары того же блока сохранены", css.includes('[data-block-id="sx1"]{') && css.includes("box-shadow:0 8px 24px rgba(0,0,0,.3)") && css.includes("font-size:16px"));
+    check("sanitize: легитимный data-URI (;/:) в значении сохранён", css.includes('background:url("data:image/svg+xml;base64,AAAA")'));
+    check("sanitize: breakout в ИМЕНИ свойства отброшен, сосед уцелел", !css.includes("<img src=x") && css.includes('[data-block-id="sx2"]{margin:8px;}'));
+    check("sanitize: класс-breakout отброшен, безопасный класс цел", !css.includes("color:red}body") && css.includes(".lime-c-safe{color:#0f0;padding:10px;}"));
+    // Граница безопасности — невозможность ЗАКРЫТЬ <style> (</style>). Текст вроде <script>
+    // может остаться внутри css как инертный текст (внутри <style> не исполняется) — это ок.
+    check("sanitize: ни одно стиль-значение не закрывает <style>", !css.includes("</style"));
+    check("sanitize: сырой block.css не закрывает <style>", L.compileBlockCss({ id: "sx4", type: "text", css: "x:y</style>z" }, {}, 0, {}, []).indexOf("</style") === -1);
+    // Регрессия: обычные стили компилируются байт-в-байт как раньше.
+    check("sanitize: обычные стили не изменились", L.render({ version: 1, blocks: [{ id: "ok1", type: "text", content: { text: "x" }, styles: { base: { color: "#fff" }, mobile: { fontSize: "20px" } } }] }, {}).css.includes('[data-block-id="ok1"]{color:#fff;}'));
+    check("sanitize: safeStyleProp/Value экспортированы и работают", L.safeStyleProp("fontSize") === "font-size" && L.safeStyleProp("a}b") === null && L.safeStyleValue("12px") === "12px" && L.safeStyleValue("a}b") === null);
+}
+
+// --- Stage 8.2: golden-фикстура паритета preview/publish/export на одном документе ---
+// Критерий готовности §8: один fixture проходит preview, Jint render и Next-экспорт без
+// структурных различий. Здесь — render-граница (preview↔publish) + устойчивость к
+// неизвестному типу/полям; байт-в-байт Jint↔Node на этом же файле проверяет dotnet golden.
+{
+    const PARITY = require("./fixtures/editor-v2-parity.json");
+    const pub = L.renderSite(PARITY);
+    const css = L.compileDocCss(PARITY);
+    const ed = L.render({ version: 2, theme: PARITY.theme, components: PARITY.components, blocks: PARITY.pages[0].blocks }, { editable: true });
+
+    // (1) Публикация НЕ содержит ни одного editor-only хука/маркера.
+    const EDITOR_ONLY = ["contenteditable", "data-field", "data-doc-pick", "data-doc-video",
+        "data-doc-embed", "data-doc-gallery-add", "data-doc-gallery-del", "data-layer-id",
+        "lime-block-grip", "lime-doc-drop-hint", "lime-doc-media-swap", "data-node-hidden", "data-node-locked"];
+    const leaked = EDITOR_ONLY.filter(m => pub.indexOf(m) !== -1);
+    check("parity publish: нет editor-only атрибутов (" + (leaked.join(",") || "—") + ")", leaked.length === 0);
+    // (2) В редакторе те же маркеры присутствуют — значит проверка (1) не вырожденная.
+    check("parity editor: editor-only маркеры присутствуют", ["contenteditable", "data-field", "lime-block-grip", "data-doc-pick", "data-doc-gallery-add", "data-doc-video", "data-layer-id"].every(m => ed.html.indexOf(m) !== -1));
+
+    // (3) hidden не публикуется (узел и контент), locked публикуется без editor-state.
+    check("parity publish: hidden-узел и его контент отсутствуют", pub.indexOf('data-block-id="hid1"') === -1 && pub.indexOf("СЕКРЕТ") === -1);
+    check("parity editor: hidden остаётся якорем", ed.html.indexOf('data-block-id="hid1"') !== -1 && ed.html.indexOf('data-node-hidden="1"') !== -1);
+    check("parity publish: locked виден, но без data-node-locked", pub.indexOf("Залочен но виден") !== -1 && pub.indexOf("data-node-locked") === -1);
+
+    // (4) Неизвестный тип узла → безопасный fallback, без падения; не контейнер → без детей.
+    check("parity fallback: неизвестный тип → видимый маркер, не краш", pub.indexOf("Неизвестный блок: futuristicWidget3000") !== -1 && pub.indexOf('data-block-id="unk1"') !== -1);
+    // (5) Неизвестные future-поля игнорируются рендером и не утекают в разметку/CSS.
+    check("parity forward-compat: неизвестные поля не ломают и не утекают", pub.indexOf("Будущее поле") !== -1 && pub.indexOf("experimentalGlow") === -1 && css.indexOf("experimentalGlow") === -1);
+
+    // (6) v2 design компилируется во все брейкпоинты (free frame + grid/stack overrides).
+    check("parity css: free child frame (base)", css.indexOf('position:absolute;left:48px;top:64px;width:420px;height:96px') !== -1);
+    check("parity css: mobile frame override", css.indexOf("@media(max-width:640px)") !== -1 && css.indexOf("left:16px;top:32px;width:280px;height:120px") !== -1);
+    check("parity css: grid columns base/tablet/mobile", css.indexOf("repeat(3,minmax(0,1fr))") !== -1 && css.indexOf("repeat(2,minmax(0,1fr))") !== -1 && css.indexOf("repeat(1,minmax(0,1fr))") !== -1);
+    check("parity css: stack direction override (row→column)", css.indexOf("flex-direction:row") !== -1 && css.indexOf("flex-direction:column") !== -1);
+    check("parity css: reusable class + per-breakpoint type sizes", css.indexOf(".lime-c-pill{") !== -1 && css.indexOf("font-size:20px") !== -1 && css.indexOf("font-size:18px") !== -1);
+
+    // (7) Формы/медиа/CMS/анимации старого формата рендерятся в публикации.
+    check("parity blocks: form (data-lime-form + honeypot + hidden-collection)", pub.indexOf("data-lime-form") !== -1 && pub.indexOf('name="lime_hp"') !== -1 && pub.indexOf('name="__collection" value="leads"') !== -1);
+    check("parity blocks: media (image/gallery/video-обёртка)", pub.indexOf("/media/u1/p.jpg") !== -1 && pub.indexOf("/media/u1/a.jpg") !== -1 && pub.indexOf("lime-block__video") !== -1);
+    check("parity blocks: CMS collectionList без данных — пусто в публикации", pub.indexOf('data-block-id="cms1"') !== -1 && pub.indexOf("lime-block__collection") === -1);
+    check("parity blocks: old-format motion (anim/parallax/marquee/scene/fx)", pub.indexOf('data-anim="fade-up"') !== -1 && pub.indexOf('data-parallax="0.2"') !== -1 && pub.indexOf("lime-fx-glass") !== -1 && pub.indexOf("lime-block__children--marquee") !== -1 && pub.indexOf('data-scene="horizontal"') !== -1);
+
+    // (8) Компоненты: локальный override и variant резолвятся в публикации.
+    check("parity component: override локален, definition цел", pub.indexOf("Локальный текст") !== -1 && pub.indexOf("Промо") !== -1);
+    check("parity component: variant резолвится", pub.indexOf("Альт-промо") !== -1);
+
+    // (9) customCss с </style> вырезан (нельзя закрыть style из темы) — на всех трёх путях.
+    check("parity sanitize: customCss </style> вырезан в publish и export", pub.indexOf("scroll-behavior:smooth") !== -1 && pub.indexOf("</script>alert") === -1 && css.indexOf("scroll-behavior:smooth") !== -1);
+
+    // (10) renderPage (серверный per-page путь) выдаёт только свою страницу, без editor-only.
+    const about = L.renderPage(PARITY, "about", { baseUrl: "/u/user/site" });
+    check("parity renderPage: страница about изолирована и чистая", about && about.body.indexOf("конструктор") !== -1 && about.body.indexOf("Свобода как в Figma") === -1 && EDITOR_ONLY.every(m => about.body.indexOf(m) === -1));
 }
 
 if (failed) {

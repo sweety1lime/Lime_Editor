@@ -105,6 +105,36 @@ namespace Lime.Tests.Integration
             Assert.Contains("blocks.css", ReadEntry(zip, "app/layout.jsx"));
         }
 
+        // Stage 8.3: идиоматичный React-экспорт не теряет паритет с движком — reusable-классы
+        // навешиваются на секцию (их CSS уже в blocks.css), а v2 design-блоки уходят в engine-fallback.
+        [Fact]
+        public void NextExport_Idiomatic_PreservesClassesAndRoutesDesignToEngine()
+        {
+            using var scope = _factory.Services.CreateScope();
+            var svc = scope.ServiceProvider.GetRequiredService<NextExportService>();
+
+            var doc = "{\"version\":2,\"theme\":{\"classes\":[{\"cls\":\"pill\",\"styles\":{\"base\":{\"borderRadius\":\"999px\"}}}]}," +
+                      "\"pages\":[{\"slug\":\"\",\"title\":\"H\",\"blocks\":[" +
+                      "{\"id\":\"h1\",\"type\":\"heading\",\"content\":{\"text\":\"T\"},\"classes\":[\"pill\"]}," +
+                      "{\"id\":\"free\",\"type\":\"container\",\"design\":{\"base\":{\"layout\":{\"mode\":\"free\"}}},\"children\":[" +
+                      "{\"id\":\"fc\",\"type\":\"heading\",\"content\":{\"text\":\"F\"},\"design\":{\"base\":{\"frame\":{\"x\":10,\"y\":20,\"width\":100,\"height\":40}}}}]}]}]}";
+
+            var bytes = svc.BuildZip("Site", doc, new Collection[0], new CollectionRecord[0], idiomatic: true);
+            using var ms = new MemoryStream(bytes);
+            using var zip = new ZipArchive(ms, ZipArchiveMode.Read);
+
+            var blocks = ReadEntry(zip, "components/Blocks.jsx");
+            var css = ReadEntry(zip, "app/blocks.css");
+
+            // Reusable-класс компилируется И секция его навешивает (не теряется).
+            Assert.Contains(".lime-c-pill{border-radius:999px;}", css);
+            Assert.Contains("clsClass", blocks);
+            // v2 design учитывается в gate complex → такие блоки идут в engine-fallback (RawBlock).
+            Assert.Contains("b.design", blocks);
+            // Геометрия free-child скомпилирована в общий CSS (одинаково с publish).
+            Assert.Contains("position:absolute;left:10px;top:20px;width:100px;height:40px", css);
+        }
+
         [Fact]
         public void NextExport_HandlesEmptyDocAndNoCollections()
         {
