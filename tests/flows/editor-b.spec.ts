@@ -364,6 +364,210 @@ test("editor-v2 Stage 3: layout inspector converts stack to free atomically (@fl
   await expect(child).not.toHaveCSS("position", "absolute");
 });
 
+test("editor-v2 Stage 9.1: align toolbar aligns and distributes free-siblings in one undo (@flow)", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1400 });
+  await page.goto("/Home/EditDoc?canvas=1&cmd=1");
+  if (await page.locator("#lime-doc-intro-skip").isVisible()) await page.locator("#lime-doc-intro-skip").click();
+
+  await page.locator('[data-doc-add="container"]').click();
+  const container = page.locator(topBlocks).last();
+  const containerId = await container.getAttribute("data-block-id");
+  expect(containerId).toBeTruthy();
+  const kids = container.locator(":scope > .lime-block__inner > .lime-block__children > .lime-block");
+  await page.locator('[data-doc-add="heading"]').click();
+  await page.evaluate(id => (window as any).__LIME_SELECTION__.select(id), containerId);
+  await page.locator('[data-doc-add="text"]').click();
+  await page.evaluate(id => (window as any).__LIME_SELECTION__.select(id), containerId);
+  await page.locator('[data-doc-add="text"]').click();
+  const ids = await kids.evaluateAll(els => els.map(e => e.getAttribute("data-block-id")));
+  expect(ids.length).toBe(3);
+
+  await page.evaluate(id => (window as any).__LIME_SELECTION__.select(id), containerId);
+  await page.locator('[data-v2-layout-mode="free"]').click();
+  await expect(kids.first()).toHaveCSS("position", "absolute");
+
+  // Сдвигаем средний ребёнок вправо, чтобы выравнивание по левому краю было наблюдаемым.
+  await page.evaluate(id => (window as any).__LIME_SELECTION__.select(id), ids[1]);
+  await page.keyboard.press("Shift+ArrowRight");
+  await page.keyboard.press("Shift+ArrowRight");
+  const shifted = await kids.nth(1).boundingBox();
+  const anchor = await kids.first().boundingBox();
+  expect(shifted!.x).toBeGreaterThan(anchor!.x + 5);
+
+  // Мульти-выбор → плавающая панель с 6 align + 2 distribute (т.к. узлов 3).
+  await page.evaluate(list => (window as any).__LIME_SELECTION__.replace(list), ids);
+  await expect(page.locator(".lime-align-toolbar")).toBeVisible();
+  await expect(page.locator(".lime-align-toolbar [data-align-op]")).toHaveCount(8);
+
+  await page.locator('.lime-align-toolbar [data-align-op="left"]').click();
+  const alignedMid = await kids.nth(1).boundingBox();
+  const alignedFirst = await kids.first().boundingBox();
+  expect(alignedMid!.x).toBeCloseTo(alignedFirst!.x, 0);
+
+  await page.locator("[data-doc-undo]").click(); // align — одна транзакция
+  const restoredMid = await kids.nth(1).boundingBox();
+  expect(restoredMid!.x).toBeCloseTo(shifted!.x, 0);
+
+  // Distribute по вертикали остаётся одной транзакцией и обратим одним undo.
+  await page.evaluate(list => (window as any).__LIME_SELECTION__.replace(list), ids);
+  const beforeMidY = (await kids.nth(1).boundingBox())!.y;
+  await page.locator('.lime-align-toolbar [data-align-op="dist-v"]').click();
+  await page.locator("[data-doc-undo]").click();
+  const afterUndoMidY = (await kids.nth(1).boundingBox())!.y;
+  expect(afterUndoMidY).toBeCloseTo(beforeMidY, 0);
+});
+
+test("editor-v2 Stage 9.2: local draft restores unsaved work after reload (@flow)", async ({ page }) => {
+  await page.goto("/Home/EditDoc?canvas=1&cmd=1");
+  if (await page.locator("#lime-doc-intro-skip").isVisible()) await page.locator("#lime-doc-intro-skip").click();
+  // Чистый старт: убираем возможный черновик прошлого прогона и баннер, если успел появиться.
+  await page.evaluate(() => localStorage.removeItem("lime-doc-draft-new"));
+  await page.locator("[data-doc-recovery]").evaluateAll(els => els.forEach(e => e.remove()));
+
+  await page.locator('[data-doc-add="heading"]').click();
+  await expect(page.locator(topBlocks)).toHaveCount(1);
+  // Черновик пишется с debounce 800мс — дожидаемся записи в localStorage.
+  await expect.poll(() => page.evaluate(() => !!localStorage.getItem("lime-doc-draft-new"))).toBeTruthy();
+
+  // Имитация краша: перезагрузка теряет несохранённый (siteId отсутствует) документ.
+  await page.reload();
+  if (await page.locator("#lime-doc-intro-skip").isVisible()) await page.locator("#lime-doc-intro-skip").click();
+  await expect(page.locator(topBlocks)).toHaveCount(0); // свежий пустой документ
+  const banner = page.locator("[data-doc-recovery]");
+  await expect(banner).toBeVisible();
+
+  await banner.locator("[data-recovery-restore]").click();
+  await expect(banner).toHaveCount(0);
+  await expect(page.locator(topBlocks)).toHaveCount(1); // восстановленный heading
+
+  // Повторная перезагрузка после «Отклонить» больше не предлагает восстановление.
+  await page.reload();
+  if (await page.locator("#lime-doc-intro-skip").isVisible()) await page.locator("#lime-doc-intro-skip").click();
+  const banner2 = page.locator("[data-doc-recovery]");
+  await expect(banner2).toBeVisible();
+  await banner2.locator("[data-recovery-dismiss]").click();
+  await page.reload();
+  if (await page.locator("#lime-doc-intro-skip").isVisible()) await page.locator("#lime-doc-intro-skip").click();
+  await expect(page.locator("[data-doc-recovery]")).toHaveCount(0);
+});
+
+test("editor-v2 Stage 9.3: single-block context toolbar runs quick actions (@flow)", async ({ page }) => {
+  await page.goto("/Home/EditDoc?canvas=1&cmd=1");
+  if (await page.locator("#lime-doc-intro-skip").isVisible()) await page.locator("#lime-doc-intro-skip").click();
+
+  await page.locator('[data-doc-add="heading"]').click();
+  await expect(page.locator(topBlocks)).toHaveCount(1);
+  const headingId = await page.locator(topBlocks).first().getAttribute("data-block-id");
+  await page.evaluate(id => (window as any).__LIME_SELECTION__.select(id), headingId);
+
+  // Одиночный выбор → плавающий toolbar над блоком (top-level: 5 действий, без «вынести наружу»).
+  const toolbar = page.locator(".lime-block-toolbar.is-visible");
+  await expect(toolbar).toBeVisible();
+  await expect(toolbar.locator("[data-block-op]")).toHaveCount(5);
+
+  await toolbar.locator('[data-block-op="dup"]').click();
+  await expect(page.locator(topBlocks)).toHaveCount(2); // дубликат
+  await page.locator("[data-doc-undo]").click();
+  await expect(page.locator(topBlocks)).toHaveCount(1);
+
+  await page.locator(".lime-block-toolbar.is-visible").locator('[data-block-op="del"]').click();
+  await expect(page.locator(topBlocks)).toHaveCount(0);
+  await expect(page.locator(".lime-block-toolbar")).toHaveCount(0); // нет выбора — нет toolbar
+});
+
+test("editor-v2 Stage 9.4: empty-state placeholder offers quick actions (@flow)", async ({ page }) => {
+  await page.goto("/Home/EditDoc?canvas=1&cmd=1");
+  if (await page.locator("#lime-doc-intro-skip").isVisible()) await page.locator("#lime-doc-intro-skip").click();
+
+  // Пустой холст → богатое empty-состояние с заголовком, подсказкой и быстрыми действиями.
+  const empty = page.locator("[data-doc-empty]");
+  await expect(empty).toBeVisible();
+  await expect(empty.locator(".lime-workspace__placeholder-title")).toBeVisible();
+  await expect(empty.locator(".lime-workspace__placeholder-hint")).toBeVisible();
+  await expect(empty.locator("[data-doc-empty-add]")).toBeVisible();
+  await expect(empty.locator("[data-doc-empty-ai]")).toBeVisible();
+
+  // Кнопка AI открывает модалку генерации.
+  await empty.locator("[data-doc-empty-ai]").click();
+  await expect(page.locator("#lime-doc-ai-modal")).toHaveClass(/is-open/);
+  await page.locator("[data-doc-ai-close]").click();
+  await expect(page.locator("#lime-doc-ai-modal")).not.toHaveClass(/is-open/);
+
+  // Кнопка «Добавить обложку» добавляет блок и убирает empty-состояние.
+  await page.locator("[data-doc-empty-add='cover']").click();
+  await expect(page.locator(topBlocks)).toHaveCount(1);
+  await expect(page.locator("[data-doc-empty]")).toHaveCount(0);
+});
+
+test("editor-v2 Stage 9.5: onboarding tour steps through key areas once (@flow)", async ({ page }) => {
+  // Чистый флаг, затем форсим тур через ?tour=1 (детерминированно, независимо от localStorage).
+  await page.goto("/Home/EditDoc?canvas=1&cmd=1&tour=1");
+  await page.evaluate(() => localStorage.removeItem("lime-onboarding-seen"));
+  await page.reload();
+  if (await page.locator("#lime-doc-intro-skip").isVisible()) await page.locator("#lime-doc-intro-skip").click();
+
+  const tour = page.locator("[data-doc-tour]");
+  await expect(tour).toBeVisible();
+  await expect(tour.locator(".lime-tour-card__step")).toHaveText("Шаг 1 из 4");
+  await expect(page.locator(".lime-tour-spot")).toHaveCount(1); // подсвечена текущая зона
+
+  // Проходим все шаги до «Готово».
+  await tour.locator("[data-tour-next]").click(); // 2
+  await expect(tour.locator(".lime-tour-card__step")).toHaveText("Шаг 2 из 4");
+  await tour.locator("[data-tour-next]").click(); // 3
+  await tour.locator("[data-tour-next]").click(); // 4
+  await expect(tour.locator("[data-tour-next]")).toHaveText("Готово");
+  await tour.locator("[data-tour-next]").click(); // finish
+
+  await expect(page.locator("[data-doc-tour]")).toHaveCount(0);
+  await expect(page.locator(".lime-tour-spot")).toHaveCount(0); // подсветка снята
+  expect(await page.evaluate(() => localStorage.getItem("lime-onboarding-seen"))).toBe("1");
+
+  // Повторный заход без ?tour=1 — тур больше не показывается (флаг установлен).
+  await page.goto("/Home/EditDoc?canvas=1&cmd=1");
+  if (await page.locator("#lime-doc-intro-skip").isVisible()) await page.locator("#lime-doc-intro-skip").click();
+  await expect(page.locator("[data-doc-tour]")).toHaveCount(0);
+});
+
+test("editor-v2 Stage 9.6: layers tree is an accessible, keyboard-navigable tree (@flow)", async ({ page }) => {
+  await page.goto("/Home/EditDoc?canvas=1&cmd=1");
+  if (await page.locator("#lime-doc-intro-skip").isVisible()) await page.locator("#lime-doc-intro-skip").click();
+
+  await page.locator('[data-doc-add="heading"]').click();
+  await page.locator('[data-doc-add="text"]').click();
+  await page.locator('[data-doc-add="text"]').click();
+  const ids = await page.locator(topBlocks).evaluateAll(els => els.map(e => e.getAttribute("data-block-id")));
+  expect(ids.length).toBe(3);
+
+  // Контейнер дерева — role=tree, фокусируемый, помечен.
+  const layers = page.locator("#lime-doc-layers");
+  await expect(layers).toHaveAttribute("role", "tree");
+  await expect(layers).toHaveAttribute("aria-label", "Слои страницы");
+  await expect(layers).toHaveAttribute("tabindex", "0");
+  await expect(layers.locator('[role="treeitem"]')).toHaveCount(3);
+
+  // Выбор отражается в aria-selected и aria-activedescendant.
+  await page.evaluate(id => (window as any).__LIME_SELECTION__.select(id), ids[0]);
+  await expect(layers).toHaveAttribute("aria-activedescendant", "lime-layer-" + ids[0]);
+  await expect(page.locator("#lime-layer-" + ids[0])).toHaveAttribute("aria-selected", "true");
+  await expect(page.locator("#lime-layer-" + ids[1])).toHaveAttribute("aria-selected", "false");
+
+  // Клавиатура: ↓ к следующему, End к последнему, Home к первому.
+  await layers.focus();
+  await page.keyboard.press("ArrowDown");
+  await expect(layers).toHaveAttribute("aria-activedescendant", "lime-layer-" + ids[1]);
+  await page.keyboard.press("End");
+  await expect(layers).toHaveAttribute("aria-activedescendant", "lime-layer-" + ids[2]);
+  await page.keyboard.press("ArrowUp");
+  await expect(layers).toHaveAttribute("aria-activedescendant", "lime-layer-" + ids[1]);
+  await page.keyboard.press("Home");
+  await expect(layers).toHaveAttribute("aria-activedescendant", "lime-layer-" + ids[0]);
+
+  // Иконочные кнопки строки и холст помечены для скринридеров.
+  await expect(page.locator("#lime-layer-" + ids[0] + " [data-node-rename]")).toHaveAttribute("aria-label", "Переименовать");
+  await expect(page.locator("#lime-canvas-viewport")).toHaveAttribute("aria-label", "Холст редактора");
+});
+
 test("editor-v2 Stage 4: stack inspector controls layout and responsive override (@flow)", async ({ page }) => {
   await page.goto("/Home/EditDoc?canvas=1&cmd=1");
   if (await page.locator("#lime-doc-intro-skip").isVisible()) await page.locator("#lime-doc-intro-skip").click();

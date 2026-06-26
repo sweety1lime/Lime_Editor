@@ -39,6 +39,9 @@
     // Шлём с каждым сохранением; 409 = документ сохранили из другого окна.
     var docVersion = window.__LIME_DOC_VERSION__ || 0;
     var conflicted = false;
+    // Crash recovery (этап 9.2): editSeq растёт на каждую правку, savedSeq догоняет при успешном
+    // сохранении/автосейве. editSeq !== savedSeq ⇒ есть несохранённые изменения (грязный документ).
+    var editSeq = 0, savedSeq = 0;
 
     function pageBlocks() { return doc.pages[active].blocks; }
 
@@ -539,9 +542,15 @@
     function render() {
         var __pt = perfNow();
         if (pageBlocks().length === 0) {
-            ws.innerHTML = '<div class="lime-workspace__placeholder">' +
+            // Этап 9.4: «пустое состояние» с подсказкой и быстрыми действиями вместо голого текста.
+            ws.innerHTML = '<div class="lime-workspace__placeholder" data-doc-empty>' +
                 '<div class="lime-workspace__placeholder-icon">✨</div>' +
-                '<div>Страница «' + escapeText(doc.pages[active].title) + '» пуста. Выбери блок слева.</div></div>';
+                '<div class="lime-workspace__placeholder-title">Страница «' + escapeText(doc.pages[active].title) + '» пуста</div>' +
+                '<div class="lime-workspace__placeholder-hint">Добавь блок из панели слева, начни с обложки или сгенерируй страницу с AI.</div>' +
+                '<div class="lime-workspace__placeholder-actions">' +
+                    '<button type="button" class="lime-btn lime-btn--primary lime-btn--sm" data-doc-empty-add="cover">Добавить обложку</button>' +
+                    '<button type="button" class="lime-btn lime-btn--violet lime-btn--sm" data-doc-empty-ai>✨ Сгенерировать с AI</button>' +
+                '</div></div>';
         } else {
             // Рендерим только активную страницу (тема и компоненты — общие на сайт).
             // data — превью схемы коллекций для блока collectionList (реальные записи — на публикации).
@@ -941,6 +950,21 @@
             }
             selectById(row.getAttribute("data-doc-layer"));
         });
+        // Клавиатурная навигация по дереву слоёв (этап 9.6): ↑/↓ — соседний узел, Home/End — края.
+        layersBox.addEventListener("keydown", function (e) {
+            if (e.key !== "ArrowDown" && e.key !== "ArrowUp" && e.key !== "Home" && e.key !== "End") return;
+            var rows = layerRowsCache || [];
+            if (!rows.length) return;
+            e.preventDefault();
+            var idx = -1;
+            for (var i = 0; i < rows.length; i++) { if (rows[i].block.id === selectedId) { idx = i; break; } }
+            var next;
+            if (e.key === "Home") next = 0;
+            else if (e.key === "End") next = rows.length - 1;
+            else if (e.key === "ArrowDown") next = idx < 0 ? 0 : Math.min(rows.length - 1, idx + 1);
+            else next = idx < 0 ? rows.length - 1 : Math.max(0, idx - 1);
+            selectById(rows[next].block.id);
+        });
         layersBox.addEventListener("scroll", function () {
             if (layerScrollQueued) return;
             layerScrollQueued = true;
@@ -1227,6 +1251,22 @@
             if (window.__LIME_SELECTION__) window.__LIME_SELECTION__.replace([b.id]);
         });
     }
+
+    // Этап 9.4: быстрые действия из пустого состояния холста (делегировано на ws — переживает render).
+    ws.addEventListener("click", function (e) {
+        var addBtn = e.target.closest("[data-doc-empty-add]");
+        if (addBtn) {
+            e.stopPropagation();
+            var tile = document.querySelector('[data-doc-add="' + addBtn.getAttribute("data-doc-empty-add") + '"]');
+            if (tile) tile.click();
+            return;
+        }
+        if (e.target.closest("[data-doc-empty-ai]")) {
+            // Гасим всплытие: иначе клик дойдёт до stage/др. обработчиков канваса.
+            e.stopPropagation();
+            aiOpen();
+        }
+    });
 
     // Поиск блоков (Итерация 3): фильтр плиток по подписи; при поиске раскрываем все группы,
     // прячем группы без совпадений.
@@ -1652,21 +1692,32 @@
         var stateCls = (b.hidden ? " is-node-hidden" : "") + (b.locked ? " is-node-locked" : "");
         var z = resolvedBlockDesign(b, currentBp).zIndex;
         z = typeof z === "number" && isFinite(z) ? Math.round(z) : 0;
+        var hideLbl = b.hidden ? "Показать" : "Скрыть", lockLbl = b.locked ? "Разблокировать" : "Заблокировать";
         var controls = canvasOn ? '<span class="lime-doc-layer__controls">' +
-            '<button type="button" data-node-toggle-hidden title="' + (b.hidden ? "Показать" : "Скрыть") + '">' + (b.hidden ? "◌" : "●") + '</button>' +
-            '<button type="button" data-node-toggle-locked title="' + (b.locked ? "Разблокировать" : "Заблокировать") + '">' + (b.locked ? "◆" : "◇") + '</button>' +
-            '<button type="button" data-node-rename title="Переименовать">✎</button>' +
-            '<button type="button" data-node-z="-1" title="Опустить">−</button>' +
+            '<button type="button" data-node-toggle-hidden title="' + hideLbl + '" aria-label="' + hideLbl + '">' + (b.hidden ? "◌" : "●") + '</button>' +
+            '<button type="button" data-node-toggle-locked title="' + lockLbl + '" aria-label="' + lockLbl + '">' + (b.locked ? "◆" : "◇") + '</button>' +
+            '<button type="button" data-node-rename title="Переименовать" aria-label="Переименовать">✎</button>' +
+            '<button type="button" data-node-z="-1" title="Опустить" aria-label="Опустить (z-index)">−</button>' +
             '<span class="lime-doc-layer__z" title="z-index">' + z + '</span>' +
-            '<button type="button" data-node-z="1" title="Поднять">+</button></span>' : "";
-        return '<div class="lime-doc-layer' + stateCls + (b.id === selectedId ? " is-active" : "") + '" data-doc-layer="' + b.id + '" style="padding-left:' + (8 + item.depth * 14) + 'px;">' +
-            '<span class="lime-doc-layer__ico">' + (isCont ? "▣" : "▪") + '</span>' +
+            '<button type="button" data-node-z="1" title="Поднять" aria-label="Поднять (z-index)">+</button></span>' : "";
+        // ARIA: дерево слоёв (этап 9.6) — treeitem с уровнем, выбором и стабильным id для aria-activedescendant.
+        var state = (b.hidden ? " (скрыт)" : "") + (b.locked ? " (заблокирован)" : "");
+        return '<div class="lime-doc-layer' + stateCls + (b.id === selectedId ? " is-active" : "") + '" data-doc-layer="' + b.id + '"' +
+            ' id="lime-layer-' + b.id + '" role="treeitem" aria-level="' + (item.depth + 1) + '" aria-selected="' + (b.id === selectedId ? "true" : "false") + '"' +
+            ' aria-label="' + escapeText(blockLabel(b)) + state + '" style="padding-left:' + (8 + item.depth * 14) + 'px;">' +
+            '<span class="lime-doc-layer__ico" aria-hidden="true">' + (isCont ? "▣" : "▪") + '</span>' +
             '<span class="lime-doc-layer__name">' + escapeText(blockLabel(b)) + '</span>' + controls + '</div>';
     }
     function renderLayersViewport(box, rows, keepSelectionVisible) {
         if (!box) return;
+        // ARIA (этап 9.6): контейнер — дерево с клавиатурным фокусом; активный treeitem через activedescendant.
+        box.setAttribute("role", "tree");
+        box.setAttribute("aria-label", "Слои страницы");
+        if (!box.hasAttribute("tabindex")) box.setAttribute("tabindex", "0");
+        if (selectedId && rows && rows.length) box.setAttribute("aria-activedescendant", "lime-layer-" + selectedId);
+        else box.removeAttribute("aria-activedescendant");
         if (!rows || !rows.length) {
-            box.innerHTML = '<p class="lime-text-muted" style="font-size:var(--text-xs);">Страница пуста.</p>';
+            box.innerHTML = '<p class="lime-text-muted" style="font-size:var(--text-xs);">Пока нет блоков — добавь первый из панели слева.</p>';
             box.removeAttribute("data-layer-total");
             box.removeAttribute("data-layer-rendered");
             return;
@@ -2790,16 +2841,16 @@
             '<div class="lime-inspector__head">' +
                 '<div class="lime-inspector__title">' + (isComp ? "компонент" : b.type) +
                     '<small>Стили для: <b>' + bpLabel() + '</b>' + (currentBp === "base" ? "" : " (override)") + '</small></div>' +
-                '<div class="lime-flex lime-gap-2">' +
-                    '<button type="button" class="lime-block-toolbar__btn" data-doc-op="up" title="Вверх">↑</button>' +
-                    '<button type="button" class="lime-block-toolbar__btn" data-doc-op="down" title="Вниз">↓</button>' +
-                    (nested ? '<button type="button" class="lime-block-toolbar__btn" data-doc-op="unwrap" title="Вытащить из контейнера">⬅</button>' : "") +
+                '<div class="lime-flex lime-gap-2" role="toolbar" aria-label="Действия над блоком">' +
+                    '<button type="button" class="lime-block-toolbar__btn" data-doc-op="up" title="Вверх" aria-label="Поднять блок">↑</button>' +
+                    '<button type="button" class="lime-block-toolbar__btn" data-doc-op="down" title="Вниз" aria-label="Опустить блок">↓</button>' +
+                    (nested ? '<button type="button" class="lime-block-toolbar__btn" data-doc-op="unwrap" title="Вытащить из контейнера" aria-label="Вытащить из контейнера">⬅</button>' : "") +
                     (t && t.content && typeof t.content.text === "string"
-                        ? '<button type="button" class="lime-block-toolbar__btn" data-doc-op="ai" title="Переписать текст (AI)">✨</button>' : "") +
-                    '<button type="button" class="lime-block-toolbar__btn" data-doc-op="dup" title="Дублировать">⎘</button>' +
-                    (b.type === "group" ? '<button type="button" class="lime-block-toolbar__btn" data-doc-op="ungroup" title="Ungroup">G-</button>' : "") +
-                    (isComp ? "" : '<button type="button" class="lime-block-toolbar__btn" data-doc-op="comp" title="Сделать компонентом">⊞</button>') +
-                    '<button type="button" class="lime-block-toolbar__btn lime-block-toolbar__btn--danger" data-doc-op="del" title="Удалить">✕</button>' +
+                        ? '<button type="button" class="lime-block-toolbar__btn" data-doc-op="ai" title="Переписать текст (AI)" aria-label="Переписать текст с помощью AI">✨</button>' : "") +
+                    '<button type="button" class="lime-block-toolbar__btn" data-doc-op="dup" title="Дублировать" aria-label="Дублировать блок">⎘</button>' +
+                    (b.type === "group" ? '<button type="button" class="lime-block-toolbar__btn" data-doc-op="ungroup" title="Ungroup" aria-label="Разгруппировать">G-</button>' : "") +
+                    (isComp ? "" : '<button type="button" class="lime-block-toolbar__btn" data-doc-op="comp" title="Сделать компонентом" aria-label="Сделать компонентом">⊞</button>') +
+                    '<button type="button" class="lime-block-toolbar__btn lime-block-toolbar__btn--danger" data-doc-op="del" title="Удалить" aria-label="Удалить блок">✕</button>' +
                 '</div>' +
             '</div>';
 
@@ -4038,22 +4089,27 @@
             "Обнови страницу (F5), чтобы продолжить с актуальной версией — иначе чужие правки будут затёрты.");
     }
     function save() {
-        if (totalBlocks() === 0) { alert("Добавь хотя бы один блок."); return; }
+        if (totalBlocks() === 0) { alert("На сайте пока нет ни одного блока. Добавь хотя бы один — например, обложку из панели слева."); return; }
         var xhr = new XMLHttpRequest();
         xhr.open("POST", "/Home/EditTemplatesPost");
         xhr.setRequestHeader("X-CSRF-TOKEN", csrfToken());
         xhr.onload = function () {
             if (xhr.status === 409) onConflict();
-            else if (xhr.status >= 200 && xhr.status < 400) window.location.href = "/Home/MySites";
-            else alert("Ошибка сохранения: " + xhr.status);
+            else if (xhr.status >= 200 && xhr.status < 400) { savedSeq = editSeq; clearDraft(); window.location.href = "/Home/MySites"; }
+            else { setStatus("Не удалось сохранить", "lime-text-danger"); alert("Не удалось сохранить (код " + xhr.status + "). Изменения сохранены локально в этой вкладке — проверь подключение и попробуй ещё раз."); }
         };
-        xhr.onerror = function () { alert("Сетевая ошибка."); };
+        xhr.onerror = function () { setStatus("Нет сети", "lime-text-danger"); alert("Нет сети — изменения не отправлены на сервер. Они сохранены локально в этой вкладке и не потеряются; попробуй сохранить позже."); };
         xhr.send(buildForm(false));
     }
     if (saveBtn) saveBtn.addEventListener("click", save);
 
     var autosaveTimer, autosaving = false;
+    // Единый сигнал «произошла правка» для обоих путей (legacy markDirty и command-store, который
+    // зовёт scheduleAutosave напрямую). Отметка dirty + черновик идут ДО siteId-гарда, чтобы новый
+    // несохранённый сайт (siteId == "") тоже получал crash-recovery черновик (этап 9.2).
     function scheduleAutosave() {
+        editSeq++;
+        scheduleDraft();
         if (!siteId || conflicted) return;
         clearTimeout(autosaveTimer);
         autosaveTimer = setTimeout(runAutosave, 2500);
@@ -4066,6 +4122,7 @@
     function runAutosave() {
         if (!siteId || autosaving || conflicted || totalBlocks() === 0) return;
         autosaving = true;
+        var sendSeq = editSeq; // правки во время запроса не считаем сохранёнными
         setStatus("Сохранение…");
         var xhr = new XMLHttpRequest();
         xhr.open("POST", "/Home/EditTemplatesPost");
@@ -4080,6 +4137,8 @@
                     var resp = JSON.parse(xhr.responseText);
                     if (resp && resp.version) docVersion = resp.version;
                 } catch (e) { /* не-JSON ответ — версию не трогаем */ }
+                savedSeq = sendSeq;
+                if (savedSeq === editSeq) clearDraft(); // полностью синхронны — черновик не нужен
                 var t = new Date();
                 setStatus("Сохранено " + ("0" + t.getHours()).slice(-2) + ":" + ("0" + t.getMinutes()).slice(-2));
             } else setStatus("Ошибка автосохранения", "lime-text-danger");
@@ -4087,6 +4146,73 @@
         xhr.onerror = function () { autosaving = false; setStatus("Нет сети", "lime-text-danger"); };
         xhr.send(buildForm(true));
     }
+
+    // ===== CRASH RECOVERY (этап 9.2): локальный черновик + восстановление после перезагрузки =====
+    // Черновик пишется в localStorage при каждой правке (debounce) и при выгрузке страницы; на старте,
+    // если найден черновик с несохранёнными изменениями на той же серверной версии (или у нового
+    // несохранённого сайта), предлагаем восстановить. Успешное сохранение/автосейв чистит черновик.
+    // Кросс-таб-конфликт сохранённого сайта по-прежнему ловит серверный 409 (onConflict).
+    var DRAFT_KEY = "lime-doc-draft-" + (siteId || "new");
+    var draftTimer;
+    function isDirty() { return editSeq !== savedSeq; }
+    function writeDraft() {
+        if (!isDirty()) return;
+        try {
+            localStorage.setItem(DRAFT_KEY, JSON.stringify({ json: doc, baseVersion: docVersion, ts: Date.now() }));
+        } catch (e) { /* приватный режим / превышена квота — тихо */ }
+    }
+    function scheduleDraft() {
+        clearTimeout(draftTimer);
+        draftTimer = setTimeout(writeDraft, 800);
+    }
+    function clearDraft() {
+        clearTimeout(draftTimer);
+        try { localStorage.removeItem(DRAFT_KEY); } catch (e) { /* no-op */ }
+    }
+    function readDraft() {
+        try { var raw = localStorage.getItem(DRAFT_KEY); return raw ? JSON.parse(raw) : null; }
+        catch (e) { return null; }
+    }
+    function maybeOfferRecovery() {
+        var draft = readDraft();
+        if (!draft || !draft.json) return;
+        // Тот же серверный базис (или новый сайт без siteId) и контент отличается от загруженного
+        // ⇒ есть несохранённые правки. Иначе черновик устарел — молча чистим.
+        var sameBase = !siteId || draft.baseVersion === docVersion;
+        var differs = JSON.stringify(draft.json) !== JSON.stringify(doc);
+        if (!sameBase || !differs) { clearDraft(); return; }
+        showRecoveryBanner(draft);
+    }
+    function showRecoveryBanner(draft) {
+        var bar = document.createElement("div");
+        bar.className = "lime-recovery-banner";
+        bar.setAttribute("data-doc-recovery", "");
+        bar.setAttribute("role", "alertdialog");
+        bar.setAttribute("aria-label", "Восстановление несохранённых изменений");
+        var when = new Date(draft.ts || Date.now());
+        var time = ("0" + when.getHours()).slice(-2) + ":" + ("0" + when.getMinutes()).slice(-2);
+        bar.innerHTML =
+            '<span class="lime-recovery-banner__text">Найдены несохранённые изменения (' + time + '). Восстановить?</span>' +
+            '<button type="button" class="lime-btn lime-btn--primary lime-btn--sm" data-recovery-restore>Восстановить</button>' +
+            '<button type="button" class="lime-btn lime-btn--ghost lime-btn--sm" data-recovery-dismiss>Отклонить</button>';
+        document.body.appendChild(bar);
+        bar.querySelector("[data-recovery-restore]").addEventListener("click", function () {
+            doc = L.migrateDoc(draft.json);
+            active = 0;
+            selectedId = null;
+            currentClass = null;
+            if (window.__LIME_SELECTION__) window.__LIME_SELECTION__.replace([]);
+            refreshPages(); refreshComponents(); render();
+            pushHistory();
+            scheduleAutosave(); writeDraft(); // помечаем dirty (bump editSeq) и пишем черновик сразу
+            bar.remove();
+            setStatus("Изменения восстановлены");
+        });
+        bar.querySelector("[data-recovery-dismiss]").addEventListener("click", function () {
+            clearDraft(); bar.remove();
+        });
+    }
+    window.addEventListener("beforeunload", writeDraft);
 
     // ===== AI (этап 2: генерация страницы + переписать текст) =====
     var aiModal = document.getElementById("lime-doc-ai-modal");
@@ -4474,6 +4600,65 @@
         }
     }
 
+    // ===== ONBOARDING (этап 9.4): ненавязчивый coachmark-тур по ключевым зонам =====
+    // Показывается один раз (флаг в localStorage); ?tour=1 форсит независимо от флага.
+    var TOUR_KEY = "lime-onboarding-seen";
+    var TOUR_STEPS = [
+        { sel: ".lime-editor__sidebar", title: "Блоки", text: "Кликай блок в этой панели — он добавится на холст. Перетаскиванием меняешь порядок." },
+        { sel: "#lime-doc-workspace", title: "Холст", text: "Выбирай элемент кликом, двигай и меняй размер мышью. Ctrl+Z отменяет любое действие." },
+        { sel: "#lime-doc-inspector", title: "Инспектор", text: "Здесь правишь стили выбранного блока: цвета, отступы, типографику — без кода." },
+        { sel: "[data-doc-save]", title: "Публикация", text: "Готово? Нажми эту кнопку, чтобы опубликовать сайт. Изменения автосохраняются по ходу." }
+    ];
+    function runTour() {
+        var step = 0, spot = null;
+        var card = document.createElement("div");
+        card.className = "lime-tour-card";
+        card.setAttribute("data-doc-tour", "");
+        card.setAttribute("role", "dialog");
+        card.setAttribute("aria-label", "Знакомство с редактором");
+        document.body.appendChild(card);
+        function clearSpot() { if (spot) { spot.classList.remove("lime-tour-spot"); spot = null; } }
+        function finish() {
+            clearSpot();
+            card.remove();
+            try { localStorage.setItem(TOUR_KEY, "1"); } catch (e) { /* приватный режим */ }
+        }
+        function show() {
+            clearSpot();
+            var s = TOUR_STEPS[step];
+            spot = document.querySelector(s.sel);
+            if (spot) {
+                spot.classList.add("lime-tour-spot");
+                spot.scrollIntoView({ block: "nearest", inline: "nearest" });
+            }
+            var last = step === TOUR_STEPS.length - 1;
+            card.innerHTML =
+                '<div class="lime-tour-card__step">Шаг ' + (step + 1) + " из " + TOUR_STEPS.length + '</div>' +
+                '<div class="lime-tour-card__title">' + s.title + '</div>' +
+                '<div class="lime-tour-card__text">' + s.text + '</div>' +
+                '<div class="lime-tour-card__actions">' +
+                    '<button type="button" class="lime-btn lime-btn--ghost lime-btn--sm" data-tour-skip>Пропустить</button>' +
+                    '<button type="button" class="lime-btn lime-btn--primary lime-btn--sm" data-tour-next>' + (last ? "Готово" : "Далее") + '</button>' +
+                '</div>';
+        }
+        card.addEventListener("click", function (e) {
+            if (e.target.closest("[data-tour-skip]")) { finish(); return; }
+            if (e.target.closest("[data-tour-next]")) {
+                if (step >= TOUR_STEPS.length - 1) { finish(); return; }
+                step++; show();
+            }
+        });
+        show();
+    }
+    var tourForced = /[?&]tour=1\b/.test(location.search);
+    var tourSeen = false;
+    try { tourSeen = !!localStorage.getItem(TOUR_KEY); } catch (e) { /* приватный режим */ }
+    // Авто-показ один раз — только когда intro-оверлей не перехватывает (документ не пуст).
+    if (tourForced || (!tourSeen && totalBlocks() > 0)) {
+        if (tourForced && introEl) introEl.classList.remove("is-on");
+        runTour();
+    }
+
     function initV2Selection(stage, viewport, isViewportPanning) {
         if (!window.LimeSelection) return;
         var overlay = document.getElementById("lime-selection-overlay");
@@ -4587,6 +4772,95 @@
                 box.appendChild(h);
             });
         }
+        // Stage 9.1: плавающая панель действий над выделением (≥2 free-siblings).
+        // Align (6) всегда; distribute (2) — только при ≥3 узлах.
+        var ALIGN_OPS = [
+            { op: "left", glyph: "⇤", label: "Выровнять по левому краю" },
+            { op: "hcenter", glyph: "↔", label: "Выровнять по центру (гор.)" },
+            { op: "right", glyph: "⇥", label: "Выровнять по правому краю" },
+            { op: "top", glyph: "⤒", label: "Выровнять по верху" },
+            { op: "vcenter", glyph: "↕", label: "Выровнять по центру (верт.)" },
+            { op: "bottom", glyph: "⤓", label: "Выровнять по низу" }
+        ];
+        var DISTRIBUTE_OPS = [
+            { op: "dist-h", glyph: "⇿", label: "Распределить по горизонтали" },
+            { op: "dist-v", glyph: "⇳", label: "Распределить по вертикали" }
+        ];
+        function alignButton(spec) {
+            return '<button type="button" class="lime-align-toolbar__btn" data-align-op="' + spec.op +
+                '" title="' + spec.label + '" aria-label="' + spec.label + '">' + spec.glyph + '</button>';
+        }
+        function buildAlignToolbar(rect, count) {
+            var bar = document.createElement("div");
+            bar.className = "lime-align-toolbar";
+            bar.setAttribute("role", "toolbar");
+            bar.setAttribute("aria-label", "Выравнивание и распределение");
+            var html = ALIGN_OPS.map(alignButton).join("");
+            if (count >= 3) html += '<span class="lime-align-toolbar__sep"></span>' + DISTRIBUTE_OPS.map(alignButton).join("");
+            bar.innerHTML = html;
+            bar.style.left = rect.left + "px";
+            bar.style.top = Math.max(0, rect.top - 40) + "px";
+            // Не даём pointerdown всплыть в stage: иначе он стартует marquee и забирает
+            // pointer-capture, что глотает последующий клик по кнопке.
+            bar.addEventListener("pointerdown", function (e) { e.stopPropagation(); });
+            return bar;
+        }
+        function alignSelection(op) {
+            if (!window.LimeLayout) return;
+            var group = freeGroup(selection.get());
+            if (!group) return;
+            var frames = group.items.map(function (item) { return item.info.frame; });
+            var next;
+            if (op === "dist-h") next = window.LimeLayout.distributeFrames(frames, "horizontal");
+            else if (op === "dist-v") next = window.LimeLayout.distributeFrames(frames, "vertical");
+            else next = window.LimeLayout.alignFrames(frames, op);
+            var items = group.items.map(function (item, i) {
+                return { id: item.id, source: item.info.source, start: item.info.frame, next: next[i] };
+            }).filter(function (item) { return item.start.x !== item.next.x || item.start.y !== item.next.y; });
+            if (!items.length) { refresh(); return; }
+            commitFrameItems(items, op.indexOf("dist") === 0 ? "distribute-selection" : "align-selection");
+        }
+        boxes.addEventListener("click", function (e) {
+            var btn = e.target.closest("[data-align-op]");
+            if (!btn) return;
+            e.preventDefault(); e.stopPropagation();
+            alignSelection(btn.getAttribute("data-align-op"));
+        });
+        // Stage 9.3: контекстный toolbar быстрых действий над одиночным выбранным блоком.
+        // Дополняет ПКМ-меню (та же единая точка runBlockOp). Правый край бокса, над ним —
+        // не пересекается с центрированными move/rotate-хэндлами.
+        function buildBlockToolbar(rect, found) {
+            var nested = !!(found && found.parentBlock);
+            var ops = [
+                { op: "dup", glyph: "⎘", label: "Дублировать (Ctrl+D)" },
+                { op: "up", glyph: "↑", label: "Поднять" },
+                { op: "down", glyph: "↓", label: "Опустить" }
+            ];
+            if (nested) ops.push({ op: "unwrap", glyph: "⬅", label: "Вынести наружу" });
+            ops.push({ op: "aiedit", glyph: "✨", label: "AI: переписать" });
+            ops.push({ op: "del", glyph: "✕", label: "Удалить (Del)", danger: true });
+            // Переиспользуем готовый компонент дизайн-системы .lime-block-toolbar (is-visible).
+            var bar = document.createElement("div");
+            bar.className = "lime-block-toolbar is-visible";
+            bar.setAttribute("role", "toolbar");
+            bar.setAttribute("aria-label", "Действия над блоком");
+            bar.innerHTML = ops.map(function (o) {
+                return '<button type="button" class="lime-block-toolbar__btn' + (o.danger ? " lime-block-toolbar__btn--danger" : "") +
+                    '" data-block-op="' + o.op + '" title="' + o.label + '" aria-label="' + o.label + '">' + o.glyph + '</button>';
+            }).join("");
+            bar.style.left = rect.right + "px";
+            bar.style.top = Math.max(0, rect.top - 38) + "px";
+            bar.style.transform = "translateX(-100%)"; // правый край toolbar к правому краю бокса
+            bar.style.pointerEvents = "auto"; // overlay — pointer-events:none, кнопкам нужен клик
+            bar.addEventListener("pointerdown", function (e) { e.stopPropagation(); });
+            return bar;
+        }
+        boxes.addEventListener("click", function (e) {
+            var btn = e.target.closest("[data-block-op]");
+            if (!btn) return;
+            e.preventDefault(); e.stopPropagation();
+            runBlockOp(btn.getAttribute("data-block-op"));
+        });
         function addGridSpanHandle(box) {
             var handle = document.createElement("span");
             handle.className = "lime-grid-span-handle";
@@ -4646,9 +4920,18 @@
                 var groupBox = document.createElement("div");
                 groupBox.className = "lime-selection-box is-primary is-group";
                 groupBox.setAttribute("data-selection-group", "");
-                place(groupBox, unionRects(groupRects));
+                var groupRect = unionRects(groupRects);
+                place(groupBox, groupRect);
                 addTransformHandles(groupBox, false);
                 boxes.appendChild(groupBox);
+                boxes.appendChild(buildAlignToolbar(groupRect, group.items.length));
+            }
+            if (!group && state.ids.length === 1 && state.primaryId) {
+                var soleEl = ws.querySelector('[data-block-id="' + state.primaryId + '"]');
+                var soleModel = byId(state.primaryId);
+                if (soleEl && !(soleModel && soleModel.hidden)) {
+                    boxes.appendChild(buildBlockToolbar(localRect(soleEl), findBlock(state.primaryId)));
+                }
             }
             var hoverEl = hoverId && !selection.has(hoverId) ? ws.querySelector('[data-block-id="' + hoverId + '"]') : null;
             if (hoverEl) { place(hoverBox, localRect(hoverEl)); hoverBox.hidden = false; }
@@ -4685,7 +4968,9 @@
         });
         stage.addEventListener("pointerleave", function () { if (!marqueeDrag) { hoverId = null; refresh(); } });
         stage.addEventListener("pointerdown", function (e) {
-            if (e.button !== 0 || isViewportPanning() || e.target.closest(".lime-block")) return;
+            // Интерактивные контролы в холсте (кнопки пустого состояния и т.п.) не должны стартовать
+            // marquee: его e.preventDefault() подавил бы их click (этап 9.4).
+            if (e.button !== 0 || isViewportPanning() || e.target.closest(".lime-block, button, a, input, textarea, select")) return;
             var p = localPoint(e);
             marqueeDrag = { x1: p.x, y1: p.y, x2: p.x, y2: p.y, additive: e.shiftKey };
             marqueeBox.hidden = false;
@@ -5196,6 +5481,7 @@
     render();
     pushHistory(); // стартовое состояние — дно стека undo
     initV2Viewport();
+    maybeOfferRecovery(); // этап 9.2: предложить восстановить несохранённый черновик
 
     // Подгружаем коллекции сайта заранее — чтобы блок collectionList показывал превью схемы.
     if (siteId) {

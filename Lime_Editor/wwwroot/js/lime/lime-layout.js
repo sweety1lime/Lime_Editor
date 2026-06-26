@@ -66,6 +66,47 @@
         return { x: minX, y: minY, width: maxX - minX, height: maxY - minY, rotation: 0 };
     }
 
+    // Выравнивание группы фреймов по краю/центру общего bounding box.
+    // edge: left | hcenter | right | top | vcenter | bottom. Источник иммутабелен,
+    // порядок результата совпадает с входным.
+    function alignFrames(frames, edge) {
+        var list = (frames || []).map(copyFrame);
+        if (list.length < 2) return list;
+        var b = frameBounds(list);
+        return list.map(function (f) {
+            var out = copyFrame(f);
+            if (edge === "left") out.x = b.x;
+            else if (edge === "right") out.x = b.x + b.width - out.width;
+            else if (edge === "hcenter") out.x = b.x + (b.width - out.width) / 2;
+            else if (edge === "top") out.y = b.y;
+            else if (edge === "bottom") out.y = b.y + b.height - out.height;
+            else if (edge === "vcenter") out.y = b.y + (b.height - out.height) / 2;
+            return out;
+        });
+    }
+
+    // Равномерное распределение фреймов вдоль оси: крайние остаются на месте,
+    // зазоры между соседними рёбрами уравниваются (учитывает разные размеры).
+    // axis: horizontal | vertical. Нужно ≥3 фрейма, иначе no-op. Порядок сохраняется.
+    function distributeFrames(frames, axis) {
+        var list = (frames || []).map(copyFrame);
+        if (list.length < 3) return list;
+        var horiz = axis !== "vertical";
+        var pos = horiz ? "x" : "y";
+        var dim = horiz ? "width" : "height";
+        var idx = list.map(function (_, i) { return i; });
+        idx.sort(function (a, c) { return list[a][pos] - list[c][pos]; });
+        var first = idx[0], last = idx[idx.length - 1];
+        var span = (list[last][pos] + list[last][dim]) - list[first][pos];
+        var sumSize = 0;
+        idx.forEach(function (i) { sumSize += list[i][dim]; });
+        var gap = (span - sumSize) / (idx.length - 1);
+        var cursor = list[first][pos];
+        var out = list.map(copyFrame);
+        idx.forEach(function (i) { out[i][pos] = cursor; cursor += list[i][dim] + gap; });
+        return out;
+    }
+
     function resizeFrames(frames, handle, delta, options) {
         var list = (frames || []).map(copyFrame);
         var start = frameBounds(list);
@@ -169,6 +210,8 @@
     return {
         moveFrame: moveFrame,
         frameBounds: frameBounds,
+        alignFrames: alignFrames,
+        distributeFrames: distributeFrames,
         resizeFrames: resizeFrames,
         resizeFrame: resizeFrame,
         rotateFrame: rotateFrame,

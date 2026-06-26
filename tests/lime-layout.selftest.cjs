@@ -83,6 +83,38 @@ const frame = { x: 10, y: 20, width: 100, height: 50, rotation: 15 };
     check("constraints stretch respects max and left priority", clamped.x === 20 && clamped.width === 240);
 }
 
+{
+    // Align/distribute (Stage 9.1): три блока разного размера в общем bounding box.
+    const a = { x: 0, y: 0, width: 40, height: 20 };
+    const b = { x: 100, y: 50, width: 60, height: 40 };
+    const c = { x: 220, y: 30, width: 20, height: 80 };
+    const left = L.alignFrames([a, b, c], "left");
+    check("align left: all share min x, sizes intact", left.every(f => f.x === 0) && left[1].width === 60 && left[1].y === 50);
+    const right = L.alignFrames([a, b, c], "right");
+    check("align right: trailing edges meet bounds.right (240)", right.every(f => near(f.x + f.width, 240)));
+    const hcenter = L.alignFrames([a, b, c], "hcenter");
+    check("align hcenter: centers on bounds mid (120)", hcenter.every(f => near(f.x + f.width / 2, 120)));
+    const top = L.alignFrames([a, b, c], "top");
+    check("align top: all share min y (0)", top.every(f => f.y === 0));
+    const vcenter = L.alignFrames([a, b, c], "vcenter");
+    check("align vcenter: centers on bounds mid (55)", vcenter.every(f => near(f.y + f.height / 2, 55)));
+    check("align: source immutable", a.x === 0 && b.x === 100 && c.x === 220);
+    check("align: <2 frames no-op", L.alignFrames([a], "left").length === 1);
+
+    const dh = L.distributeFrames([a, b, c], "horizontal");
+    // span = 240 - 0 = 240; sumWidth = 120; gap = (240-120)/2 = 60.
+    check("distribute horizontal: extremes fixed", dh[0].x === 0 && near(dh[2].x + dh[2].width, 240));
+    check("distribute horizontal: equal 60px gaps", near(dh[1].x - (dh[0].x + dh[0].width), 60) && near(dh[2].x - (dh[1].x + dh[1].width), 60));
+    check("distribute horizontal: order preserved, y untouched", dh[1].y === 50 && dh[2].y === 30);
+    const unsorted = L.distributeFrames([c, a, b], "horizontal");
+    check("distribute: input order preserved regardless of position", unsorted[0].x + unsorted[0].width === 240 && unsorted[1].x === 0);
+    const dv = L.distributeFrames([a, b, c], "vertical");
+    // Сорт по y: a(0), c(30), b(50) → крайние a и b. span = (50+40)-0 = 90; sumH = 140 > span →
+    // gap отрицательный (нехватка места = перекрытие, как в дизайн-тулзах), но крайние на месте.
+    check("distribute vertical: top/bottom extremes (a, b) stay put", dv[0].y === 0 && dv[1].y === 50);
+    check("distribute: <3 frames no-op", L.distributeFrames([a, b], "horizontal").length === 2 && L.distributeFrames([a, b], "horizontal")[1].x === 100);
+}
+
 if (failed) {
     console.error("\nLAYOUT-SELFTEST FAILED: " + failed);
     process.exit(1);
