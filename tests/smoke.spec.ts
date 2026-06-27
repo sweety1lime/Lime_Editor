@@ -86,7 +86,7 @@ const SCREENS: Screen[] = [
     assert: async (p) => {
       await expect(p.locator("#lime-doc-workspace")).toBeVisible();
       await expect(p.locator('[data-doc-add="container"]')).toBeVisible();
-      // Calm Canvas: вторичные действия (включая «AI заново») переехали в overflow «⋯»;
+      // редизайн: вторичные действия (включая «AI заново») переехали в overflow «⋯»;
       // на виду — кнопка меню и командная палитра.
       await expect(p.locator("[data-topbar-more-toggle]")).toBeVisible();
       await expect(p.locator("[data-doc-cmdk]")).toBeVisible();

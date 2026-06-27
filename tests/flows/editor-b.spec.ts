@@ -3,10 +3,17 @@
  * Покрывает: добавление блоков, вложенность в контейнер, undo, грипы DnD,
  * AI-модалку, сохранение и переоткрытие через «✦ Движок B».
  */
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
 
 const topBlocks = "#lime-doc-workspace .lime-doc-page > .lime-block";
 const nestedBlocks = "#lime-doc-workspace .lime-block .lime-block";
+
+// редизайн: левый сайдбар — icon-rail с одной активной панелью за раз
+// (insert / layers / components). Перед обращением к содержимому панели её нужно открыть.
+async function openSidebarPanel(page: Page, name: "insert" | "layers" | "components") {
+  await page.locator(`[data-sidebar-panel-toggle="${name}"]`).click();
+  await expect(page.locator(`#lime-sidebar-panel-${name}`)).toBeVisible();
+}
 
 test("editor-v2 D2: command flag keeps structural and checkpoint history coherent (@flow)", async ({ page }) => {
   // cmd-only on-ramp (без canvas) — исходный режим D2; canvas=0 отключает V2-вьюпорт при дефолте-ON.
@@ -23,6 +30,7 @@ test("editor-v2 D2: command flag keeps structural and checkpoint history coheren
   expect(firstId).toBeTruthy();
   expect(secondId).toBeTruthy();
 
+  await openSidebarPanel(page, "layers");
   await page.locator(`[data-doc-layer="${firstId}"]`).click();
   await page.locator('[data-doc-op="down"]').click();
   await expect(page.locator(topBlocks).nth(0)).toHaveAttribute("data-block-id", secondId!);
@@ -46,6 +54,7 @@ test("editor-v2 D2: command flag keeps structural and checkpoint history coheren
   await page.waitForTimeout(700); // commit inline-транзакции
 
   // Content-флаг колонок — ещё одна точечная команда.
+  await openSidebarPanel(page, "insert");
   await page.locator('[data-doc-add="columns"]').click();
   const columnsId = await page.locator(topBlocks).last().getAttribute("data-block-id");
   await page.locator('[data-doc-cols="3"]').click();
@@ -160,6 +169,7 @@ test("editor-v2 Stage 3: layers control node name, lock, visibility and z-order 
   const block = page.locator(topBlocks).last();
   const id = await block.getAttribute("data-block-id");
   expect(id).toBeTruthy();
+  await openSidebarPanel(page, "layers");
   const row = page.locator(`[data-doc-layer="${id}"]`);
   await expect(row.locator("[data-node-toggle-hidden]"), "canvas layers expose node controls").toBeVisible();
 
@@ -541,6 +551,7 @@ test("editor-v2 Stage 9.6: layers tree is an accessible, keyboard-navigable tree
   expect(ids.length).toBe(3);
 
   // Контейнер дерева — role=tree, фокусируемый, помечен.
+  await openSidebarPanel(page, "layers");
   const layers = page.locator("#lime-doc-layers");
   await expect(layers).toHaveAttribute("role", "tree");
   await expect(layers).toHaveAttribute("aria-label", "Слои страницы");
@@ -882,7 +893,9 @@ test("editor-v2 Stage 5: component multi-select uses one checkpoint (@flow)", as
 
   const blocks = page.locator(topBlocks);
   const firstComponentId = await blocks.nth(0).getAttribute("data-block-id");
+  await openSidebarPanel(page, "components");
   await page.locator("#lime-doc-components [data-doc-insert-comp]").click();
+  await openSidebarPanel(page, "insert");
   await page.locator('[data-doc-add="text"]').click();
   await expect(blocks).toHaveCount(3);
 
@@ -926,6 +939,7 @@ test("editor-v2 Stage 6.2: component text and visibility overrides stay local (@
   page.once("dialog", dialog => dialog.accept("Shared heading"));
   await page.locator('[data-doc-op="comp"]').click();
   await expect(page.locator("#lime-doc-components [data-doc-insert-comp]")).toHaveCount(1);
+  await openSidebarPanel(page, "components");
   await page.locator("#lime-doc-components [data-doc-insert-comp]").click();
 
   const firstComponentId = await page.locator(topBlocks).nth(0).getAttribute("data-block-id");
@@ -951,6 +965,7 @@ test("editor-v2 Stage 6.2: component text and visibility overrides stay local (@
   await expect(firstText).toHaveText("Local title");
   await expect(secondText).toHaveText("Shared title");
 
+  await openSidebarPanel(page, "layers");
   const firstLayer = page.locator(`[data-doc-layer="${firstComponentId}"]`);
   await firstLayer.locator("[data-node-toggle-hidden]").click();
   await expect(firstComponent).toHaveAttribute("hidden", "");
@@ -981,6 +996,7 @@ test("editor-v2 Stage 6.3: component variants reuse instance snapshots (@flow)",
   });
   page.once("dialog", dialog => dialog.accept("Shared heading"));
   await page.locator('[data-doc-op="comp"]').click();
+  await openSidebarPanel(page, "components");
   await page.locator("#lime-doc-components [data-doc-insert-comp]").click();
 
   const firstComponentId = await page.locator(topBlocks).nth(0).getAttribute("data-block-id");
@@ -1029,6 +1045,7 @@ test("editor-v2 Stage 6.5: component media override stays local (@flow)", async 
   page.once("dialog", dialog => dialog.accept("Видео"));
   await page.locator('[data-doc-op="comp"]').click();
   await expect(page.locator("#lime-doc-components [data-doc-insert-comp]")).toHaveCount(1);
+  await openSidebarPanel(page, "components");
   await page.locator("#lime-doc-components [data-doc-insert-comp]").click();
 
   const firstId = await page.locator(topBlocks).nth(0).getAttribute("data-block-id");
@@ -1061,6 +1078,7 @@ test("editor-v2 Stage 6.6: component style override stays local (@flow)", async 
   page.once("dialog", dialog => dialog.accept("Стиль-компонент"));
   await page.locator('[data-doc-op="comp"]').click();
   await expect(page.locator("#lime-doc-components [data-doc-insert-comp]")).toHaveCount(1);
+  await openSidebarPanel(page, "components");
   await page.locator("#lime-doc-components [data-doc-insert-comp]").click();
 
   const firstId = await page.locator(topBlocks).nth(0).getAttribute("data-block-id");
@@ -1097,6 +1115,7 @@ test("editor-v2 Stage 6.7: instance override reset returns to component (@flow)"
   await page.locator('[data-doc-add="heading"]').click();
   page.once("dialog", dialog => dialog.accept("Reset-компонент"));
   await page.locator('[data-doc-op="comp"]').click();
+  await openSidebarPanel(page, "components");
   await page.locator("#lime-doc-components [data-doc-insert-comp]").click();
 
   const firstId = await page.locator(topBlocks).nth(0).getAttribute("data-block-id");
@@ -1135,6 +1154,7 @@ test("editor-v2 Stage 6.8: component property edits stay local (@flow)", async (
   await page.locator('[data-doc-add="heading"]').click();
   page.once("dialog", dialog => dialog.accept("Props-компонент"));
   await page.locator('[data-doc-op="comp"]').click();
+  await openSidebarPanel(page, "components");
   await page.locator("#lime-doc-components [data-doc-insert-comp]").click();
 
   const firstId = await page.locator(topBlocks).nth(0).getAttribute("data-block-id");
@@ -1615,7 +1635,7 @@ test("editor-b: breakpoint switcher changes preview device (@flow)", async ({ pa
   await expect(page.locator("#lime-doc-workspace")).toHaveAttribute("data-device", "desktop");
 });
 
-test("editor-v2 Calm Canvas: inspector, command palette and rail stay discoverable (@flow)", async ({ page }) => {
+test("editor-v2 redesign: inspector, command palette and rail stay discoverable (@flow)", async ({ page }) => {
   await page.goto("/Home/EditDoc?canvas=1&cmd=1");
   if (await page.locator("#lime-doc-intro-skip").isVisible()) await page.locator("#lime-doc-intro-skip").click();
 
@@ -1653,7 +1673,7 @@ test("editor-v2 Calm Canvas: inspector, command palette and rail stay discoverab
 
 test("editor-b: AI modal opens and reports quota/config status (@flow)", async ({ page }) => {
   await page.goto("/Home/EditDoc?classic=1");
-  // Calm Canvas: «AI заново» теперь в overflow-меню «⋯» — сначала раскрываем его.
+  // редизайн: «AI заново» теперь в overflow-меню «⋯» — сначала раскрываем его.
   await page.locator("[data-topbar-more-toggle]").click();
   await page.locator("[data-doc-ai-open]").click();
   await expect(page.locator("#lime-doc-ai-modal")).toHaveClass(/is-open/);

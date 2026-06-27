@@ -35,7 +35,7 @@
     var currentState = "normal"; // normal | hover — редактируемое состояние блока (1.2)
     var currentClass = null;   // если задан cls — инспектор правит этот класс, а не блок (0.1)
     var currentInspectorTab = "style"; // style | fx | motion — активная вкладка инспектора
-    var inspectorAdvOpen = false; // развёрнута ли группа «Дополнительно» (Calm Canvas v2.1, фаза 2)
+    var inspectorAdvOpen = false; // развёрнута ли группа «Дополнительно» (редизайн редактора, фаза 2)
     var paletteJustDragged = false; // подавляет click палитры после drag-and-drop из палитры (DnD A)
 
     // Версия документа для optimistic concurrency (этап 0.4): Site.UpdatedAt.Ticks.
@@ -249,7 +249,7 @@
     function declsToCss(obj) {
         return Object.keys(obj).map(function (k) { return kebab(k) + ":" + obj[k]; }).join(";");
     }
-    // Единый icon-set: инлайн-SVG по id из спрайта в EditDoc.cshtml (полировка/Calm Canvas v2.1).
+    // Единый icon-set: инлайн-SVG по id из спрайта в EditDoc.cshtml (полировка/редизайн редактора).
     function ico(name) { return '<svg class="lime-ico"><use href="#i-' + name + '"/></svg>'; }
 
     // ===== HISTORY (этап 0.4: undo/redo на снапшотах JSON-документа) =====
@@ -1310,7 +1310,7 @@
         });
     }
 
-    // Calm Canvas rail: left icon rail keeps only one utility panel open at a time.
+    // Sidebar rail: left icon rail keeps only one utility panel open at a time.
     (function () {
         var sidebar = document.querySelector(".lime-editor__sidebar");
         if (!sidebar) return;
@@ -2337,7 +2337,7 @@
         if (props.some(function (p) { return hasOwn(info.cls, p) && !hasOwn(info.own, p) && !hasOwn(info.tablet, p) && !hasOwn(info.base, p); })) return "class";
         return null;
     }
-    // Calm Canvas v2.1 (фаза 2 инспектора): core-секции стиля показываем сразу, а редкие
+    // редизайн редактора (фаза 2 инспектора): core-секции стиля показываем сразу, а редкие
     // (Трекинг/Регистр/Граница/Тень/Прозрачность/Blend/Мин.высота — флаг adv) сворачиваем
     // в одну группу «Дополнительно». Сами контролы и их data-doc-* хуки не меняются.
     function styleSectionHtml(item, s, mixed, sourceInfo) {
@@ -2851,7 +2851,7 @@
     function refreshInspector() {
         if (!inspectorEl) return;
         var b = selectedId ? byId(selectedId) : null;
-        // Calm Canvas: в V2 инспектор скрыт, пока ничего не выбрано — холст шире, меньше шума.
+        // редизайн: в V2 инспектор скрыт, пока ничего не выбрано — холст шире, меньше шума.
         // В legacy (?classic=1) инспектор остаётся постоянным.
         syncInspectorShell(!!b);
         if (!b) {
@@ -4719,7 +4719,7 @@
         fontSel.value = themeFont;
         fontSel.addEventListener("input", function () { beginCheckpointMutation(); doc.theme.font = fontSel.value; render(); markDirty(); });
     }
-    // ===== Топбар: overflow-меню «⋯» (Calm Canvas) =====
+    // ===== Топбар: overflow-меню «⋯» (редизайн) =====
     // Вторичные действия (AI/Тема/Код/Превью) убраны из постоянного хрома в выпадашку.
     // Кнопки сохранили свои data-doc-* хуки — обработчики ниже находят их querySelector'ом.
     (function () {

@@ -16,7 +16,7 @@
         "topbar topbar"
         "sidebar canvas";
 }
-/* Calm Canvas: инспектор скрыт, пока ничего не выбрано — гарантируем, что aside не авто-разместится. */
+/* редизайн: инспектор скрыт, пока ничего не выбрано — гарантируем, что aside не авто-разместится. */
 .lime-editor.no-inspector .lime-editor__inspector { display: none; }
 
 .lime-editor__topbar {
@@ -44,7 +44,7 @@
 .lime-editor__topbar-left { flex: 1; min-width: 0; }
 .lime-editor__topbar-right { flex: 1; justify-content: flex-end; min-width: 0; }
 .lime-editor__topbar-center { flex: 0 0 auto; }
-/* Overflow-гард топбара (Calm Canvas v2.1): длинное имя сайта обрезаем многоточием,
+/* Overflow-гард топбара (редизайн редактора): длинное имя сайта обрезаем многоточием,
    марку и бейдж не даём сжимать — иначе левая секция распирает бар. */
 .lime-editor__topbar-left > .lime-text-muted {
     overflow: hidden;
@@ -86,7 +86,7 @@
 }
 @media (max-width: 1100px) { .lime-cmdk-btn span { display: none; } }
 
-/* Топбар: overflow-меню «⋯» вторичных действий (Calm Canvas) */
+/* Топбар: overflow-меню «⋯» вторичных действий (редизайн) */
 .lime-topbar-more { position: relative; display: inline-flex; }
 .lime-topbar-more__menu {
     position: absolute;
@@ -289,7 +289,7 @@
     flex-shrink: 0;
 }
 
-/* Единый icon-set (Calm Canvas v2.1): инлайн-SVG, цвет наследуется через currentColor,
+/* Единый icon-set (редизайн редактора): инлайн-SVG, цвет наследуется через currentColor,
    размер задаётся контекстом. Заменяет разнобой Unicode-глифов/эмодзи. */
 .lime-ico {
     width: 20px;
@@ -334,7 +334,7 @@
     grid-area: canvas;
     overflow-y: auto;
     padding: var(--space-8) var(--space-6);
-    /* Calm Canvas: тихий нейтральный фон без конкурирующего цветного свечения. */
+    /* редизайн: тихий нейтральный фон без конкурирующего цветного свечения. */
     background: var(--bg);
 }
 
@@ -400,7 +400,7 @@
     pointer-events: none;
 }
 .lime-selection-box {
-    /* Calm Canvas: выделение в едином lime-акценте, мягкий тёмный ореол вместо яркого белого. */
+    /* редизайн: выделение в едином lime-акценте, мягкий тёмный ореол вместо яркого белого. */
     border: 2px solid var(--accent);
     box-shadow: 0 0 0 1px rgba(8,10,7,.55);
 }
@@ -1897,7 +1897,7 @@
 .lime-doc-layer.is-node-locked .lime-doc-layer__name { font-style: italic; }
 .lime-doc-layer__ico { opacity: .6; flex: none; }
 .lime-doc-layer__name { overflow: hidden; text-overflow: ellipsis; flex: 1 1 auto; min-width: 28px; }
-/* Calm Canvas: контролы слоя раскрываются по намерению (hover/active/focus), не висят всегда. */
+/* редизайн: контролы слоя раскрываются по намерению (hover/active/focus), не висят всегда. */
 .lime-doc-layer__controls {
     display: inline-flex; align-items: center; gap: 1px; flex: none;
     opacity: 0; transition: opacity var(--t-fast);
@@ -2595,7 +2595,7 @@
 .lime-insp-tab-btn.is-active { color: var(--accent); border-bottom-color: var(--accent); }
 .lime-insp-panel { display: flex; flex-direction: column; gap: var(--space-5); }
 
-/* Группа «Дополнительно» (Calm Canvas v2.1, фаза 2): редкие стиль-секции свёрнуты,
+/* Группа «Дополнительно» (редизайн редактора, фаза 2): редкие стиль-секции свёрнуты,
    чтобы не раздувать инспектор. Контролы остаются, просто прячутся за один клик. */
 .lime-inspector__adv { border-top: 1px solid var(--border-soft); padding-top: var(--space-4); }
 .lime-inspector__adv-summary {
