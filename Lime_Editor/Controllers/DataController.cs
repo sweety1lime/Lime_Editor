@@ -3,7 +3,10 @@ using Lime_Editor.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;
@@ -23,11 +26,25 @@ namespace Lime_Editor.Controllers
 
         private readonly LimeEditorContext db;
         private readonly UserManager<ApplicationUser> _userManager;
+        private readonly AiContentService _ai;
+        private readonly IEntitlementService _entitlements;
+        private readonly ILogger<DataController> _logger;
+        private readonly int _maxTokens;
 
-        public DataController(LimeEditorContext context, UserManager<ApplicationUser> userManager)
+        public DataController(
+            LimeEditorContext context,
+            UserManager<ApplicationUser> userManager,
+            AiContentService ai,
+            IEntitlementService entitlements,
+            IConfiguration config,
+            ILogger<DataController> logger)
         {
             db = context;
             _userManager = userManager;
+            _ai = ai;
+            _entitlements = entitlements;
+            _logger = logger;
+            _maxTokens = config.GetValue("Ai:MaxTokens", 4000);
         }
 
         private int CurrentUserId => int.Parse(_userManager.GetUserId(User));
@@ -105,6 +122,77 @@ namespace Lime_Editor.Controllers
             db.Collections.Add(col);
             await db.SaveChangesAsync();
             return RedirectToAction(nameof(Edit), new { id = col.Id });
+        }
+
+        // AI CMS-ассистент (этап 2.4): «опиши коллекцию» → AI собирает схему + примеры записей,
+        // создаём коллекцию и редиректим в редактор схемы (всё дальше правится вручную).
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [EnableRateLimiting("ai")]
+        public async Task<IActionResult> CreateWithAi(int siteId, string description)
+        {
+            var site = await OwnedSiteAsync(siteId);
+            if (site == null) return Forbid();
+            if (string.IsNullOrWhiteSpace(description) || description.Length > 2000)
+            {
+                TempData["AiError"] = "Опиши коллекцию в пару предложений.";
+                return RedirectToAction(nameof(Index), new { siteId });
+            }
+            if (!_ai.IsConfigured)
+            {
+                TempData["AiError"] = "AI не настроен на сервере.";
+                return RedirectToAction(nameof(Index), new { siteId });
+            }
+
+            var owner = OwnerRef.ForUser(CurrentUserId);
+            var usage = await _entitlements.GetUsageAsync(owner, "ai");
+            if (usage.Used >= usage.Limit)
+            {
+                TempData["AiError"] = $"Лимит AI-генераций исчерпан ({usage.Used}/{usage.Limit}).";
+                return RedirectToAction(nameof(Index), new { siteId });
+            }
+
+            try
+            {
+                var json = await _ai.SuggestCollectionAsync(description.Trim(), _maxTokens, HttpContext.RequestAborted);
+                await _entitlements.IncrementAsync(owner, "ai");
+
+                var spec = JObject.Parse(json);
+                var name = (string)spec["name"];
+                var fields = (JArray)spec["fields"];
+                var col = new Collection
+                {
+                    SiteId = siteId,
+                    Name = string.IsNullOrWhiteSpace(name) ? "Коллекция" : name.Trim(),
+                    Slug = await UniqueSlugAsync(siteId, name),
+                    SchemaJson = fields.ToString(Formatting.None),
+                    CreatedAt = DateTime.UtcNow,
+                };
+                db.Collections.Add(col);
+                await db.SaveChangesAsync();
+
+                if (spec["records"] is JArray recs)
+                {
+                    foreach (var r in recs)
+                    {
+                        if (r is not JObject ro) continue;
+                        db.CollectionRecords.Add(new CollectionRecord
+                        {
+                            CollectionId = col.Id,
+                            DataJson = ro.ToString(Formatting.None),
+                            CreatedAt = DateTime.UtcNow,
+                        });
+                    }
+                    await db.SaveChangesAsync();
+                }
+                return RedirectToAction(nameof(Edit), new { id = col.Id });
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogError(ex, "AI collection create failed for user {UserId}", CurrentUserId);
+                TempData["AiError"] = "AI не смог собрать коллекцию — попробуй переформулировать.";
+                return RedirectToAction(nameof(Index), new { siteId });
+            }
         }
 
         // Редактор схемы коллекции (поля).

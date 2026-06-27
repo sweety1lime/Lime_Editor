@@ -46,6 +46,14 @@ namespace Lime_Editor.Services
         private const int MaxItems = 6;
         private const int MaxFieldLength = 600;
 
+        // ===== AI CMS-ассистент (этап 2.4): «опиши коллекцию» → схема полей + примеры записей =====
+        private const int MaxCollectionFields = 12;
+        private const int MaxCollectionRecords = 8;
+        private static readonly HashSet<string> CollectionFieldTypes = new(StringComparer.Ordinal)
+        {
+            "text", "longtext", "number", "date", "bool", "image"
+        };
+
         // ===== Правка выделенного блока по промпту (этап 2.1) =====
         // Безопасность та же, что у генерации: модель меняет ТОЛЬКО текстовые значения
         // существующих полей (структуру/стили/ссылки/id не трогает). Сервер отдаёт модели
@@ -260,6 +268,99 @@ content, styles, design) и тема. Подгони ТОЛЬКО отображ
                 throw new FormatException("Модель не вернула валидные блоки.");
             }
             return JsonConvert.SerializeObject(blocks);
+        }
+
+        // AI CMS-ассистент (этап 2.4): описание → схема коллекции + примеры записей.
+        private const string CollectionSystemPrompt =
+            "Ты — помощник no-code конструктора сайтов. По описанию пользователя спроектируй коллекцию " +
+            "данных (как таблицу: блог, каталог товаров, команда, отзывы, FAQ и т.п.). " +
+            "Верни ТОЛЬКО JSON-объект:\n" +
+            "{\"name\":\"Посты\",\"fields\":[{\"name\":\"title\",\"type\":\"text\",\"label\":\"Заголовок\"}],\"records\":[{\"title\":\"Пример\"}]}\n" +
+            "Типы полей строго из набора: text, longtext, number, date, bool, image. " +
+            "Имена полей (name) — латиницей в snake_case. Сделай 3–7 полей: первым короткое текстовое " +
+            "(заголовок), по возможности одно поле image и одно longtext. Дай 3–5 реалистичных примеров " +
+            "записей строго по этой схеме. Заголовки/значения — на языке описания. " +
+            "Без markdown и пояснений — только JSON-объект.";
+
+        // Описание → провалидированный JSON { name, fields, records } (строка для контроллера).
+        // Невалидный ответ → один ретрай с требованием чистого JSON.
+        public async Task<string> SuggestCollectionAsync(string description, int maxTokens, CancellationToken ct = default)
+        {
+            var col = TryParseCollection(await _provider.CompleteAsync(CollectionSystemPrompt, description, maxTokens, ct));
+            if (col == null)
+            {
+                col = TryParseCollection(await _provider.CompleteAsync(
+                    CollectionSystemPrompt,
+                    description + "\n\nВАЖНО: предыдущий ответ не распарсился. Верни ТОЛЬКО валидный JSON-объект по схеме.",
+                    maxTokens, ct));
+            }
+            if (col == null)
+            {
+                throw new FormatException("Модель не вернула валидную схему коллекции.");
+            }
+            return JsonConvert.SerializeObject(col);
+        }
+
+        // Валидация ответа модели: { name, fields:[{name,type,label}], records:[{...}] }.
+        // Чужие типы → text; имена слагифицируются и дедуплицируются; лимиты полей/записей;
+        // записи фильтруются по известным полям, значения — строки с обрезкой. public static — юнит-тесты.
+        public static JObject TryParseCollection(string raw)
+        {
+            if (string.IsNullOrWhiteSpace(raw)) return null;
+            JToken root;
+            try { root = JToken.Parse(StripFence(raw)); }
+            catch (JsonReaderException) { return null; }
+            if (root is not JObject o || o["fields"] is not JArray rawFields) return null;
+
+            var fields = new JArray();
+            var names = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var f in rawFields)
+            {
+                if (fields.Count >= MaxCollectionFields) break;
+                if (f is not JObject fo) continue;
+                var name = SlugField(fo["name"]?.ToString());
+                if (string.IsNullOrEmpty(name) || names.Contains(name)) continue;
+                var type = fo["type"]?.ToString();
+                if (!CollectionFieldTypes.Contains(type)) type = "text";
+                var label = fo["label"]?.ToString();
+                if (string.IsNullOrWhiteSpace(label)) label = name;
+                names.Add(name);
+                fields.Add(new JObject { ["name"] = name, ["type"] = type, ["label"] = Cap(label) });
+            }
+            if (fields.Count == 0) return null;
+
+            var records = new JArray();
+            if (o["records"] is JArray rawRecs)
+            {
+                foreach (var r in rawRecs)
+                {
+                    if (records.Count >= MaxCollectionRecords) break;
+                    if (r is not JObject ro) continue;
+                    var rec = new JObject();
+                    foreach (var f in fields)
+                    {
+                        var fn = (string)f["name"];
+                        var v = ro[fn];
+                        rec[fn] = v == null || v.Type == JTokenType.Null ? "" : Cap(v.ToString());
+                    }
+                    records.Add(rec);
+                }
+            }
+
+            var nm = o["name"]?.ToString();
+            if (string.IsNullOrWhiteSpace(nm)) nm = "Коллекция";
+            return new JObject { ["name"] = Cap(nm), ["fields"] = fields, ["records"] = records };
+        }
+
+        // Имя поля → snake_case (как DataController.Slugify). Пустое/без букв-цифр → "" (поле отбросится).
+        // Guard перед SlugGenerator: его фолбэк "site" не должен превращать безымянное поле в валидное.
+        private static string SlugField(string s)
+        {
+            if (string.IsNullOrWhiteSpace(s)) return "";
+            var hasAlnum = false;
+            foreach (var ch in s) { if (char.IsLetterOrDigit(ch)) { hasAlnum = true; break; } }
+            if (!hasAlnum) return "";
+            return SlugGenerator.Generate(s).Replace("-", "_");
         }
 
         // «✨ Переписать»: короткий вызов без контракта блоков.

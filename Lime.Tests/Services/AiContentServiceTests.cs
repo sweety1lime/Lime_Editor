@@ -319,5 +319,92 @@ namespace Lime.Tests.Services
             Assert.Equal("mobile", arr[0]["payload"]["breakpoint"].ToString());
             Assert.Equal("18px", arr[0]["payload"]["value"].ToString());
         }
+
+        // ===== Этап 2.4: AI CMS-ассистент — схема коллекции + примеры записей =====
+        [Fact]
+        public void TryParseCollection_ValidSchemaAndRecords()
+        {
+            var raw = @"{""name"":""Посты"",""fields"":[
+                {""name"":""title"",""type"":""text"",""label"":""Заголовок""},
+                {""name"":""cover"",""type"":""image"",""label"":""Обложка""},
+                {""name"":""body"",""type"":""longtext"",""label"":""Текст""}
+            ],""records"":[{""title"":""Первый"",""body"":""Тело"",""cover"":""""}]}";
+            var col = AiContentService.TryParseCollection(raw);
+            Assert.NotNull(col);
+            Assert.Equal("Посты", col["name"].ToString());
+            var fields = (JArray)col["fields"];
+            Assert.Equal(3, fields.Count);
+            Assert.Equal("title", fields[0]["name"].ToString());
+            Assert.Equal("image", fields[1]["type"].ToString());
+            var recs = (JArray)col["records"];
+            Assert.Single(recs);
+            Assert.Equal("Первый", recs[0]["title"].ToString());
+        }
+
+        [Fact]
+        public void TryParseCollection_CoercesUnknownTypeSlugifiesAndDedupesFields()
+        {
+            var raw = @"{""name"":""X"",""fields"":[
+                {""name"":""Big Title!"",""type"":""richtext"",""label"":""T""},
+                {""name"":""Big Title!"",""type"":""text"",""label"":""dup""},
+                {""name"":""price"",""type"":""number"",""label"":""Цена""}
+            ]}";
+            var col = AiContentService.TryParseCollection(raw);
+            var fields = (JArray)col["fields"];
+            Assert.Equal(2, fields.Count);                       // дубль по slug отброшен
+            Assert.Equal("text", fields[0]["type"].ToString()); // неизвестный richtext → text
+            var n0 = fields[0]["name"].ToString();
+            Assert.DoesNotContain(" ", n0);                      // slugified
+            Assert.DoesNotContain("!", n0);
+            Assert.Equal("number", fields[1]["type"].ToString());
+        }
+
+        [Fact]
+        public void TryParseCollection_RecordsKeepOnlyKnownFields()
+        {
+            var raw = @"{""name"":""X"",""fields"":[{""name"":""title"",""type"":""text"",""label"":""T""}],
+                ""records"":[{""title"":""Ок"",""evil"":""<script>"",""extra"":123}]}";
+            var col = AiContentService.TryParseCollection(raw);
+            var rec = (JObject)((JArray)col["records"])[0];
+            Assert.Equal("Ок", rec["title"].ToString());
+            Assert.Null(rec["evil"]);  // чужое поле отброшено
+            Assert.Null(rec["extra"]);
+        }
+
+        [Fact]
+        public void TryParseCollection_Garbage_ReturnsNull()
+        {
+            Assert.Null(AiContentService.TryParseCollection("не json"));
+            Assert.Null(AiContentService.TryParseCollection(""));
+            Assert.Null(AiContentService.TryParseCollection(null));
+            Assert.Null(AiContentService.TryParseCollection(@"{""name"":""X""}"));               // нет fields
+            Assert.Null(AiContentService.TryParseCollection(@"{""fields"":[{""type"":""text""}]}")); // поле без имени → 0 валидных
+        }
+
+        [Fact]
+        public void TryParseCollection_UnwrapsFence()
+        {
+            var col = AiContentService.TryParseCollection("```json\n{\"name\":\"Y\",\"fields\":[{\"name\":\"title\",\"type\":\"text\",\"label\":\"T\"}]}\n```");
+            Assert.NotNull(col);
+            Assert.Equal("Y", col["name"].ToString());
+        }
+
+        [Fact]
+        public async Task SuggestCollection_GarbageThrows()
+        {
+            var svc = new AiContentService(new StubProvider("совсем не json"));
+            await Assert.ThrowsAsync<FormatException>(() => svc.SuggestCollectionAsync("блог о кофе", 4000));
+        }
+
+        [Fact]
+        public async Task SuggestCollection_ValidStubReturnsJson()
+        {
+            var svc = new AiContentService(new StubProvider(@"{""name"":""Меню"",""fields"":[{""name"":""dish"",""type"":""text"",""label"":""Блюдо""}],""records"":[{""dish"":""Латте""}]}"));
+            var json = await svc.SuggestCollectionAsync("кофейня", 4000);
+            var col = JObject.Parse(json);
+            Assert.Equal("Меню", col["name"].ToString());
+            Assert.Single((JArray)col["fields"]);
+            Assert.Equal("Латте", ((JArray)col["records"])[0]["dish"].ToString());
+        }
     }
 }

@@ -19,9 +19,29 @@
 </section>
 
 <section class="lime-container" style="padding-bottom: var(--space-16);">
+    @if (TempData["AiError"] is string aiErr && !string.IsNullOrEmpty(aiErr))
+    {
+        <div class="lime-card lime-card--padded" style="margin-bottom: var(--space-4); border-color: var(--danger);">
+            <span style="color: var(--danger);">⚠ @aiErr</span>
+        </div>
+    }
+
+    <form asp-action="CreateWithAi" asp-controller="Data" method="post" class="lime-card lime-card--padded" style="margin-bottom: var(--space-4);">
+        <input type="hidden" name="siteId" value="@siteId">
+        <label style="display:block; font-size: var(--text-sm); color: var(--fg-muted); margin-bottom: 6px;">
+            ✨ Создать с AI <span class="lime-text-muted">— опиши, что за данные, и AI соберёт поля и пару примеров записей</span>
+        </label>
+        <div class="lime-flex lime-gap-2">
+            <input name="description" maxlength="2000" required
+                   placeholder="Например: блог о кофе — заголовок, обложка, дата, короткий текст"
+                   style="flex:1; padding:10px 14px; border:1px solid var(--border-soft); border-radius: var(--radius-md); background: var(--bg-elev); color: var(--fg);">
+            <button type="submit" class="lime-btn lime-btn--violet">✨ Сгенерировать</button>
+        </div>
+    </form>
+
     <form asp-action="Create" asp-controller="Data" method="post" class="lime-card lime-card--padded" style="margin-bottom: var(--space-6);">
         <input type="hidden" name="siteId" value="@siteId">
-        <label style="display:block; font-size: var(--text-sm); color: var(--fg-muted); margin-bottom: 6px;">Новая коллекция</label>
+        <label style="display:block; font-size: var(--text-sm); color: var(--fg-muted); margin-bottom: 6px;">Новая коллекция вручную</label>
         <div class="lime-flex lime-gap-2">
             <input name="name" placeholder="Например: Товары, Посты, Отзывы" required
                    style="flex:1; padding:10px 14px; border:1px solid var(--border-soft); border-radius: var(--radius-md); background: var(--bg-elev); color: var(--fg);">
