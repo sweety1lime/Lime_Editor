@@ -415,13 +415,31 @@
     function edattr(opts, field) {
         return (opts && opts.editable) ? ' contenteditable="true" data-field="' + field + '"' : "";
     }
+    // Динамические страницы (CMS 2.0): блок на странице-шаблоне может привязать поле к записи.
+    // content[key] = "<имя поля>" → значение из o.record. Возвращает {bound,value}.
+    // Привязанное значение data-driven → НЕ contenteditable (правится в данных, не инлайн).
+    function boundField(o, content, key) {
+        var bind = content && content[key];
+        if (bind && o && o.record && o.record[bind] != null) {
+            return { bound: true, value: o.record[bind] };
+        }
+        // На странице-шаблоне в редакторе показываем плейсхолдер привязки, даже если значения нет.
+        if (bind && o && o.record) return { bound: true, value: "" };
+        return { bound: false, value: "" };
+    }
 
     var RENDERERS = {
         heading: function (b, o) {
-            return ed(o, "text", b.content && b.content.text || "Раздел", "h2", "lime-block__heading");
+            var c = b.content || {};
+            var bf = boundField(o, c, "bind");
+            if (bf.bound) return '<h2 class="lime-block__heading">' + escHtml(bf.value) + "</h2>";
+            return ed(o, "text", c.text || "Раздел", "h2", "lime-block__heading");
         },
         text: function (b, o) {
-            return ed(o, "text", b.content && b.content.text || "Текст абзаца.", "p", "lime-block__text");
+            var c = b.content || {};
+            var bf = boundField(o, c, "bind");
+            if (bf.bound) return '<p class="lime-block__text">' + escHtml(bf.value) + "</p>";
+            return ed(o, "text", c.text || "Текст абзаца.", "p", "lime-block__text");
         },
         cover: function (b, o) {
             var c = b.content || {};
@@ -636,6 +654,10 @@
 
             var layout = (c.layout === "grid" || c.layout === "list") ? c.layout : "cards";
             var cards = records.map(function (rec) {
+                // Динамические страницы: сервер кладёт rec._url (ссылка на детальную) → карточка-ссылка.
+                var url = rec._url;
+                var open = url ? '<a class="lime-cl-card" href="' + escAttr(url) + '">' : '<div class="lime-cl-card">';
+                var close = url ? "</a>" : "</div>";
                 if (!hasRoles) {
                     // Коллекция без распознанных ролей — key/value-вид, чтобы карточка не была пустой.
                     var rows = fields.map(function (f) {
@@ -643,7 +665,7 @@
                         var text = (v == null || v === "") ? (editable ? "—" : "") : v;
                         return '<div class="lime-cl-row"><span class="lime-cl-key">' + escHtml(f.label || f.name) + '</span><span class="lime-cl-val">' + escHtml(text) + "</span></div>";
                     }).join("");
-                    return '<div class="lime-cl-card"><div class="lime-cl-body">' + rows + "</div></div>";
+                    return open + '<div class="lime-cl-body">' + rows + "</div>" + close;
                 }
                 var img = "";
                 if (imgField) {
@@ -663,7 +685,7 @@
                     var dt = (dv == null || dv === "") ? (editable ? "Краткое описание записи появится здесь." : "") : dv;
                     if (dt !== "") desc = '<div class="lime-cl-desc">' + escHtml(dt) + "</div>";
                 }
-                return '<div class="lime-cl-card">' + img + '<div class="lime-cl-body">' + title + desc + "</div></div>";
+                return open + img + '<div class="lime-cl-body">' + title + desc + "</div>" + close;
             }).join("");
 
             var note = editable ? '<div class="lime-doc-drop-hint">Превью коллекции «' + escHtml(slug) + '» · ' + escHtml(layout) + '. Реальные записи появятся на опубликованной странице.</div>' : "";
@@ -676,10 +698,15 @@
         image: function (b, o) {
             var c = b.content || {};
             var editable = o && o.editable;
+            // Динамическая страница: bindSrc привязывает источник к полю записи (data-driven).
+            var bf = boundField(o, c, "bindSrc");
+            var src = bf.bound ? bf.value : c.src;
             var inner = "";
-            if (c.src) {
-                inner = '<img src="' + escAttr(c.src) + '" alt="' + escAttr(c.alt || "") + '" loading="lazy" decoding="async">' +
-                    (editable ? '<button type="button" class="lime-doc-media-swap" data-doc-pick="src">Заменить</button>' : "");
+            if (src) {
+                inner = '<img src="' + escAttr(src) + '" alt="' + escAttr(c.alt || "") + '" loading="lazy" decoding="async">' +
+                    (editable && !bf.bound ? '<button type="button" class="lime-doc-media-swap" data-doc-pick="src">Заменить</button>' : "");
+            } else if (editable && bf.bound) {
+                inner = '<div class="lime-block__image-placeholder">🔗 поле записи</div>';
             } else if (editable) {
                 inner = '<div class="lime-block__image-placeholder" data-doc-pick="src">+ выбрать изображение</div>';
             }
@@ -1121,7 +1148,7 @@
             }).join("") + "</nav>";
         }
         // Прокидываем данные коллекций (opts.data) в рендереры блоков (collectionList).
-        var r = renderBlocks(page.blocks, doc.components || {}, { data: opts.data });
+        var r = renderBlocks(page.blocks, doc.components || {}, { data: opts.data, record: opts.record, editable: opts.editable });
         var css = themeCss(doc.theme) + "\n" + classesCss(doc.theme) + "\n" + r.css + customCssOf(doc);
         return {
             title: page.title || "",

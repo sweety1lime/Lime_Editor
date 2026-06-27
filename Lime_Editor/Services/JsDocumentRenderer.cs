@@ -30,14 +30,15 @@ namespace Lime_Editor.Services
             return result.AsString();
         }
 
-        public DocumentPage RenderPage(string documentJson, string pageSlug, string baseUrl, string dataJson = null)
+        public DocumentPage RenderPage(string documentJson, string pageSlug, string baseUrl, string dataJson = null, string recordJson = null)
         {
             var engine = CreateEngine(documentJson);
             engine.SetValue("__slug", pageSlug ?? "");
             engine.SetValue("__base", baseUrl ?? "");
             engine.SetValue("__data", dataJson ?? "null");
+            engine.SetValue("__record", recordJson ?? "null");
             var result = engine.Evaluate(
-                "module.exports.renderPage(JSON.parse(__docJson), __slug, { baseUrl: __base, data: JSON.parse(__data) })");
+                "module.exports.renderPage(JSON.parse(__docJson), __slug, { baseUrl: __base, data: JSON.parse(__data), record: JSON.parse(__record) })");
             if (result.IsNull() || result.IsUndefined())
             {
                 return null;

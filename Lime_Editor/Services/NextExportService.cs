@@ -58,8 +58,10 @@ namespace Lime_Editor.Services
                 Add(zip, "lib/doc.json", documentJson);
                 Add(zip, "lib/prisma.mjs", PrismaMjs);
                 Add(zip, "lib/data.mjs", DataMjs);
+                Add(zip, "lib/render.mjs", RenderMjs); // движок-рендер: нужен и для record-роута в обоих режимах
                 Add(zip, "app/lime.css", BuildCss());
                 Add(zip, "app/api/form/route.js", FormRouteJs);
+                Add(zip, "app/[slug]/[record]/page.jsx", RecordPageJsx); // CMS 2.0: динамические страницы записей
                 Add(zip, "public/js/lime-animate.js", ReadWebFile("js/lime/lime-animate.js"));
                 Add(zip, "public/js/lime-polish.js", ReadWebFile("js/lime/lime-polish.js"));
 
@@ -77,7 +79,6 @@ namespace Lime_Editor.Services
                 else
                 {
                     // Блоб-режим: страницы рендерит движок.
-                    Add(zip, "lib/render.mjs", RenderMjs);
                     Add(zip, "app/layout.jsx", LayoutJsx);
                     Add(zip, "app/page.jsx", HomePageJsx);
                     Add(zip, "app/[slug]/page.jsx", SlugPageJsx);
@@ -190,7 +191,25 @@ export const prisma = g.__limePrisma ?? (g.__limePrisma = new PrismaClient());
 
         private const string DataMjs = """
 import { prisma } from './prisma.mjs';
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+const doc = require('./doc.json');
+
+function slugify(s) {
+  return String(s || '').toLowerCase().trim()
+    .replace(/[^a-z0-9а-яё\s-]/gi, '').replace(/\s+/g, '-').replace(/-+/g, '-');
+}
+function templatePageFor(colSlug) {
+  for (const p of (doc.pages || [])) { if (p.collection === colSlug && p.slug) return p.slug; }
+  return null;
+}
+function firstTextField(fields) {
+  for (const f of fields) { if (f.type === 'text' || f.type === 'longtext') return f.name; }
+  return null;
+}
+
 // Карта данных коллекций для блока collectionList: { "<slug>": { fields, records } }.
+// В записи кладём _id и (если коллекция привязана к странице-шаблону) _url на детальную.
 export async function loadCollectionData() {
   try {
     const cols = await prisma.collection.findMany({ include: { records: true } });
@@ -198,7 +217,14 @@ export async function loadCollectionData() {
     for (const c of cols) {
       let fields = [];
       try { fields = JSON.parse(c.schemaJson || '[]'); } catch {}
-      const records = c.records.map((r) => { try { return JSON.parse(r.dataJson); } catch { return {}; } });
+      const tmpl = templatePageFor(c.slug);
+      const tf = firstTextField(fields);
+      const records = c.records.map((r) => {
+        let o = {}; try { o = JSON.parse(r.dataJson); } catch {}
+        o._id = r.id;
+        if (tmpl) { const sl = slugify(tf ? o[tf] : ''); o._url = '/' + tmpl + '/' + (sl ? r.id + '-' + sl : r.id); }
+        return o;
+      });
       map[c.slug] = { fields, records };
     }
     return map;
@@ -215,8 +241,9 @@ const LimeDoc = require('./limedoc.cjs');
 const doc = require('./doc.json');
 
 // Рендерит страницу тем же движком, что и хостинг. Формы подключаем к /api/form.
-export function renderPage(slug, data) {
-  const r = LimeDoc.renderPage(doc, slug || '', { baseUrl: '', data: data || null });
+// record — одна запись для страницы-шаблона (CMS 2.0): блоки с content.bind берут значения из неё.
+export function renderPage(slug, data, record) {
+  const r = LimeDoc.renderPage(doc, slug || '', { baseUrl: '', data: data || null, record: record || null });
   if (!r) return null;
   const body = r.body.replace(/<form /g, '<form action="/api/form" method="post" ');
   return { title: r.title, body };
@@ -225,6 +252,13 @@ export function renderPage(slug, data) {
 export function pageSlugs() {
   const pages = doc.pages && doc.pages.length ? doc.pages : [{ slug: '' }];
   return pages.map((p) => p.slug || '');
+}
+
+// Коллекция-источник для страницы-шаблона записи (page.collection) или null.
+export function templateCollectionFor(slug) {
+  const pages = doc.pages || [];
+  for (const p of pages) { if ((p.slug || '') === (slug || '') && p.collection) return p.collection; }
+  return null;
 }
 """;
 
@@ -277,6 +311,33 @@ export const dynamic = 'force-dynamic';
 export default async function Page({ params }) {
   const data = await loadCollectionData();
   const r = renderPage(params.slug, data);
+  if (!r) notFound();
+  return <div dangerouslySetInnerHTML={{ __html: r.body }} />;
+}
+""";
+
+        // Динамическая страница записи (CMS 2.0): /{page}/{record}. Страница-шаблон рендерится
+        // движком для одной записи (блоки с content.bind берут значения из неё). Запись ищем по
+        // ведущему id из "{id}-{slug}". Используется в обоих режимах экспорта (через движок).
+        private const string RecordPageJsx = """
+import { renderPage, templateCollectionFor } from '../../../lib/render.mjs';
+import { loadCollectionData } from '../../../lib/data.mjs';
+import { prisma } from '../../../lib/prisma.mjs';
+import { notFound } from 'next/navigation';
+
+export const dynamic = 'force-dynamic';
+
+export default async function RecordPage({ params }) {
+  const colSlug = templateCollectionFor(params.slug);
+  if (!colSlug) notFound();
+  const id = parseInt(String(params.record), 10);
+  if (!id) notFound();
+  const col = await prisma.collection.findUnique({ where: { slug: colSlug }, include: { records: true } });
+  const rec = col && col.records.find((r) => r.id === id);
+  if (!rec) notFound();
+  let record = {}; try { record = JSON.parse(rec.dataJson); } catch {}
+  const data = await loadCollectionData();
+  const r = renderPage(params.slug, data, record);
   if (!r) notFound();
   return <div dangerouslySetInnerHTML={{ __html: r.body }} />;
 }

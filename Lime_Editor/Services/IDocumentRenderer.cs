@@ -17,7 +17,9 @@ namespace Lime_Editor.Services
         // null — страницы с таким slug в документе нет (→ 404).
         // dataJson — JSON-карта данных коллекций { "<slug>": { fields, records } } для
         // блока collectionList (фуллстак). null/пусто — динамических блоков нет.
-        DocumentPage RenderPage(string documentJson, string pageSlug, string baseUrl, string dataJson = null);
+        // recordJson — одна запись коллекции для страницы-шаблона (CMS 2.0, /blog/:slug):
+        // блоки с content.bind/bindSrc берут значения из неё. null — обычная страница.
+        DocumentPage RenderPage(string documentJson, string pageSlug, string baseUrl, string dataJson = null, string recordJson = null);
 
         // Весь CSS документа (тема + стили всех блоков) — для идиоматичного экспорта в Next.js.
         string CompileCss(string documentJson);

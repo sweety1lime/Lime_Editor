@@ -540,6 +540,37 @@ function check(name, cond) {
     check("collectionList: без коллекции — подсказка выбрать", noSlug.html.includes("выбери источник"));
 }
 
+// --- CMS 2.0: динамические страницы — биндинг блоков к записи (content.bind/bindSrc) ---
+{
+    const doc = {
+        version: 1, pages: [
+            { id: "home", slug: "", title: "Главная", blocks: [{ id: "cl", type: "collectionList", content: { collection: "posts" } }] },
+            {
+                id: "post", slug: "post", title: "Пост", collection: "posts", blocks: [
+                    { id: "h", type: "heading", content: { bind: "title" } },
+                    { id: "t", type: "text", content: { bind: "body" } },
+                    { id: "im", type: "image", content: { bindSrc: "cover" } }
+                ]
+            }
+        ]
+    };
+    const rec = { title: "Привет", body: "Тело поста", cover: 'https://x/c.jpg"x' };
+    const pub = L.renderPage(doc, "post", { baseUrl: "/u/u/s", record: rec });
+    check("CMS2 bind: heading из записи", pub.body.includes('lime-block__heading">Привет'));
+    check("CMS2 bind: text из записи", pub.body.includes('lime-block__text">Тело поста'));
+    check("CMS2 bind: image src из записи с экранированием", pub.body.includes('src="https://x/c.jpg&quot;x"'));
+    // в редакторе привязанный блок data-driven → без contenteditable/data-field
+    const ed = L.renderPage(doc, "post", { baseUrl: "/u/u/s", editable: true, record: rec });
+    check("CMS2 bind: привязанный текст не редактируется инлайн", ed.body.includes('lime-block__heading">Привет') && ed.body.indexOf('data-field="text"') === -1);
+    // без записи (обычный рендер страницы) — статичный дефолт
+    const plain = L.renderPage(doc, "post", { baseUrl: "/u/u/s" });
+    check("CMS2 bind: без записи — статичный дефолт", plain.body.includes('lime-block__heading">Раздел'));
+    // лента collectionList: карточка-ссылка по серверному rec._url
+    const data = { posts: { fields: [{ name: "title", type: "text", label: "Заголовок" }], records: [{ title: "П1", _url: "/u/u/s/post/1-p1" }] } };
+    const home = L.renderPage(doc, "", { baseUrl: "/u/u/s", data: data });
+    check("CMS2 лента: карточка ссылается на _url записи", home.body.includes('<a class="lime-cl-card" href="/u/u/s/post/1-p1"'));
+}
+
 // --- 1.2: hover-состояние компилируется в :hover-правило + transition ---
 {
     const doc = {

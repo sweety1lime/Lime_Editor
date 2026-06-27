@@ -568,7 +568,7 @@
         } else {
             // Рендерим только активную страницу (тема и компоненты — общие на сайт).
             // data — превью схемы коллекций для блока collectionList (реальные записи — на публикации).
-            ws.innerHTML = L.render({ theme: doc.theme, components: doc.components, blocks: pageBlocks() }, { editable: true, data: editorCollectionData() }).body;
+            ws.innerHTML = L.render({ theme: doc.theme, components: doc.components, blocks: pageBlocks() }, { editable: true, data: editorCollectionData(), record: templateSampleRecord() }).body;
         }
         applyPreviewStyles();
         ensureDocFonts(); // подгрузить шрифты документа (undo/redo, шаблоны, AI, смена страницы)
@@ -606,7 +606,7 @@
         var r = id && findBlock(id);
         if (!sec || !r || !r.block) { render(); return false; }
         var tmp = document.createElement("div");
-        tmp.innerHTML = L.renderOneBlock(r.block, doc.components, { editable: true, data: editorCollectionData() });
+        tmp.innerHTML = L.renderOneBlock(r.block, doc.components, { editable: true, data: editorCollectionData(), record: templateSampleRecord() });
         var fresh = tmp.firstElementChild;
         // Нет элемента или есть дочерние drop-зоны → безопасный полный путь.
         if (!fresh || (!opts.allowChildren && fresh.querySelector(".lime-block__children"))) { render(); return false; }
@@ -641,7 +641,7 @@
         }
         if (!listEl) return false; // пустая страница (placeholder) / список не найден
         var tmp = document.createElement("div");
-        tmp.innerHTML = L.renderOneBlock(block, doc.components, { editable: true, data: editorCollectionData() });
+        tmp.innerHTML = L.renderOneBlock(block, doc.components, { editable: true, data: editorCollectionData(), record: templateSampleRecord() });
         var fresh = tmp.firstElementChild;
         if (!fresh) return false;
         var items = listEl.querySelectorAll(":scope > .lime-block");
@@ -2124,10 +2124,18 @@
             var slugField = isHome
                 ? '<span class="lime-text-muted" style="font-size:var(--text-xs);">главная (/)</span>'
                 : '<input type="text" class="lime-input lime-input--sm" data-doc-page-slug="' + i + '" value="' + escapeText(p.slug || "") + '" placeholder="slug" style="width:140px;">';
+            // CMS 2.0: не-главную страницу можно сделать шаблоном записи коллекции (динамические /slug/:rec).
+            var tmplField = (!isHome && collectionsCache && collectionsCache.length)
+                ? '<select class="lime-select lime-input--sm" data-doc-page-collection="' + i + '" title="Страница-шаблон записи коллекции" style="width:150px;">' +
+                    '<option value="">обычная</option>' +
+                    collectionsCache.map(function (c) {
+                        return '<option value="' + escapeText(c.slug) + '"' + ((p.collection || "") === c.slug ? " selected" : "") + ">📄 " + escapeText(c.name) + "</option>";
+                    }).join("") + "</select>"
+                : "";
             return '<div class="lime-doc-page-row' + (i === active ? " is-active" : "") + '">' +
                 '<button type="button" class="lime-doc-page-row__open" data-doc-page-goto="' + i + '" title="Открыть страницу">' + (isHome ? "🏠" : "▦") + '</button>' +
                 '<input type="text" class="lime-input lime-input--sm" data-doc-page-title="' + i + '" value="' + escapeText(p.title || "") + '" style="flex:1;">' +
-                slugField +
+                slugField + tmplField +
                 '<button type="button" class="lime-block-toolbar__btn" data-doc-page-dup="' + i + '" title="Дублировать">⎘</button>' +
                 (doc.pages.length > 1 ? '<button type="button" class="lime-block-toolbar__btn lime-block-toolbar__btn--danger" data-doc-page-del="' + i + '" title="Удалить">✕</button>' : '') +
                 '</div>';
@@ -2958,7 +2966,7 @@
         } else if (currentState === "hover") {
             styleBody = classesSection(b) + stateSeg + renderStyleSections(styleSecBucket, styleMixed, styleSourceInfo);
         } else {
-            styleBody = componentPropsSection(b) + v2LayoutInspector(b, found) + classesSection(b) + containerHint + colsSec + contentExtras(t) + bgInspector(b, s) + stateSeg + renderStyleSections(styleSecBucket, styleMixed, styleSourceInfo);
+            styleBody = componentPropsSection(b) + v2LayoutInspector(b, found) + classesSection(b) + containerHint + colsSec + bindingSection(t) + contentExtras(t) + bgInspector(b, s) + stateSeg + renderStyleSections(styleSecBucket, styleMixed, styleSourceInfo);
         }
         var fxBody = fxInspector(t) + animInspector(t);
         var motionBody = motionInspector(t) + sceneInspector(t) + layersInspector(t);
@@ -3013,6 +3021,32 @@
             map[c.slug] = { fields: fields, records: [{}, {}] };
         });
         return map;
+    }
+    // Схема полей коллекции из кэша (для биндинг-селектов и sample-записи).
+    function collectionFields(slug) {
+        if (!slug || !collectionsCache) return [];
+        for (var i = 0; i < collectionsCache.length; i++) {
+            if (collectionsCache[i].slug === slug) {
+                try { return JSON.parse(collectionsCache[i].schemaJson || "[]") || []; } catch (e) { return []; }
+            }
+        }
+        return [];
+    }
+    // Привязка коллекции к активной странице (CMS 2.0): slug или "" (обычная страница).
+    function activePageCollection() {
+        return (doc.pages[active] && doc.pages[active].collection) || "";
+    }
+    // Образец записи для превью страницы-шаблона: значения-плейсхолдеры по схеме.
+    function templateSampleRecord() {
+        var slug = activePageCollection();
+        if (!slug) return null;
+        var fields = collectionFields(slug);
+        if (!fields.length) return null;
+        var rec = {};
+        fields.forEach(function (f) {
+            rec[f.name] = f.type === "image" ? "" : ("Пример: " + (f.label || f.name));
+        });
+        return rec;
     }
 
     // Секция «Анимация появления» — общая на блок (не зависит от брейкпоинта).
@@ -3107,6 +3141,27 @@
             '<button type="button" class="lime-btn lime-btn--ghost lime-btn--sm" data-doc-layer-add="image" style="flex:1;">＋ Картинка</button></div>';
         var hint = ls.length ? '<div class="lime-inspector__hint" style="margin:2px 0 6px;">Перетаскивай слои прямо на холсте.</div>' : "";
         return sec("Декор-слои", hint + list + add);
+    }
+
+    // CMS 2.0: на странице-шаблоне записи text/heading/image можно привязать к полю записи.
+    // text/heading → content.bind (текстовые поля), image → content.bindSrc (image-поля).
+    function bindingSection(t) {
+        var slug = activePageCollection();
+        if (!slug) return "";
+        var isText = t.type === "text" || t.type === "heading";
+        var isImg = t.type === "image";
+        if (!isText && !isImg) return "";
+        var key = isImg ? "bindSrc" : "bind";
+        var cur = (t.content && t.content[key]) || "";
+        var opts = isImg ? '<option value="">— своё изображение —</option>' : '<option value="">— статичный текст —</option>';
+        collectionFields(slug).forEach(function (f) {
+            var ok = isImg ? f.type === "image" : f.type !== "image";
+            if (!ok) return;
+            opts += '<option value="' + escapeText(f.name) + '"' + (f.name === cur ? " selected" : "") + ">" + escapeText(f.label || f.name) + "</option>";
+        });
+        return sec("Привязка к записи",
+            '<select class="lime-select" data-doc-bind="' + key + '" style="width:100%;">' + opts + "</select>" +
+            '<div class="lime-inspector__hint" style="margin-top:6px;">Страница-шаблон: блок берёт значение из поля текущей записи. Превью — на образце.</div>');
     }
 
     // Привязка к данным (фуллстак): форма пишет в коллекцию, collectionList читает из неё.
@@ -4040,6 +4095,8 @@
                     var shl = t.parentNode.querySelector(".lime-range__val");
                     if (shl) shl.textContent = t.value + (t.dataset.k === "alpha" ? "" : "px");
                 }
+            } else if (t.hasAttribute("data-doc-bind")) {
+                setContentFlag(t.getAttribute("data-doc-bind"), t.value || null); // привязка блока к полю записи
             } else if (t.hasAttribute("data-doc-collection")) {
                 setContentFlag("collection", t.value || null);
                 refreshInspector(); // перезаполнить поля карточки/сортировки под новую коллекцию
@@ -5023,7 +5080,17 @@
         // Слаг нормализуем по уходу из поля (на каждый ввод дёргать uniqueSlug мешает печатать).
         pagesModal.addEventListener("change", function (e) {
             var el;
-            if ((el = e.target.closest("[data-doc-page-slug]"))) setPageSlug(parseInt(el.dataset.docPageSlug, 10), el.value);
+            if ((el = e.target.closest("[data-doc-page-slug]"))) { setPageSlug(parseInt(el.dataset.docPageSlug, 10), el.value); return; }
+            // CMS 2.0: привязка страницы к коллекции (шаблон записи) / снятие привязки.
+            if ((el = e.target.closest("[data-doc-page-collection]"))) {
+                var pi = parseInt(el.dataset.docPageCollection, 10);
+                if (doc.pages[pi]) {
+                    beginCheckpointMutation();
+                    if (el.value) doc.pages[pi].collection = el.value; else delete doc.pages[pi].collection;
+                    render(); markDirty();
+                    if (pi === active) refreshInspector();
+                }
+            }
         });
     }
     var compBox = document.getElementById("lime-doc-components");

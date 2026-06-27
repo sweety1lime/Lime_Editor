@@ -172,6 +172,12 @@ namespace Lime_Editor
                 // Публичный хостинг сайтов: /u/{username}/{slug}[/{page}] → PublishedSiteController.Show.
                 // Префикс "u" выбран чтобы не конфликтовать с {controller}/{action}.
                 // {page?} — страница многостраничного сайта движка B (этап 0.3).
+                // Динамическая страница записи (CMS 2.0): /u/{user}/{slug}/{page}/{record}
+                // → страница-шаблон, привязанная к коллекции, рендерится для одной записи.
+                endpoints.MapControllerRoute(
+                    name: "publishedRecord",
+                    pattern: "u/{username}/{slug}/{page}/{record}",
+                    defaults: new { controller = "PublishedSite", action = "ShowRecord" });
                 endpoints.MapControllerRoute(
                     name: "publishedSite",
                     pattern: "u/{username}/{slug}/{page?}",

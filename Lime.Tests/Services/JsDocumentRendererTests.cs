@@ -283,6 +283,35 @@ namespace Lime.Tests.Services
             Assert.Null(renderer.RenderPage(SampleDoc, "no-such", "/u/user/site"));
         }
 
+        // CMS 2.0: страница-шаблон (page.collection) с блоками content.bind рендерится для одной
+        // записи — значения берутся из recordJson. Инвариант «один рендер»: Jint == браузер.
+        private const string TemplateDoc = /*lang=json*/ @"{
+            ""version"": 1, ""theme"": {}, ""components"": {},
+            ""pages"": [
+                { ""slug"": """", ""title"": ""Главная"", ""blocks"": [
+                    { ""id"": ""cl"", ""type"": ""collectionList"", ""content"": { ""collection"": ""posts"" } } ] },
+                { ""slug"": ""post"", ""title"": ""Пост"", ""collection"": ""posts"", ""blocks"": [
+                    { ""id"": ""h"", ""type"": ""heading"", ""content"": { ""bind"": ""title"" } },
+                    { ""id"": ""t"", ""type"": ""text"", ""content"": { ""bind"": ""body"" } } ] }
+            ]
+        }";
+
+        [Fact]
+        public void RenderPage_BindsRecordFieldsOnTemplatePage()
+        {
+            var renderer = new JsDocumentRenderer(EnginePath());
+            var record = @"{ ""title"": ""Привет<b>"", ""body"": ""Тело поста"" }";
+            var page = renderer.RenderPage(TemplateDoc, "post", "/u/u/s", null, record);
+            Assert.NotNull(page);
+            Assert.Contains("lime-block__heading\">Привет&lt;b&gt;", page.Body); // значение записи + экранирование
+            Assert.Contains("lime-block__text\">Тело поста", page.Body);
+            Assert.DoesNotContain("data-field", page.Body); // публикация без редакторских хуков
+
+            // Без записи — обычный рендер со статичным дефолтом блока.
+            var plain = renderer.RenderPage(TemplateDoc, "post", "/u/u/s");
+            Assert.Contains("lime-block__heading\">Раздел", plain.Body);
+        }
+
         // GOLDEN: сервер (Jint) == клиент (node) байт-в-байт на одном lime-doc.js.
         // Это tripwire инварианта «один рендер везде»: ЛЮБАЯ правка движка (включая будущий v2),
         // меняющая вывод golden-fixture, валит тест. Покрываем оба контракта: publish (renderSite)

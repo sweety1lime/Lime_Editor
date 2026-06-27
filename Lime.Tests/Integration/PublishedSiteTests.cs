@@ -158,6 +158,15 @@ namespace Lime.Tests.Integration
             "{\"version\":1,\"pages\":[{\"slug\":\"\",\"title\":\"Home\",\"blocks\":[" +
             "{\"id\":\"cl\",\"type\":\"collectionList\",\"content\":{\"collection\":\"goods\"}}]}]}";
 
+        // CMS 2.0: лента на главной + страница-шаблон "post" (page.collection=goods) с блоками,
+        // привязанными к полям записи (content.bind) — для теста динамических /post/:record.
+        private const string BlogDoc =
+            "{\"version\":1,\"pages\":[" +
+            "{\"slug\":\"\",\"title\":\"Home\",\"blocks\":[{\"id\":\"cl\",\"type\":\"collectionList\",\"content\":{\"collection\":\"goods\"}}]}," +
+            "{\"slug\":\"post\",\"title\":\"Post\",\"collection\":\"goods\",\"blocks\":[" +
+            "{\"id\":\"h\",\"type\":\"heading\",\"content\":{\"bind\":\"title\"}}," +
+            "{\"id\":\"t\",\"type\":\"text\",\"content\":{\"bind\":\"body\"}}]}]}";
+
         private async Task SeedCollectionAsync(int siteId, string slug, string schemaJson, params string[] recordJsons)
         {
             using var scope = _factory.Services.CreateScope();
@@ -195,7 +204,9 @@ namespace Lime.Tests.Integration
             Assert.Contains("lime-block__collection", html);
             Assert.Contains("Виджет Про", html); // реальные данные из БД
             Assert.Contains("Штука", html);
-            Assert.Contains("Название", html);    // метка поля из схемы
+            // CMS 2.0: единственное текстовое поле становится ролью «заголовок» карточки
+            // (показывается значение, а не метка схемы — старый key/value-вид остался для fallback).
+            Assert.Contains("lime-cl-title\">Виджет Про", html);
         }
 
         [Fact]
@@ -209,6 +220,47 @@ namespace Lime.Tests.Integration
             response.EnsureSuccessStatusCode();
             var html = await response.Content.ReadAsStringAsync();
             Assert.DoesNotContain("lime-cl-card", html);
+        }
+
+        // CMS 2.0: динамическая страница записи — лента ссылается на детальную, детальная
+        // рендерит привязанные поля из БД, несуществующая запись → 404.
+        [Fact]
+        public async Task DynamicRecordPage_RendersBoundFields_AndListLinksToIt()
+        {
+            var user = await CreateUserAsync("blogger");
+            await SeedSiteAsync(user.Id, "blog", isPublished: true, body: "<html><body>legacy</body></html>", publishedDocJson: BlogDoc);
+            int siteId;
+            using (var scope = _factory.Services.CreateScope())
+            {
+                var db = scope.ServiceProvider.GetRequiredService<LimeEditorContext>();
+                siteId = await db.Sites.Where(s => s.UserId == user.Id && s.Slug == "blog").Select(s => s.IdSite ?? 0).FirstAsync();
+            }
+            await SeedCollectionAsync(siteId, "goods",
+                "[{\"name\":\"title\",\"type\":\"text\",\"label\":\"Заголовок\"},{\"name\":\"body\",\"type\":\"longtext\",\"label\":\"Тело\"}]",
+                "{\"title\":\"Первый пост\",\"body\":\"Содержимое поста\"}");
+            int recId;
+            using (var scope = _factory.Services.CreateScope())
+            {
+                var db = scope.ServiceProvider.GetRequiredService<LimeEditorContext>();
+                recId = await db.CollectionRecords.OrderBy(r => r.Id).Select(r => r.Id).FirstAsync();
+            }
+
+            var client = _factory.CreateClient();
+
+            // Лента на главной ссылается на детальную /u/blogger/blog/post/{id}-...
+            var home = await (await client.GetAsync("/u/blogger/blog")).Content.ReadAsStringAsync();
+            Assert.Contains($"/u/blogger/blog/post/{recId}-", home);
+
+            // Детальная страница рендерит значения полей записи (биндинг content.bind).
+            var recResp = await client.GetAsync($"/u/blogger/blog/post/{recId}");
+            recResp.EnsureSuccessStatusCode();
+            var recHtml = await recResp.Content.ReadAsStringAsync();
+            Assert.Contains("Первый пост", recHtml);
+            Assert.Contains("Содержимое поста", recHtml);
+
+            // Несуществующая запись → 404.
+            var missing = await client.GetAsync("/u/blogger/blog/post/999999");
+            Assert.Equal(System.Net.HttpStatusCode.NotFound, missing.StatusCode);
         }
     }
 }
