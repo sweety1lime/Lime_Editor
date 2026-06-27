@@ -2132,12 +2132,16 @@
                         return '<option value="' + escapeText(c.slug) + '"' + ((p.collection || "") === c.slug ? " selected" : "") + ">📄 " + escapeText(c.name) + "</option>";
                     }).join("") + "</select>"
                 : "";
-            return '<div class="lime-doc-page-row' + (i === active ? " is-active" : "") + '">' +
+            return '<div style="margin-bottom: var(--space-3);">' +
+                '<div class="lime-doc-page-row' + (i === active ? " is-active" : "") + '">' +
                 '<button type="button" class="lime-doc-page-row__open" data-doc-page-goto="' + i + '" title="Открыть страницу">' + (isHome ? "🏠" : "▦") + '</button>' +
                 '<input type="text" class="lime-input lime-input--sm" data-doc-page-title="' + i + '" value="' + escapeText(p.title || "") + '" style="flex:1;">' +
                 slugField + tmplField +
                 '<button type="button" class="lime-block-toolbar__btn" data-doc-page-dup="' + i + '" title="Дублировать">⎘</button>' +
                 (doc.pages.length > 1 ? '<button type="button" class="lime-block-toolbar__btn lime-block-toolbar__btn--danger" data-doc-page-del="' + i + '" title="Удалить">✕</button>' : '') +
+                '</div>' +
+                // SEO/AEO: описание страницы для поиска/соцсетей (этап 3.6).
+                '<input type="text" class="lime-input lime-input--sm" data-doc-page-desc="' + i + '" value="' + escapeText(p.description || "") + '" maxlength="300" placeholder="SEO-описание страницы (для поиска и соцсетей)" style="width:100%; margin-top:4px;">' +
                 '</div>';
         }).join("");
     }
@@ -5075,7 +5079,16 @@
         });
         pagesModal.addEventListener("input", function (e) {
             var el;
-            if ((el = e.target.closest("[data-doc-page-title]"))) setPageTitle(parseInt(el.dataset.docPageTitle, 10), el.value);
+            if ((el = e.target.closest("[data-doc-page-title]"))) { setPageTitle(parseInt(el.dataset.docPageTitle, 10), el.value); return; }
+            // SEO/AEO: описание страницы (этап 3.6) — без ре-рендера холста, только в doc + autosave.
+            if ((el = e.target.closest("[data-doc-page-desc]"))) {
+                var pi = parseInt(el.dataset.docPageDesc, 10);
+                if (doc.pages[pi]) {
+                    beginCheckpointMutation();
+                    if (el.value) doc.pages[pi].description = el.value; else delete doc.pages[pi].description;
+                    markDirty();
+                }
+            }
         });
         // Слаг нормализуем по уходу из поля (на каждый ввод дёргать uniqueSlug мешает печатать).
         pagesModal.addEventListener("change", function (e) {

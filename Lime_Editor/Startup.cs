@@ -172,6 +172,16 @@ namespace Lime_Editor
                 // Публичный хостинг сайтов: /u/{username}/{slug}[/{page}] → PublishedSiteController.Show.
                 // Префикс "u" выбран чтобы не конфликтовать с {controller}/{action}.
                 // {page?} — страница многостраничного сайта движка B (этап 0.3).
+                // SEO/AEO (этап 3.6): карты сайта для поисковиков и AI-краулеров. Литеральные
+                // сегменты — специфичнее {page?}, поэтому регистрируем ПЕРЕД общими маршрутами.
+                endpoints.MapControllerRoute(
+                    name: "publishedSitemap",
+                    pattern: "u/{username}/{slug}/sitemap.xml",
+                    defaults: new { controller = "PublishedSite", action = "Sitemap" });
+                endpoints.MapControllerRoute(
+                    name: "publishedLlms",
+                    pattern: "u/{username}/{slug}/llms.txt",
+                    defaults: new { controller = "PublishedSite", action = "LlmsTxt" });
                 // Динамическая страница записи (CMS 2.0): /u/{user}/{slug}/{page}/{record}
                 // → страница-шаблон, привязанная к коллекции, рендерится для одной записи.
                 endpoints.MapControllerRoute(

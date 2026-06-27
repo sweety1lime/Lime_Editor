@@ -242,7 +242,9 @@ namespace Lime.Tests.Integration
             using (var scope = _factory.Services.CreateScope())
             {
                 var db = scope.ServiceProvider.GetRequiredService<LimeEditorContext>();
-                recId = await db.CollectionRecords.OrderBy(r => r.Id).Select(r => r.Id).FirstAsync();
+                // БД класса общая между тестами — берём запись СВОЕЙ коллекции, не глобальный first.
+                var colId = await db.Collections.Where(c => c.SiteId == siteId && c.Slug == "goods").Select(c => c.Id).FirstAsync();
+                recId = await db.CollectionRecords.Where(r => r.CollectionId == colId).Select(r => r.Id).FirstAsync();
             }
 
             var client = _factory.CreateClient();
@@ -257,10 +259,55 @@ namespace Lime.Tests.Integration
             var recHtml = await recResp.Content.ReadAsStringAsync();
             Assert.Contains("Первый пост", recHtml);
             Assert.Contains("Содержимое поста", recHtml);
+            // SEO/AEO записи (этап 3.6): canonical на детальную, JSON-LD Article, описание из longtext.
+            Assert.Contains($"<link rel=\"canonical\" href=\"http://localhost/u/blogger/blog/post/{recId}\">", recHtml);
+            Assert.Contains("application/ld+json", recHtml);
+            Assert.Contains("\"@type\":\"Article\"", recHtml);
+            Assert.Contains("name=\"description\" content=\"Содержимое поста\"", recHtml);
 
             // Несуществующая запись → 404.
             var missing = await client.GetAsync("/u/blogger/blog/post/999999");
             Assert.Equal(System.Net.HttpStatusCode.NotFound, missing.StatusCode);
+        }
+
+        // SEO/AEO (этап 3.6): sitemap.xml и llms.txt перечисляют страницы + записи коллекций-шаблонов.
+        [Fact]
+        public async Task SitemapAndLlms_ListPagesAndRecords()
+        {
+            var user = await CreateUserAsync("seoer");
+            await SeedSiteAsync(user.Id, "blog", isPublished: true, body: "<html><body>legacy</body></html>", publishedDocJson: BlogDoc);
+            int siteId;
+            using (var scope = _factory.Services.CreateScope())
+            {
+                var db = scope.ServiceProvider.GetRequiredService<LimeEditorContext>();
+                siteId = await db.Sites.Where(s => s.UserId == user.Id && s.Slug == "blog").Select(s => s.IdSite ?? 0).FirstAsync();
+            }
+            await SeedCollectionAsync(siteId, "goods",
+                "[{\"name\":\"title\",\"type\":\"text\",\"label\":\"Заголовок\"}]",
+                "{\"title\":\"Первый пост\"}");
+            int recId;
+            using (var scope = _factory.Services.CreateScope())
+            {
+                var db = scope.ServiceProvider.GetRequiredService<LimeEditorContext>();
+                var colId = await db.Collections.Where(c => c.SiteId == siteId && c.Slug == "goods").Select(c => c.Id).FirstAsync();
+                recId = await db.CollectionRecords.Where(r => r.CollectionId == colId).Select(r => r.Id).FirstAsync();
+            }
+
+            var client = _factory.CreateClient();
+
+            var sm = await client.GetAsync("/u/seoer/blog/sitemap.xml");
+            sm.EnsureSuccessStatusCode();
+            Assert.Equal("application/xml", sm.Content.Headers.ContentType?.MediaType);
+            var smXml = await sm.Content.ReadAsStringAsync();
+            Assert.Contains("<urlset", smXml);
+            Assert.Contains("http://localhost/u/seoer/blog", smXml);           // главная
+            Assert.Contains($"http://localhost/u/seoer/blog/post/{recId}-", smXml); // запись
+
+            var llms = await client.GetAsync("/u/seoer/blog/llms.txt");
+            llms.EnsureSuccessStatusCode();
+            var llmsTxt = await llms.Content.ReadAsStringAsync();
+            Assert.Contains("# ", llmsTxt);
+            Assert.Contains($"/u/seoer/blog/post/{recId}-", llmsTxt);
         }
     }
 }

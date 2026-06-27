@@ -32,6 +32,40 @@ namespace Lime.Tests.Services
             Assert.Contains("lime-published", html);
         }
 
+        // Этап 3.6: per-page/record SEO перекрывает site-уровень; canonical/twitter/JSON-LD; AEO-безопасность.
+        [Fact]
+        public void WrapCustomHtml_PerPageSeoCanonicalTwitterJsonLd()
+        {
+            var site = new Site { Name = "Сайт", IdSite = 1, MetaDescription = "сайт-описание", OgImage = "/site-og.png" };
+            var html = PublishedPageBuilder.WrapCustomHtml("<div></div>", site, null,
+                pageTitle: "Пост",
+                canonicalUrl: "https://x/u/u/s/post/1-a",
+                metaDescription: "описание записи",
+                ogImage: "/rec.png",
+                jsonLd: "{\"@type\":\"Article\",\"headline\":\"Пост</script>\"}");
+            Assert.Contains("<link rel=\"canonical\" href=\"https://x/u/u/s/post/1-a\">", html);
+            Assert.Contains("property=\"og:url\"", html);
+            Assert.Contains("name=\"twitter:card\"", html);
+            Assert.Contains("описание записи", html);            // per-page перекрыл site-уровень
+            Assert.DoesNotContain("сайт-описание", html);
+            Assert.Contains("content=\"/rec.png\"", html);       // per-record og-картинка
+            Assert.Contains("application/ld+json", html);
+            Assert.Contains("og:type\" content=\"article", html); // canonical → article
+            Assert.DoesNotContain("</script>\"}", html);          // payload не закрывает <script>
+        }
+
+        [Fact]
+        public void PageSeo_ReadsPerPageDescriptionAndOg()
+        {
+            var doc = "{\"version\":1,\"pages\":[{\"slug\":\"\",\"title\":\"H\"},{\"slug\":\"about\",\"description\":\"про нас\",\"ogImage\":\"/a.png\"}]}";
+            var (d, og) = PublishedPageBuilder.PageSeo(doc, "about");
+            Assert.Equal("про нас", d);
+            Assert.Equal("/a.png", og);
+            var (d2, og2) = PublishedPageBuilder.PageSeo(doc, "");
+            Assert.Null(d2);
+            Assert.Null(og2);
+        }
+
         // Этап 3.4: гейт тарифа — на планах без AllowCustomCode из снапшота вырезаются
         // doc.customCss и doc.head, остальной документ (блоки/тема) сохраняется.
         [Fact]

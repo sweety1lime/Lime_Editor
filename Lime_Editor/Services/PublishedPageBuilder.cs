@@ -14,7 +14,11 @@ namespace Lime_Editor.Services
         // <title> становится «Страница — Сайт». Для главной/одностраничных не передаётся.
         // documentJson — JSON движка B: из него берётся doc.head (кастомный <head>-код, этап 0.2),
         // который санитайзится и вставляется в head. customCss уже в body-стиле (его эмитит движок).
-        public static string WrapCustomHtml(string innerHtml, Site site, string documentJson = null, string pageTitle = null)
+        // canonicalUrl / metaDescription / ogImage / jsonLd — per-page или per-record SEO (этап 3.6):
+        // если переданы, перекрывают site-уровень; null → поведение как раньше (site-уровень).
+        // jsonLd — готовая строка JSON-LD (Article/Product) для AEO; вставляется в <script type=ld+json>.
+        public static string WrapCustomHtml(string innerHtml, Site site, string documentJson = null, string pageTitle = null,
+            string canonicalUrl = null, string metaDescription = null, string ogImage = null, string jsonLd = null)
         {
             var rawTitle = !string.IsNullOrWhiteSpace(site?.MetaTitle) ? site.MetaTitle
                          : (!string.IsNullOrWhiteSpace(site?.Name) ? site.Name : "Мой сайт");
@@ -24,18 +28,37 @@ namespace Lime_Editor.Services
             }
             var safeTitle = System.Net.WebUtility.HtmlEncode(rawTitle);
 
-            var seo = "<meta property=\"og:type\" content=\"website\">\n" +
-                      $"<meta property=\"og:title\" content=\"{safeTitle}\">\n";
-            if (!string.IsNullOrWhiteSpace(site?.MetaDescription))
+            // Описание/картинка: per-page/record (аргумент) > site-уровень.
+            var desc = !string.IsNullOrWhiteSpace(metaDescription) ? metaDescription : site?.MetaDescription;
+            var og = !string.IsNullOrWhiteSpace(ogImage) ? ogImage : site?.OgImage;
+
+            var seo = "<meta property=\"og:type\" content=\"" + (string.IsNullOrEmpty(canonicalUrl) ? "website" : "article") + "\">\n" +
+                      $"<meta property=\"og:title\" content=\"{safeTitle}\">\n" +
+                      "<meta name=\"twitter:card\" content=\"summary_large_image\">\n" +
+                      $"<meta name=\"twitter:title\" content=\"{safeTitle}\">\n";
+            if (!string.IsNullOrWhiteSpace(desc))
             {
-                var safeDesc = System.Net.WebUtility.HtmlEncode(site.MetaDescription);
+                var safeDesc = System.Net.WebUtility.HtmlEncode(desc);
                 seo += $"<meta name=\"description\" content=\"{safeDesc}\">\n" +
-                       $"<meta property=\"og:description\" content=\"{safeDesc}\">\n";
+                       $"<meta property=\"og:description\" content=\"{safeDesc}\">\n" +
+                       $"<meta name=\"twitter:description\" content=\"{safeDesc}\">\n";
             }
-            if (!string.IsNullOrWhiteSpace(site?.OgImage))
+            if (!string.IsNullOrWhiteSpace(og))
             {
-                var safeOg = System.Net.WebUtility.HtmlEncode(site.OgImage);
-                seo += $"<meta property=\"og:image\" content=\"{safeOg}\">\n";
+                var safeOg = System.Net.WebUtility.HtmlEncode(og);
+                seo += $"<meta property=\"og:image\" content=\"{safeOg}\">\n" +
+                       $"<meta name=\"twitter:image\" content=\"{safeOg}\">\n";
+            }
+            if (!string.IsNullOrWhiteSpace(canonicalUrl))
+            {
+                var safeUrl = System.Net.WebUtility.HtmlEncode(canonicalUrl);
+                seo += $"<link rel=\"canonical\" href=\"{safeUrl}\">\n" +
+                       $"<meta property=\"og:url\" content=\"{safeUrl}\">\n";
+            }
+            // JSON-LD (AEO): экранируем "</" чтобы не закрыть <script> пользовательскими данными.
+            if (!string.IsNullOrWhiteSpace(jsonLd))
+            {
+                seo += "<script type=\"application/ld+json\">" + jsonLd.Replace("</", "<\\/") + "</script>\n";
             }
 
             // GSAP + рантайм scroll-движения подключаем, если в контенте есть любой маркер
@@ -79,6 +102,24 @@ namespace Lime_Editor.Services
                    "</head>\n<body class=\"lime-published\">\n" +
                    (innerHtml ?? string.Empty) + "\n" +
                    "</body>\n</html>";
+        }
+
+        // Per-page SEO из документа (этап 3.6): (description, ogImage) страницы со slug. (null,null) — нет.
+        public static (string description, string ogImage) PageSeo(string documentJson, string pageSlug)
+        {
+            try
+            {
+                if (JObject.Parse(documentJson)["pages"] is JArray pages)
+                {
+                    foreach (var p in pages)
+                    {
+                        if (((string)p["slug"] ?? "") == (pageSlug ?? ""))
+                            return ((string)p["description"], (string)p["ogImage"]);
+                    }
+                }
+            }
+            catch { /* битый JSON → без per-page SEO */ }
+            return (null, null);
         }
 
         // Гейт тарифа (этап 3.4): на планах без AllowCustomCode произвольный CSS/<head> не должен
