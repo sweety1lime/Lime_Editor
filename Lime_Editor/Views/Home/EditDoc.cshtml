@@ -37,6 +37,58 @@
     </script>
 </head>
 <body>
+    @* Единый icon-set (Calm Canvas v2.1): инлайн-SVG спрайт, без внешних зависимостей.
+       Иконки используются через <svg class="lime-ico"><use href="#i-..."/></svg>; цвет — currentColor. *@
+    <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false" overflow="hidden">
+        <defs>
+            <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+            <symbol id="i-layers" viewBox="0 0 24 24"><path d="M12 3 2 8l10 5 10-5-10-5Z"/><path d="M2 16l10 5 10-5"/><path d="M2 12l10 5 10-5"/></symbol>
+            <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></symbol>
+            <symbol id="i-monitor" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></symbol>
+            <symbol id="i-tablet" viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2.5"/><path d="M12 18h.01"/></symbol>
+            <symbol id="i-phone" viewBox="0 0 24 24"><rect x="7" y="2" width="10" height="20" rx="2.5"/><path d="M11 18h2"/></symbol>
+            <symbol id="i-undo" viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-4"/></symbol>
+            <symbol id="i-redo" viewBox="0 0 24 24"><path d="m15 14 5-5-5-5"/><path d="M20 9H9a5 5 0 0 0 0 10h4"/></symbol>
+            <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.6" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.6" fill="currentColor" stroke="none"/></symbol>
+            <symbol id="i-navbar" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18"/></symbol>
+            <symbol id="i-footer" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 15h18"/></symbol>
+            <symbol id="i-container" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/></symbol>
+            <symbol id="i-columns" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M12 4v16"/></symbol>
+            <symbol id="i-cover" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9h10M7 13h6"/><rect x="7" y="16" width="7" height="2.5" rx="1.25"/></symbol>
+            <symbol id="i-heading" viewBox="0 0 24 24"><path d="M6 4v16M18 4v16M6 12h12"/></symbol>
+            <symbol id="i-text" viewBox="0 0 24 24"><path d="M5 7h14M5 11h14M5 15h10M5 19h12"/></symbol>
+            <symbol id="i-features" viewBox="0 0 24 24"><path d="M12 3c.6 4.4 1 4.8 5.4 5.4-4.4.6-4.8 1-5.4 5.4-.6-4.4-1-4.8-5.4-5.4 4.4-.6 4.8-1 5.4-5.4Z"/><path d="M18.5 14.5c.3 2 .5 2.2 2.5 2.5-2 .3-2.2.5-2.5 2.5-.3-2-.5-2.2-2.5-2.5 2-.3 2.2-.5 2.5-2.5Z"/></symbol>
+            <symbol id="i-stats" viewBox="0 0 24 24"><path d="M3 20h18"/><path d="M6 20v-6M12 20V8M18 20v-9"/></symbol>
+            <symbol id="i-steps" viewBox="0 0 24 24"><path d="M3 7h11M14 7l-3-3M14 7l-3 3"/><path d="M21 17H10M10 17l3-3M10 17l3 3"/></symbol>
+            <symbol id="i-testimonials" viewBox="0 0 24 24"><path d="M4 5h16v10H9l-4 4V5z"/><path d="M8 9h8M8 12h5"/></symbol>
+            <symbol id="i-faq" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.2 2.4c-.9.3-1.2.9-1.2 1.6"/><path d="M11.5 16.5h.01"/></symbol>
+            <symbol id="i-logos" viewBox="0 0 24 24"><circle cx="5.5" cy="12" r="2.5"/><circle cx="12" cy="12" r="2.5"/><circle cx="18.5" cy="12" r="2.5"/></symbol>
+            <symbol id="i-imagetext" viewBox="0 0 24 24"><rect x="3" y="5" width="8" height="14" rx="1.5"/><circle cx="6" cy="9" r="1.1" fill="currentColor" stroke="none"/><path d="M3 16l3-2.5 2 1.3"/><path d="M14 8h7M14 12h7M14 16h5"/></symbol>
+            <symbol id="i-collection" viewBox="0 0 24 24"><circle cx="5" cy="7" r="1.2" fill="currentColor" stroke="none"/><circle cx="5" cy="12" r="1.2" fill="currentColor" stroke="none"/><circle cx="5" cy="17" r="1.2" fill="currentColor" stroke="none"/><path d="M9 7h11M9 12h11M9 17h11"/></symbol>
+            <symbol id="i-image" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9.5" r="1.6"/><path d="M3 16l5-4 4 3 3-2 6 5"/></symbol>
+            <symbol id="i-gallery" viewBox="0 0 24 24"><rect x="8" y="3" width="13" height="10" rx="1.5"/><rect x="3" y="9" width="13" height="12" rx="1.5"/><circle cx="7" cy="13" r="1.2"/><path d="M3.5 19l3-2.5 3 2"/></symbol>
+            <symbol id="i-video" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M11 9.5l4 2.5-4 2.5z" fill="currentColor" stroke="none"/></symbol>
+            <symbol id="i-embed" viewBox="0 0 24 24"><path d="M9 8l-4 4 4 4M15 8l4 4-4 4"/></symbol>
+            <symbol id="i-cta" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/></symbol>
+            <symbol id="i-form" viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8"/><rect x="8" y="15.5" width="6" height="2.5" rx="1.25"/></symbol>
+            <symbol id="i-pricing" viewBox="0 0 24 24"><path d="M3 11.5V4a1 1 0 0 1 1-1h7.5a1 1 0 0 1 .7.3l8 8a1 1 0 0 1 0 1.4l-7.5 7.5a1 1 0 0 1-1.4 0l-8-8a1 1 0 0 1-.3-.7z"/><circle cx="7.5" cy="7.5" r="1.5"/></symbol>
+            <symbol id="i-buttons" viewBox="0 0 24 24"><rect x="3" y="8.5" width="8" height="7" rx="3.5"/><rect x="13" y="8.5" width="8" height="7" rx="3.5"/></symbol>
+            <symbol id="i-socials" viewBox="0 0 24 24"><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="6" r="2.5"/><circle cx="18" cy="18" r="2.5"/><path d="M8.2 10.8l7.6-3.6M8.2 13.2l7.6 3.6"/></symbol>
+            <symbol id="i-divider" viewBox="0 0 24 24"><path d="M3 12h6M15 12h6"/><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/></symbol>
+            <symbol id="i-spacer" viewBox="0 0 24 24"><path d="M5 4h14M5 20h14"/><path d="M12 8v8M9 11l3-3 3 3M9 13l3 3 3-3"/></symbol>
+            <symbol id="i-free" viewBox="0 0 24 24"><path d="M12 3v18M3 12h18"/><path d="M9.5 5.5 12 3l2.5 2.5M9.5 18.5 12 21l2.5-2.5M5.5 9.5 3 12l2.5 2.5M18.5 9.5 21 12l-2.5 2.5"/></symbol>
+            <symbol id="i-up" viewBox="0 0 24 24"><path d="M12 19V5M6 11l6-6 6 6"/></symbol>
+            <symbol id="i-down" viewBox="0 0 24 24"><path d="M12 5v14M6 13l6 6 6-6"/></symbol>
+            <symbol id="i-out" viewBox="0 0 24 24"><path d="M14 5h4a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-4"/><path d="M10 12H3M6 8l-4 4 4 4"/></symbol>
+            <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="13" height="13" rx="2"/><path d="M5 15a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2"/></symbol>
+            <symbol id="i-duplicate" viewBox="0 0 24 24"><rect x="8" y="8" width="13" height="13" rx="2"/><path d="M5 15a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2"/><path d="M14.5 13v4M12.5 15h4"/></symbol>
+            <symbol id="i-paste" viewBox="0 0 24 24"><rect x="9" y="2.5" width="6" height="4" rx="1"/><path d="M9 4.5H7a2 2 0 0 0-2 2V20a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V6.5a2 2 0 0 0-2-2h-2"/></symbol>
+            <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M6 7l1 13a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-13"/></symbol>
+            <symbol id="i-ungroup" viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/></symbol>
+            <symbol id="i-palette" viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 0 18 2 2 0 0 0 2-2c0-.5-.2-1-.5-1.3-.3-.4-.5-.8-.5-1.2a2 2 0 0 1 2-2h1.5A4 4 0 0 0 21 8.5C21 5.4 16.9 3 12 3z"/><circle cx="7.5" cy="10.5" r="1.1" fill="currentColor" stroke="none"/><circle cx="12" cy="7.5" r="1.1" fill="currentColor" stroke="none"/><circle cx="16" cy="10.5" r="1.1" fill="currentColor" stroke="none"/></symbol>
+            <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 5l12 7-12 7z" fill="currentColor" stroke="none"/></symbol>
+        </defs>
+    </svg>
     <div class="lime-editor">
         <div class="lime-editor__topbar">
             <div class="lime-editor__topbar-left">
@@ -46,13 +98,13 @@
             </div>
             <div class="lime-editor__topbar-center">
                 <div class="lime-flex lime-gap-2" style="margin-right: var(--space-3);">
-                    <button type="button" class="lime-btn lime-btn--ghost lime-btn--sm" data-doc-undo disabled title="Отменить (Ctrl+Z)">↶</button>
-                    <button type="button" class="lime-btn lime-btn--ghost lime-btn--sm" data-doc-redo disabled title="Вернуть (Ctrl+Shift+Z)">↷</button>
+                    <button type="button" class="lime-btn lime-btn--ghost lime-btn--sm lime-btn--icon" data-doc-undo disabled title="Отменить (Ctrl+Z)" aria-label="Отменить"><svg class="lime-ico"><use href="#i-undo"/></svg></button>
+                    <button type="button" class="lime-btn lime-btn--ghost lime-btn--sm lime-btn--icon" data-doc-redo disabled title="Вернуть (Ctrl+Shift+Z)" aria-label="Вернуть"><svg class="lime-ico"><use href="#i-redo"/></svg></button>
                 </div>
                 <div class="lime-device-toggle">
-                    <button type="button" class="lime-device-toggle__btn is-active" data-doc-bp="base" title="Десктоп">🖥</button>
-                    <button type="button" class="lime-device-toggle__btn" data-doc-bp="tablet" title="Планшет">📊</button>
-                    <button type="button" class="lime-device-toggle__btn" data-doc-bp="mobile" title="Мобайл">📱</button>
+                    <button type="button" class="lime-device-toggle__btn is-active" data-doc-bp="base" title="Десктоп" aria-label="Десктоп"><svg class="lime-ico"><use href="#i-monitor"/></svg></button>
+                    <button type="button" class="lime-device-toggle__btn" data-doc-bp="tablet" title="Планшет" aria-label="Планшет"><svg class="lime-ico"><use href="#i-tablet"/></svg></button>
+                    <button type="button" class="lime-device-toggle__btn" data-doc-bp="mobile" title="Мобайл" aria-label="Мобайл"><svg class="lime-ico"><use href="#i-phone"/></svg></button>
                 </div>
                 <div class="lime-canvas-zoom" data-canvas-controls hidden>
                     <button type="button" data-canvas-zoom-out title="Уменьшить">−</button>
@@ -70,16 +122,16 @@
                           onsubmit="return confirm('Восстановить сайт к исходному виду до правок в новом редакторе? Текущий черновик будет заменён.');">
                         <input type="hidden" name="__RequestVerificationToken" value="@csrfToken" />
                         <input type="hidden" name="siteId" value="@Model.SiteId" />
-                        <button type="submit" class="lime-btn lime-btn--ghost lime-btn--sm" title="Откатить к версии до перехода на новый редактор">↩ Оригинал</button>
+                        <button type="submit" class="lime-btn lime-btn--ghost lime-btn--sm" title="Откатить к версии до перехода на новый редактор"><svg class="lime-ico"><use href="#i-undo"/></svg> Оригинал</button>
                     </form>
                 }
                 <div class="lime-topbar-more" data-topbar-more>
-                    <button type="button" class="lime-btn lime-btn--ghost lime-btn--sm lime-btn--icon" data-topbar-more-toggle aria-haspopup="menu" aria-expanded="false" title="Ещё действия">⋯</button>
+                    <button type="button" class="lime-btn lime-btn--ghost lime-btn--sm lime-btn--icon" data-topbar-more-toggle aria-haspopup="menu" aria-expanded="false" title="Ещё действия" aria-label="Ещё действия"><svg class="lime-ico"><use href="#i-more"/></svg></button>
                     <div class="lime-topbar-more__menu" role="menu" hidden>
-                        <button type="button" class="lime-topbar-more__item" role="menuitem" data-doc-ai-open title="Сгенерировать страницу по описанию">✨ AI заново</button>
-                        <button type="button" class="lime-topbar-more__item" role="menuitem" data-doc-theme-open title="Тема сайта">🎨 Тема сайта</button>
-                        <button type="button" class="lime-topbar-more__item" role="menuitem" data-doc-code-open title="Глобальный CSS и код в head">&lt;/&gt; Код сайта</button>
-                        <button type="button" class="lime-topbar-more__item" role="menuitem" data-doc-anim-preview title="Проиграть анимации появления">▶ Превью анимаций</button>
+                        <button type="button" class="lime-topbar-more__item" role="menuitem" data-doc-ai-open title="Сгенерировать страницу по описанию"><svg class="lime-ico"><use href="#i-features"/></svg> AI заново</button>
+                        <button type="button" class="lime-topbar-more__item" role="menuitem" data-doc-theme-open title="Тема сайта"><svg class="lime-ico"><use href="#i-palette"/></svg> Тема сайта</button>
+                        <button type="button" class="lime-topbar-more__item" role="menuitem" data-doc-code-open title="Глобальный CSS и код в head"><svg class="lime-ico"><use href="#i-embed"/></svg> Код сайта</button>
+                        <button type="button" class="lime-topbar-more__item" role="menuitem" data-doc-anim-preview title="Проиграть анимации появления"><svg class="lime-ico"><use href="#i-play"/></svg> Превью анимаций</button>
                     </div>
                 </div>
                 <button type="button" class="lime-btn lime-btn--primary lime-btn--sm" data-doc-save data-site-id="@(Model.SiteId?.ToString() ?? "")">
@@ -88,59 +140,66 @@
             </div>
         </div>
 
-        <aside class="lime-editor__sidebar">
+        <aside class="lime-editor__sidebar" aria-label="Панели редактора">
+            <nav class="lime-sidebar-rail" aria-label="Разделы редактора">
+                <button type="button" class="lime-sidebar-rail__btn is-active" data-sidebar-panel-toggle="insert" aria-controls="lime-sidebar-panel-insert" aria-pressed="true" title="Вставка" aria-label="Вставка"><svg class="lime-ico"><use href="#i-plus"/></svg></button>
+                <button type="button" class="lime-sidebar-rail__btn" data-sidebar-panel-toggle="layers" aria-controls="lime-sidebar-panel-layers" aria-pressed="false" title="Слои" aria-label="Слои"><svg class="lime-ico"><use href="#i-layers"/></svg></button>
+                <button type="button" class="lime-sidebar-rail__btn" data-sidebar-panel-toggle="components" aria-controls="lime-sidebar-panel-components" aria-pressed="false" title="Компоненты" aria-label="Компоненты"><svg class="lime-ico"><use href="#i-grid"/></svg></button>
+            </nav>
+            <div class="lime-sidebar-panels">
+            <div class="lime-sidebar-panel is-active" id="lime-sidebar-panel-insert" data-sidebar-panel="insert">
             <div class="lime-editor__sidebar-section">
                 <h3>Блоки</h3>
                 <input type="search" id="lime-block-search" class="lime-sidebar-search" placeholder="Поиск блока…" autocomplete="off">
                 <details class="lime-tile-group" open>
                     <summary>Структура</summary>
                     <div class="lime-editor__tiles">
-                        <button type="button" class="lime-block-tile" data-doc-add="navbar"><span class="lime-block-tile__icon">≣</span><span>Навбар</span></button>
-                        <button type="button" class="lime-block-tile" data-doc-add="footer"><span class="lime-block-tile__icon">▭</span><span>Подвал</span></button>
-                        <button type="button" class="lime-block-tile" data-doc-add="container"><span class="lime-block-tile__icon">▣</span><span>Контейнер</span></button>
-                        <button type="button" class="lime-block-tile" data-doc-add="columns"><span class="lime-block-tile__icon">⫼</span><span>Колонки</span></button>
+                        <button type="button" class="lime-block-tile" data-doc-add="navbar"><span class="lime-block-tile__icon"><svg class="lime-ico"><use href="#i-navbar"/></svg></span><span>Навбар</span></button>
+                        <button type="button" class="lime-block-tile" data-doc-add="footer"><span class="lime-block-tile__icon"><svg class="lime-ico"><use href="#i-footer"/></svg></span><span>Подвал</span></button>
+                        <button type="button" class="lime-block-tile" data-doc-add="container"><span class="lime-block-tile__icon"><svg class="lime-ico"><use href="#i-container"/></svg></span><span>Контейнер</span></button>
+                        <button type="button" class="lime-block-tile" data-doc-add="columns"><span class="lime-block-tile__icon"><svg class="lime-ico"><use href="#i-columns"/></svg></span><span>Колонки</span></button>
                     </div>
                 </details>
                 <details class="lime-tile-group" open>
                     <summary>Контент</summary>
                     <div class="lime-editor__tiles">
-                        <button type="button" class="lime-block-tile" data-doc-add="cover"><span class="lime-block-tile__icon">▢</span><span>Обложка</span></button>
-                        <button type="button" class="lime-block-tile" data-doc-add="heading"><span class="lime-block-tile__icon">T</span><span>Заголовок</span></button>
-                        <button type="button" class="lime-block-tile" data-doc-add="text"><span class="lime-block-tile__icon">¶</span><span>Текст</span></button>
-                        <button type="button" class="lime-block-tile" data-doc-add="features"><span class="lime-block-tile__icon">✦</span><span>Фичи</span></button>
-                        <button type="button" class="lime-block-tile" data-doc-add="stats"><span class="lime-block-tile__icon">#</span><span>Цифры</span></button>
-                        <button type="button" class="lime-block-tile" data-doc-add="steps"><span class="lime-block-tile__icon">⇉</span><span>Шаги</span></button>
-                        <button type="button" class="lime-block-tile" data-doc-add="testimonials"><span class="lime-block-tile__icon">❝</span><span>Отзывы</span></button>
-                        <button type="button" class="lime-block-tile" data-doc-add="accordion"><span class="lime-block-tile__icon">▾</span><span>FAQ</span></button>
-                        <button type="button" class="lime-block-tile" data-doc-add="logos"><span class="lime-block-tile__icon">◫</span><span>Логотипы</span></button>
-                        <button type="button" class="lime-block-tile" data-doc-add="imageText"><span class="lime-block-tile__icon">◧</span><span>Картинка+текст</span></button>
-                        <button type="button" class="lime-block-tile" data-doc-add="collectionList"><span class="lime-block-tile__icon">🗃</span><span>Список (данные)</span></button>
+                        <button type="button" class="lime-block-tile" data-doc-add="cover"><span class="lime-block-tile__icon"><svg class="lime-ico"><use href="#i-cover"/></svg></span><span>Обложка</span></button>
+                        <button type="button" class="lime-block-tile" data-doc-add="heading"><span class="lime-block-tile__icon"><svg class="lime-ico"><use href="#i-heading"/></svg></span><span>Заголовок</span></button>
+                        <button type="button" class="lime-block-tile" data-doc-add="text"><span class="lime-block-tile__icon"><svg class="lime-ico"><use href="#i-text"/></svg></span><span>Текст</span></button>
+                        <button type="button" class="lime-block-tile" data-doc-add="features"><span class="lime-block-tile__icon"><svg class="lime-ico"><use href="#i-features"/></svg></span><span>Фичи</span></button>
+                        <button type="button" class="lime-block-tile" data-doc-add="stats"><span class="lime-block-tile__icon"><svg class="lime-ico"><use href="#i-stats"/></svg></span><span>Цифры</span></button>
+                        <button type="button" class="lime-block-tile" data-doc-add="steps"><span class="lime-block-tile__icon"><svg class="lime-ico"><use href="#i-steps"/></svg></span><span>Шаги</span></button>
+                        <button type="button" class="lime-block-tile" data-doc-add="testimonials"><span class="lime-block-tile__icon"><svg class="lime-ico"><use href="#i-testimonials"/></svg></span><span>Отзывы</span></button>
+                        <button type="button" class="lime-block-tile" data-doc-add="accordion"><span class="lime-block-tile__icon"><svg class="lime-ico"><use href="#i-faq"/></svg></span><span>FAQ</span></button>
+                        <button type="button" class="lime-block-tile" data-doc-add="logos"><span class="lime-block-tile__icon"><svg class="lime-ico"><use href="#i-logos"/></svg></span><span>Логотипы</span></button>
+                        <button type="button" class="lime-block-tile" data-doc-add="imageText"><span class="lime-block-tile__icon"><svg class="lime-ico"><use href="#i-imagetext"/></svg></span><span>Картинка+текст</span></button>
+                        <button type="button" class="lime-block-tile" data-doc-add="collectionList"><span class="lime-block-tile__icon"><svg class="lime-ico"><use href="#i-collection"/></svg></span><span>Список (данные)</span></button>
                     </div>
                 </details>
                 <details class="lime-tile-group">
                     <summary>Медиа</summary>
                     <div class="lime-editor__tiles">
-                        <button type="button" class="lime-block-tile" data-doc-add="image"><span class="lime-block-tile__icon">🖼</span><span>Картинка</span></button>
-                        <button type="button" class="lime-block-tile" data-doc-add="gallery"><span class="lime-block-tile__icon">▦</span><span>Галерея</span></button>
-                        <button type="button" class="lime-block-tile" data-doc-add="video"><span class="lime-block-tile__icon">▶</span><span>Видео</span></button>
-                        <button type="button" class="lime-block-tile" data-doc-add="embed"><span class="lime-block-tile__icon">◈</span><span>3D / Embed</span></button>
+                        <button type="button" class="lime-block-tile" data-doc-add="image"><span class="lime-block-tile__icon"><svg class="lime-ico"><use href="#i-image"/></svg></span><span>Картинка</span></button>
+                        <button type="button" class="lime-block-tile" data-doc-add="gallery"><span class="lime-block-tile__icon"><svg class="lime-ico"><use href="#i-gallery"/></svg></span><span>Галерея</span></button>
+                        <button type="button" class="lime-block-tile" data-doc-add="video"><span class="lime-block-tile__icon"><svg class="lime-ico"><use href="#i-video"/></svg></span><span>Видео</span></button>
+                        <button type="button" class="lime-block-tile" data-doc-add="embed"><span class="lime-block-tile__icon"><svg class="lime-ico"><use href="#i-embed"/></svg></span><span>3D / Embed</span></button>
                     </div>
                 </details>
                 <details class="lime-tile-group">
                     <summary>Конверсия</summary>
                     <div class="lime-editor__tiles">
-                        <button type="button" class="lime-block-tile" data-doc-add="cta"><span class="lime-block-tile__icon">◉</span><span>Призыв</span></button>
-                        <button type="button" class="lime-block-tile" data-doc-add="form"><span class="lime-block-tile__icon">✉</span><span>Форма</span></button>
-                        <button type="button" class="lime-block-tile" data-doc-add="pricing"><span class="lime-block-tile__icon">₽</span><span>Тарифы</span></button>
-                        <button type="button" class="lime-block-tile" data-doc-add="buttonGroup"><span class="lime-block-tile__icon">⬚</span><span>Кнопки</span></button>
-                        <button type="button" class="lime-block-tile" data-doc-add="socials"><span class="lime-block-tile__icon">@@</span><span>Соцсети</span></button>
+                        <button type="button" class="lime-block-tile" data-doc-add="cta"><span class="lime-block-tile__icon"><svg class="lime-ico"><use href="#i-cta"/></svg></span><span>Призыв</span></button>
+                        <button type="button" class="lime-block-tile" data-doc-add="form"><span class="lime-block-tile__icon"><svg class="lime-ico"><use href="#i-form"/></svg></span><span>Форма</span></button>
+                        <button type="button" class="lime-block-tile" data-doc-add="pricing"><span class="lime-block-tile__icon"><svg class="lime-ico"><use href="#i-pricing"/></svg></span><span>Тарифы</span></button>
+                        <button type="button" class="lime-block-tile" data-doc-add="buttonGroup"><span class="lime-block-tile__icon"><svg class="lime-ico"><use href="#i-buttons"/></svg></span><span>Кнопки</span></button>
+                        <button type="button" class="lime-block-tile" data-doc-add="socials"><span class="lime-block-tile__icon"><svg class="lime-ico"><use href="#i-socials"/></svg></span><span>Соцсети</span></button>
                     </div>
                 </details>
                 <details class="lime-tile-group">
                     <summary>Разметка</summary>
                     <div class="lime-editor__tiles">
-                        <button type="button" class="lime-block-tile" data-doc-add="divider"><span class="lime-block-tile__icon">—</span><span>Разделитель</span></button>
-                        <button type="button" class="lime-block-tile" data-doc-add="spacer"><span class="lime-block-tile__icon">↕</span><span>Отступ</span></button>
+                        <button type="button" class="lime-block-tile" data-doc-add="divider"><span class="lime-block-tile__icon"><svg class="lime-ico"><use href="#i-divider"/></svg></span><span>Разделитель</span></button>
+                        <button type="button" class="lime-block-tile" data-doc-add="spacer"><span class="lime-block-tile__icon"><svg class="lime-ico"><use href="#i-spacer"/></svg></span><span>Отступ</span></button>
                     </div>
                 </details>
             </div>
@@ -149,19 +208,24 @@
                 <div id="lime-doc-presets" class="lime-editor__tiles"></div>
             </div>
             <div class="lime-editor__sidebar-section">
+                <div class="lime-editor__hint">
+                    <b>Совет.</b> Опиши идею через <b>✨ AI заново</b> — Lime соберёт блоки сам. Стили правятся для выбранного устройства, текст — прямо в блоке.
+                </div>
+            </div>
+            </div>
+            <div class="lime-sidebar-panel" id="lime-sidebar-panel-layers" data-sidebar-panel="layers" hidden>
+            <div class="lime-editor__sidebar-section">
                 <h3>Слои</h3>
                 <div id="lime-doc-layers" class="lime-doc-layers"></div>
             </div>
+            </div>
 
+            <div class="lime-sidebar-panel" id="lime-sidebar-panel-components" data-sidebar-panel="components" hidden>
             <div class="lime-editor__sidebar-section">
                 <h3>Компоненты</h3>
                 <div id="lime-doc-components"></div>
             </div>
-
-            <div class="lime-editor__sidebar-section">
-                <div class="lime-editor__hint">
-                    <b>Совет.</b> Опиши идею через <b>✨ AI заново</b> — Lime соберёт блоки сам. Стили правятся для выбранного устройства, текст — прямо в блоке.
-                </div>
+            </div>
             </div>
         </aside>
 
@@ -203,7 +267,7 @@
         </main>
 
         <aside class="lime-editor__inspector" id="lime-doc-inspector">
-            <div class="lime-inspector__empty">Выбери блок в холсте, чтобы редактировать его стили.</div>
+            <div class="lime-inspector__empty"><svg class="lime-ico"><use href="#i-cta"/></svg><p>Выбери блок в холсте, чтобы редактировать стили, раскладку и контент.</p></div>
         </aside>
     </div>
 
@@ -225,7 +289,7 @@
                 <p class="lime-text-muted" style="font-size: var(--text-xs); margin-bottom: var(--space-3);">
                     Токены применяются ко всему сайту. Поменяешь раз — обновится везде, где блок ссылается на токен (свотчи под цветами в инспекторе).
                 </p>
-                <label style="display:block; font-size: var(--text-xs); color: var(--muted); margin-bottom: 6px;">Готовые палитры</label>
+                <label class="lime-field-label">Готовые палитры</label>
                 <div id="lime-theme-palettes" class="lime-theme-palettes"></div>
                 <div style="height:1px; background: var(--line); margin: var(--space-3) 0;"></div>
                 <div class="lime-flex lime-items-center" style="justify-content: space-between; margin-bottom: var(--space-2);">
@@ -248,7 +312,7 @@
                     <span class="lime-text-muted" style="font-size: var(--text-sm);">Приглушённый</span>
                     <input type="color" id="lime-theme-muted" class="lime-color-input">
                 </div>
-                <label style="display:block; font-size: var(--text-xs); color: var(--muted); margin-bottom: 4px;">Шрифт</label>
+                <label class="lime-field-label">Шрифт</label>
                 <select id="lime-theme-font" class="lime-select" style="width:100%;">
                     <option value="'Inter', system-ui, sans-serif">Inter</option>
                     <option value="'Space Grotesk', system-ui, sans-serif">Space Grotesk</option>
@@ -292,13 +356,13 @@
                 <button type="button" class="lime-modal__close" data-doc-code-close aria-label="Закрыть">×</button>
             </div>
             <div class="lime-modal__body">
-                <label style="display:block; font-size: var(--text-xs); color: var(--muted); margin-bottom: 6px;">
+                <label class="lime-field-label">
                     Глобальный CSS <span class="lime-text-muted">— применяется ко всему сайту, идёт после стилей блоков (может их перебить)</span>
                 </label>
                 <textarea id="lime-doc-custom-css" class="lime-textarea" rows="8" spellcheck="false"
                           style="width:100%; font-family: var(--font-mono, monospace); font-size: var(--text-sm);"
                           placeholder=".lime-block__heading { letter-spacing: -.02em }&#10;a { transition: color .2s }"></textarea>
-                <label style="display:block; font-size: var(--text-xs); color: var(--muted); margin: var(--space-3) 0 6px;">
+                <label class="lime-field-label" style="margin-top: var(--space-3);">
                     Код в &lt;head&gt; <span class="lime-text-muted">— мета-теги, верификации, шрифты, &lt;link&gt;/&lt;style&gt;</span>
                 </label>
                 <textarea id="lime-doc-custom-head" class="lime-textarea" rows="6" spellcheck="false"

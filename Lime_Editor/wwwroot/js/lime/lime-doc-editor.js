@@ -35,6 +35,8 @@
     var currentState = "normal"; // normal | hover — редактируемое состояние блока (1.2)
     var currentClass = null;   // если задан cls — инспектор правит этот класс, а не блок (0.1)
     var currentInspectorTab = "style"; // style | fx | motion — активная вкладка инспектора
+    var inspectorAdvOpen = false; // развёрнута ли группа «Дополнительно» (Calm Canvas v2.1, фаза 2)
+    var paletteJustDragged = false; // подавляет click палитры после drag-and-drop из палитры (DnD A)
 
     // Версия документа для optimistic concurrency (этап 0.4): Site.UpdatedAt.Ticks.
     // Шлём с каждым сохранением; 409 = документ сохранили из другого окна.
@@ -247,6 +249,8 @@
     function declsToCss(obj) {
         return Object.keys(obj).map(function (k) { return kebab(k) + ":" + obj[k]; }).join(";");
     }
+    // Единый icon-set: инлайн-SVG по id из спрайта в EditDoc.cshtml (полировка/Calm Canvas v2.1).
+    function ico(name) { return '<svg class="lime-ico"><use href="#i-' + name + '"/></svg>'; }
 
     // ===== HISTORY (этап 0.4: undo/redo на снапшотах JSON-документа) =====
     var HIST_MAX = 50;
@@ -259,7 +263,15 @@
     var v2Default = window.__LIME_V2_DEFAULT__ !== false && !/[?&]classic=1\b/.test(location.search);
     var cmdOn = !/[?&]cmd=0\b/.test(location.search) && (/[?&]cmd=1\b/.test(location.search) || window.__LIME_CMD__ || v2Default) && !!window.LimeCommands;
     var canvasOn = !/[?&]canvas=0\b/.test(location.search) && (/[?&]canvas=1\b/.test(location.search) || v2Default);
+    var calmCanvasOn = !/[?&]classic=1\b/.test(location.search);
     var cmdStore = cmdOn ? window.LimeCommands.createStore(doc) : null;
+
+    function syncInspectorShell(hasSelection) {
+        var hidden = calmCanvasOn && !hasSelection;
+        editorRoot = editorRoot || document.querySelector(".lime-editor");
+        if (editorRoot) editorRoot.classList.toggle("no-inspector", hidden);
+        if (inspectorEl) inspectorEl.setAttribute("aria-hidden", hidden ? "true" : "false");
+    }
 
     // ===== Stage 7 perf-инструмент (за ?perf=1, иначе ноль стоимости) =====
     // Считает вызовы полного render() против точечных patch/insert/remove/move и время в каждом.
@@ -1226,6 +1238,8 @@
     for (var a = 0; a < addBtns.length; a++) {
         addBtns[a].addEventListener("click", function (e) {
             e.stopPropagation();
+            // Если только что был drag-and-drop из палитры — click не дублирует вставку (DnD A).
+            if (paletteJustDragged) { paletteJustDragged = false; return; }
             var b = L.createBlock(this.dataset.docAdd);
             var sel = selectedId ? findBlock(selectedId) : null;
             var t = sel ? targetBlock(sel.block) : null;
@@ -1277,6 +1291,7 @@
         blockSearch.addEventListener("input", function () {
             var q = blockSearch.value.trim().toLowerCase();
             var sidebar = document.querySelector(".lime-editor__sidebar");
+            if (!sidebar) return;
             var tiles = sidebar.querySelectorAll(".lime-tile-group [data-doc-add]");
             for (var i = 0; i < tiles.length; i++) {
                 var label = tiles[i].textContent.toLowerCase();
@@ -1294,6 +1309,35 @@
             }
         });
     }
+
+    // Calm Canvas rail: left icon rail keeps only one utility panel open at a time.
+    (function () {
+        var sidebar = document.querySelector(".lime-editor__sidebar");
+        if (!sidebar) return;
+        var toggles = sidebar.querySelectorAll("[data-sidebar-panel-toggle]");
+        var panels = sidebar.querySelectorAll("[data-sidebar-panel]");
+        if (!toggles.length || !panels.length) return;
+        function setSidebarPanel(name) {
+            for (var i = 0; i < panels.length; i++) {
+                var activePanel = panels[i].getAttribute("data-sidebar-panel") === name;
+                panels[i].hidden = !activePanel;
+                panels[i].classList.toggle("is-active", activePanel);
+            }
+            for (var j = 0; j < toggles.length; j++) {
+                var activeToggle = toggles[j].getAttribute("data-sidebar-panel-toggle") === name;
+                toggles[j].classList.toggle("is-active", activeToggle);
+                toggles[j].setAttribute("aria-pressed", activeToggle ? "true" : "false");
+            }
+        }
+        sidebar.addEventListener("click", function (e) {
+            var btn = e.target.closest("[data-sidebar-panel-toggle]");
+            if (!btn) return;
+            setSidebarPanel(btn.getAttribute("data-sidebar-panel-toggle"));
+        });
+        if (blockSearch) blockSearch.addEventListener("focus", function () { setSidebarPanel("insert"); });
+        window.__LIME_SIDEBAR__ = { open: setSidebarPanel };
+        setSidebarPanel("insert");
+    })();
 
     // ===== PRESET SECTIONS (Фаза 3.1): готовая красивая секция в один клик =====
     function insertPreset(key) {
@@ -1761,20 +1805,20 @@
         var nested = !!(r && r.parentBlock);
         var hasClip = !!readClip();
         var items = [
-            { op: "dup", label: "⎘ Дублировать", hint: "Ctrl+D" },
-            { op: "copy", label: "⧉ Копировать", hint: "Ctrl+C" },
-            { op: "paste", label: "📋 Вставить", hint: "Ctrl+V", disabled: !hasClip },
+            { op: "dup", icon: "duplicate", text: "Дублировать", hint: "Ctrl+D" },
+            { op: "copy", icon: "copy", text: "Копировать", hint: "Ctrl+C" },
+            { op: "paste", icon: "paste", text: "Вставить", hint: "Ctrl+V", disabled: !hasClip },
             { sep: true },
-            { op: "up", label: "↑ Поднять" },
-            { op: "down", label: "↓ Опустить" }
+            { op: "up", icon: "up", text: "Поднять" },
+            { op: "down", icon: "down", text: "Опустить" }
         ];
-        if (nested) items.push({ op: "unwrap", label: "⬅ Вынести наружу" });
+        if (nested) items.push({ op: "unwrap", icon: "out", text: "Вынести наружу" });
         items.push({ sep: true });
-        items.push({ op: "aiedit", label: "✨ AI: переписать" });
-        items.push({ op: "aisuggest", label: "✦ AI: изменить по описанию" });
-        items.push({ op: "aimobile", label: "📱 AI: адаптировать мобилку" });
+        items.push({ op: "aiedit", icon: "features", text: "AI: переписать" });
+        items.push({ op: "aisuggest", icon: "features", text: "AI: изменить по описанию" });
+        items.push({ op: "aimobile", icon: "phone", text: "AI: адаптировать мобилку" });
         items.push({ sep: true });
-        items.push({ op: "del", label: "✕ Удалить", danger: true, hint: "Del" });
+        items.push({ op: "del", icon: "trash", text: "Удалить", danger: true, hint: "Del" });
 
         ctxEl = document.createElement("div");
         ctxEl.className = "lime-ctx-menu";
@@ -1782,7 +1826,8 @@
             if (it.sep) return '<div class="lime-ctx-menu__sep"></div>';
             return '<button type="button" class="lime-ctx-menu__item' + (it.danger ? " is-danger" : "") + '"' +
                 (it.disabled ? " disabled" : "") + ' data-ctx-op="' + it.op + '">' +
-                '<span>' + it.label + '</span>' + (it.hint ? '<kbd>' + it.hint + '</kbd>' : "") + '</button>';
+                '<span class="lime-ctx-menu__label">' + ico(it.icon) + '<span>' + it.text + '</span></span>' +
+                (it.hint ? '<kbd>' + it.hint + '</kbd>' : "") + '</button>';
         }).join("");
         document.body.appendChild(ctxEl);
         // Не вылезаем за вьюпорт.
@@ -2225,24 +2270,24 @@
         { title: "Размер текста", kind: "range", prop: "fontSize", min: 12, max: 80, step: 1, unit: "px", units: CSS_UNITS },
         { title: "Жирность", kind: "seg", prop: "fontWeight", options: WEIGHTS },
         { title: "Межстрочный", kind: "range", prop: "lineHeight", min: 1, max: 2.4, step: 0.05, unit: "" },
-        { title: "Трекинг (межбуквенный)", kind: "range", prop: "letterSpacing", min: -2, max: 12, step: 0.5, unit: "px", units: CSS_UNITS_NO_PERCENT },
-        { title: "Регистр", kind: "seg", prop: "textTransform", options: TRANSFORM },
+        { title: "Трекинг (межбуквенный)", kind: "range", prop: "letterSpacing", min: -2, max: 12, step: 0.5, unit: "px", units: CSS_UNITS_NO_PERCENT, adv: true },
+        { title: "Регистр", kind: "seg", prop: "textTransform", options: TRANSFORM, adv: true },
         { title: "Выравнивание текста", kind: "seg", prop: "textAlign", options: ALIGN },
         { title: "Внутренние отступы", kind: "seg", prop: "padding", options: "PAD" },
         { title: "Внешние отступы (↑ / ↓)", kind: "ranges", items: [
             { prop: "marginTop", min: 0, max: 200, step: 2, unit: "px", units: CSS_UNITS },
             { prop: "marginBottom", min: 0, max: 200, step: 2, unit: "px", units: CSS_UNITS }
         ] },
-        { title: "Граница", kind: "group", parts: [
+        { title: "Граница", kind: "group", adv: true, parts: [
             { kind: "range", prop: "borderWidth", min: 0, max: 12, step: 1, unit: "px", units: CSS_UNITS_NO_PERCENT },
             { kind: "seg", prop: "borderStyle", options: BORDER_STYLE },
             { kind: "color", prop: "borderColor" }
         ] },
         { title: "Скругление", kind: "range", prop: "borderRadius", min: 0, max: 64, step: 1, unit: "px", units: CSS_UNITS },
-        { title: "Тень", kind: "shadow", prop: "boxShadow" },
-        { title: "Прозрачность", kind: "range", prop: "opacity", min: 0, max: 1, step: 0.05, unit: "" },
-        { title: "Смешивание (blend)", kind: "seg", prop: "mixBlendMode", options: BLEND },
-        { title: "Мин. высота", kind: "range", prop: "minHeight", min: 0, max: 800, step: 10, unit: "px", units: CSS_UNITS }
+        { title: "Тень", kind: "shadow", prop: "boxShadow", adv: true },
+        { title: "Прозрачность", kind: "range", prop: "opacity", min: 0, max: 1, step: 0.05, unit: "", adv: true },
+        { title: "Смешивание (blend)", kind: "seg", prop: "mixBlendMode", options: BLEND, adv: true },
+        { title: "Мин. высота", kind: "range", prop: "minHeight", min: 0, max: 800, step: 10, unit: "px", units: CSS_UNITS, adv: true }
     ];
 
     function renderControl(c, s, mixed) {
@@ -2292,27 +2337,42 @@
         if (props.some(function (p) { return hasOwn(info.cls, p) && !hasOwn(info.own, p) && !hasOwn(info.tablet, p) && !hasOwn(info.base, p); })) return "class";
         return null;
     }
+    // Calm Canvas v2.1 (фаза 2 инспектора): core-секции стиля показываем сразу, а редкие
+    // (Трекинг/Регистр/Граница/Тень/Прозрачность/Blend/Мин.высота — флаг adv) сворачиваем
+    // в одну группу «Дополнительно». Сами контролы и их data-doc-* хуки не меняются.
+    function styleSectionHtml(item, s, mixed, sourceInfo) {
+        var body = renderControl(item, s, mixed);
+        var props = registryProps(item);
+        var src = sectionSource(props, sourceInfo);
+        if (src === "instance-own") {
+            var instOv = props.filter(function (p) { return hasOwn(sourceInfo.instOwn, p); });
+            body = '<div class="lime-style-override"><span class="lime-style-override__badge" title="Переопределено в этой копии компонента">●</span>' +
+                '<button type="button" class="lime-btn lime-btn--ghost lime-btn--sm" data-doc-style-reset="' + instOv.join(",") + '">↺ к компоненту</button></div>' + body;
+        } else if (src === "own") {
+            var ov = props.filter(function (p) { return hasOwn(sourceInfo.own, p); });
+            body = '<div class="lime-style-override"><span class="lime-style-override__badge" title="Переопределено на этом брейкпоинте">●</span>' +
+                '<button type="button" class="lime-btn lime-btn--ghost lime-btn--sm" data-doc-style-reset="' + ov.join(",") + '">↺ сбросить</button></div>' + body;
+        } else if (src === "tablet" || src === "base") {
+            body = '<div class="lime-style-override lime-style-override--inherited"><span class="lime-style-override__src" data-style-src="' + src + '">← ' +
+                (src === "tablet" ? "планшет" : "десктоп") + '</span></div>' + body;
+        } else if (src === "class") {
+            body = '<div class="lime-style-override lime-style-override--inherited"><span class="lime-style-override__src" data-style-src="class">← класс</span></div>' + body;
+        }
+        return sec(item.title, body);
+    }
     function renderStyleSections(s, mixed, sourceInfo) {
-        return STYLE_REGISTRY.map(function (item) {
-            var body = renderControl(item, s, mixed);
-            var props = registryProps(item);
-            var src = sectionSource(props, sourceInfo);
-            if (src === "instance-own") {
-                var instOv = props.filter(function (p) { return hasOwn(sourceInfo.instOwn, p); });
-                body = '<div class="lime-style-override"><span class="lime-style-override__badge" title="Переопределено в этой копии компонента">●</span>' +
-                    '<button type="button" class="lime-btn lime-btn--ghost lime-btn--sm" data-doc-style-reset="' + instOv.join(",") + '">↺ к компоненту</button></div>' + body;
-            } else if (src === "own") {
-                var ov = props.filter(function (p) { return hasOwn(sourceInfo.own, p); });
-                body = '<div class="lime-style-override"><span class="lime-style-override__badge" title="Переопределено на этом брейкпоинте">●</span>' +
-                    '<button type="button" class="lime-btn lime-btn--ghost lime-btn--sm" data-doc-style-reset="' + ov.join(",") + '">↺ сбросить</button></div>' + body;
-            } else if (src === "tablet" || src === "base") {
-                body = '<div class="lime-style-override lime-style-override--inherited"><span class="lime-style-override__src" data-style-src="' + src + '">← ' +
-                    (src === "tablet" ? "планшет" : "десктоп") + '</span></div>' + body;
-            } else if (src === "class") {
-                body = '<div class="lime-style-override lime-style-override--inherited"><span class="lime-style-override__src" data-style-src="class">← класс</span></div>' + body;
-            }
-            return sec(item.title, body);
-        }).join("");
+        var core = [], adv = [];
+        STYLE_REGISTRY.forEach(function (item) {
+            (item.adv ? adv : core).push(styleSectionHtml(item, s, mixed, sourceInfo));
+        });
+        var out = core.join("");
+        if (adv.length) {
+            out += '<details class="lime-inspector__adv"' + (inspectorAdvOpen ? " open" : "") + '>' +
+                '<summary class="lime-inspector__adv-summary">Дополнительно</summary>' +
+                '<div class="lime-inspector__adv-body">' + adv.join("") + '</div>' +
+                '</details>';
+        }
+        return out;
     }
 
     // ----- Панель «Классы» (этап 0.1): назначение/снятие/создание/правка классов блока -----
@@ -2793,9 +2853,10 @@
         var b = selectedId ? byId(selectedId) : null;
         // Calm Canvas: в V2 инспектор скрыт, пока ничего не выбрано — холст шире, меньше шума.
         // В legacy (?classic=1) инспектор остаётся постоянным.
-        if (editorRoot && canvasOn) editorRoot.classList.toggle("no-inspector", !b);
+        syncInspectorShell(!!b);
         if (!b) {
-            inspectorEl.innerHTML = '<div class="lime-inspector__empty">Выбери блок в холсте, чтобы редактировать его стили.</div>';
+            inspectorEl.innerHTML = '<div class="lime-inspector__empty">' + ico("cta") +
+                '<p>Выбери блок в холсте, чтобы редактировать стили, раскладку и контент.</p></div>';
             return;
         }
         var s = curStyle(b);
@@ -2847,20 +2908,31 @@
             ? '<div class="lime-inspector__section"><div class="lime-doc-comp-banner">▣ Контейнер выбран — блоки из сайдбара добавятся внутрь него.</div></div>'
             : "";
 
+        // DnD C: режим раскладки контейнера → заметный тумблер «Свободно ⇄ Поток» в шапке.
+        // Делает free-режим (перемещение блоков как в Figma) видимым, а не спрятанным в Layout·V2.
+        var contMode = (t && L.isContainer(t.type) && t.type !== "component" && L.resolvedDesign)
+            ? ((L.resolvedDesign(t.design, currentBp).layout || {}).mode || "stack") : "";
+        var freeToggleBtn = contMode
+            ? '<button type="button" class="lime-block-toolbar__btn' + (contMode === "free" ? " is-active" : "") +
+                '" data-doc-op="free-toggle' +
+                '" title="' + (contMode === "free" ? "Вернуть блоки в поток" : "Свободное размещение — двигай блоки как в Figma") +
+                '" aria-label="Свободное размещение"><svg class="lime-ico"><use href="#i-free"/></svg></button>'
+            : "";
         var headHtml =
             '<div class="lime-inspector__head">' +
                 '<div class="lime-inspector__title">' + (isComp ? "компонент" : b.type) +
                     '<small>Стили для: <b>' + bpLabel() + '</b>' + (currentBp === "base" ? "" : " (override)") + '</small></div>' +
                 '<div class="lime-flex lime-gap-2" role="toolbar" aria-label="Действия над блоком">' +
-                    '<button type="button" class="lime-block-toolbar__btn" data-doc-op="up" title="Вверх" aria-label="Поднять блок">↑</button>' +
-                    '<button type="button" class="lime-block-toolbar__btn" data-doc-op="down" title="Вниз" aria-label="Опустить блок">↓</button>' +
-                    (nested ? '<button type="button" class="lime-block-toolbar__btn" data-doc-op="unwrap" title="Вытащить из контейнера" aria-label="Вытащить из контейнера">⬅</button>' : "") +
+                    freeToggleBtn +
+                    '<button type="button" class="lime-block-toolbar__btn" data-doc-op="up" title="Вверх" aria-label="Поднять блок">' + ico("up") + '</button>' +
+                    '<button type="button" class="lime-block-toolbar__btn" data-doc-op="down" title="Вниз" aria-label="Опустить блок">' + ico("down") + '</button>' +
+                    (nested ? '<button type="button" class="lime-block-toolbar__btn" data-doc-op="unwrap" title="Вытащить из контейнера" aria-label="Вытащить из контейнера">' + ico("out") + '</button>' : "") +
                     (t && t.content && typeof t.content.text === "string"
-                        ? '<button type="button" class="lime-block-toolbar__btn" data-doc-op="ai" title="Переписать текст (AI)" aria-label="Переписать текст с помощью AI">✨</button>' : "") +
-                    '<button type="button" class="lime-block-toolbar__btn" data-doc-op="dup" title="Дублировать" aria-label="Дублировать блок">⎘</button>' +
-                    (b.type === "group" ? '<button type="button" class="lime-block-toolbar__btn" data-doc-op="ungroup" title="Ungroup" aria-label="Разгруппировать">G-</button>' : "") +
-                    (isComp ? "" : '<button type="button" class="lime-block-toolbar__btn" data-doc-op="comp" title="Сделать компонентом" aria-label="Сделать компонентом">⊞</button>') +
-                    '<button type="button" class="lime-block-toolbar__btn lime-block-toolbar__btn--danger" data-doc-op="del" title="Удалить" aria-label="Удалить блок">✕</button>' +
+                        ? '<button type="button" class="lime-block-toolbar__btn" data-doc-op="ai" title="Переписать текст (AI)" aria-label="Переписать текст с помощью AI">' + ico("features") + '</button>' : "") +
+                    '<button type="button" class="lime-block-toolbar__btn" data-doc-op="dup" title="Дублировать" aria-label="Дублировать блок">' + ico("duplicate") + '</button>' +
+                    (b.type === "group" ? '<button type="button" class="lime-block-toolbar__btn" data-doc-op="ungroup" title="Ungroup" aria-label="Разгруппировать">' + ico("ungroup") + '</button>' : "") +
+                    (isComp ? "" : '<button type="button" class="lime-block-toolbar__btn" data-doc-op="comp" title="Сделать компонентом" aria-label="Сделать компонентом">' + ico("grid") + '</button>') +
+                    '<button type="button" class="lime-block-toolbar__btn lime-block-toolbar__btn--danger" data-doc-op="del" title="Удалить" aria-label="Удалить блок">' + ico("trash") + '</button>' +
                 '</div>' +
             '</div>';
 
@@ -2894,6 +2966,10 @@
         inspectorEl.innerHTML =
             '<div class="lime-insp-sticky">' + headHtml + banner + multiBanner + tabsBar + '</div>' +
             panel("style", styleBody) + panel("fx", fxBody) + panel("motion", motionBody);
+
+        // Запоминаем развёрнутость группы «Дополнительно» между перерисовками инспектора.
+        var advEl = inspectorEl.querySelector(".lime-inspector__adv");
+        if (advEl) advEl.addEventListener("toggle", function () { inspectorAdvOpen = advEl.open; });
 
         // Превью фон-пресетов — через style (в css-значениях кавычки/запятые, в атрибут не вставить).
         if (window.LimeAssets && window.LimeAssets.BG_PRESETS) {
@@ -4072,6 +4148,13 @@
                 else if (op === "comp") makeComponent();
                 else if (op === "detach") detachComponent();
                 else if (op === "reset-overrides") resetComponentOverrides();
+                else if (op === "free-toggle") { // DnD C: тумблер free ⇄ stack для контейнера
+                    var fb = selectedId && byId(selectedId), ft = fb && targetBlock(fb);
+                    if (ft && L.isContainer(ft.type)) {
+                        var fm = ((L.resolvedDesign(ft.design, currentBp).layout || {}).mode) || "stack";
+                        switchV2LayoutMode(fm === "free" ? "stack" : "free");
+                    }
+                }
                 else if (op === "del") { if (confirm("Удалить блок?")) delBlock(); }
             }
         });
@@ -4701,6 +4784,139 @@
         if (codeModal && e.target.closest("[data-doc-code-close]")) codeModal.classList.remove("is-open");
     });
 
+    // ===== COMMAND PALETTE (Ctrl+K): discoverability without permanent chrome =====
+    (function () {
+        var launcher = document.querySelector("[data-doc-cmdk]");
+        var palette = null, input = null, list = null, lastFocus = null, activeIndex = 0, visibleCommands = [];
+        function triggerClick(selector) {
+            var el = document.querySelector(selector);
+            if (el) el.click();
+        }
+        function openSidebarPanel(name) {
+            if (window.__LIME_SIDEBAR__ && window.__LIME_SIDEBAR__.open) window.__LIME_SIDEBAR__.open(name);
+        }
+        function canRunSelected() { return !!selectedId && !!byId(selectedId); }
+        var COMMANDS = [
+            { id: "insert-cover", title: "Вставить обложку", keywords: "hero cover блок секция", shortcut: "", when: function () { return true; }, run: function () { openSidebarPanel("insert"); triggerClick('[data-doc-add="cover"]'); } },
+            { id: "insert-heading", title: "Вставить заголовок", keywords: "heading title текст блок", shortcut: "", when: function () { return true; }, run: function () { openSidebarPanel("insert"); triggerClick('[data-doc-add="heading"]'); } },
+            { id: "insert-text", title: "Вставить текст", keywords: "paragraph copy block", shortcut: "", when: function () { return true; }, run: function () { openSidebarPanel("insert"); triggerClick('[data-doc-add="text"]'); } },
+            { id: "insert-columns", title: "Вставить колонки", keywords: "columns grid layout", shortcut: "", when: function () { return true; }, run: function () { openSidebarPanel("insert"); triggerClick('[data-doc-add="columns"]'); } },
+            { id: "show-insert", title: "Открыть вставку", keywords: "blocks блоки add sidebar", shortcut: "", when: function () { return true; }, run: function () { openSidebarPanel("insert"); } },
+            { id: "show-layers", title: "Открыть слои", keywords: "layers outline порядок дерево", shortcut: "", when: function () { return true; }, run: function () { openSidebarPanel("layers"); } },
+            { id: "show-components", title: "Открыть компоненты", keywords: "components reusable reuse", shortcut: "", when: function () { return true; }, run: function () { openSidebarPanel("components"); } },
+            { id: "device-desktop", title: "Переключить на desktop", keywords: "breakpoint desktop экран", shortcut: "", when: function () { return true; }, run: function () { triggerClick('[data-doc-bp="base"]'); } },
+            { id: "device-tablet", title: "Переключить на tablet", keywords: "breakpoint tablet планшет", shortcut: "", when: function () { return true; }, run: function () { triggerClick('[data-doc-bp="tablet"]'); } },
+            { id: "device-mobile", title: "Переключить на mobile", keywords: "breakpoint mobile телефон адаптив", shortcut: "", when: function () { return true; }, run: function () { triggerClick('[data-doc-bp="mobile"]'); } },
+            { id: "open-theme", title: "Открыть тему сайта", keywords: "theme palette colors шрифт", shortcut: "", when: function () { return !!themeModal; }, run: function () { if (themeModal) themeModal.classList.add("is-open"); } },
+            { id: "open-code", title: "Открыть код сайта", keywords: "css head custom code", shortcut: "", when: function () { return !!codeModal; }, run: function () { triggerClick("[data-doc-code-open]"); } },
+            { id: "open-ai", title: "AI: сгенерировать страницу", keywords: "ai generate prompt создать", shortcut: "", when: function () { return true; }, run: aiOpen },
+            { id: "ai-edit", title: "AI: поправить выбранный блок", keywords: "rewrite suggest ai selected", shortcut: "", when: canRunSelected, run: function () { aiSuggest(selectedId); } },
+            { id: "undo", title: "Отменить", keywords: "history назад", shortcut: "Ctrl+Z", when: function () { return true; }, run: undo },
+            { id: "redo", title: "Вернуть", keywords: "history вперед", shortcut: "Ctrl+Shift+Z", when: function () { return true; }, run: redo },
+            { id: "duplicate", title: "Дублировать выбранный блок", keywords: "copy clone duplicate", shortcut: "Ctrl+D", when: canRunSelected, run: function () { runBlockOp("dup"); } },
+            { id: "group", title: "Сгруппировать выделение", keywords: "group multi selection", shortcut: "", when: function () { return v2SelectionIds().length >= 2; }, run: groupSelection },
+            { id: "ungroup", title: "Разгруппировать блок", keywords: "ungroup group", shortcut: "", when: function () { var b = selectedId && byId(selectedId); return b && b.type === "group"; }, run: ungroupBlock },
+            { id: "component", title: "Сделать компонентом", keywords: "component reusable", shortcut: "", when: function () { var b = selectedId && byId(selectedId); return b && b.type !== "component"; }, run: makeComponent },
+            { id: "delete", title: "Удалить выбранный блок", keywords: "remove delete", shortcut: "Del", when: canRunSelected, run: function () { runBlockOp("del"); } },
+            { id: "save", title: "Опубликовать / обновить сайт", keywords: "publish save сохранить", shortcut: "", when: function () { return !!saveBtn; }, run: function () { if (saveBtn) saveBtn.click(); } }
+        ];
+        window.__LIME_COMMANDS__ = COMMANDS;
+        function ensurePalette() {
+            if (palette) return;
+            palette = document.createElement("div");
+            palette.className = "lime-command-palette";
+            palette.setAttribute("role", "dialog");
+            palette.setAttribute("aria-modal", "true");
+            palette.setAttribute("aria-label", "Командная палитра");
+            palette.innerHTML =
+                '<div class="lime-command-palette__box">' +
+                    '<input class="lime-command-palette__input" data-command-input type="search" autocomplete="off" spellcheck="false" placeholder="Что сделать?">' +
+                    '<div class="lime-command-palette__list" data-command-list role="listbox"></div>' +
+                '</div>';
+            document.body.appendChild(palette);
+            input = palette.querySelector("[data-command-input]");
+            list = palette.querySelector("[data-command-list]");
+            input.addEventListener("input", function () { renderCommands(input.value); });
+            input.addEventListener("keydown", onInputKeydown);
+            list.addEventListener("mousemove", function (e) {
+                var item = e.target.closest("[data-command-index]");
+                if (!item) return;
+                setActive(parseInt(item.getAttribute("data-command-index"), 10));
+            });
+            list.addEventListener("click", function (e) {
+                var item = e.target.closest("[data-command-index]");
+                if (!item) return;
+                runCommandItem(parseInt(item.getAttribute("data-command-index"), 10));
+            });
+            palette.addEventListener("mousedown", function (e) {
+                if (e.target === palette) closePalette();
+            });
+        }
+        function commandMatches(cmd, q) {
+            if (!q) return true;
+            var hay = (cmd.title + " " + (cmd.keywords || "") + " " + cmd.id).toLowerCase();
+            return q.split(/\s+/).every(function (part) { return !part || hay.indexOf(part) >= 0; });
+        }
+        function renderCommands(query) {
+            var q = (query || "").trim().toLowerCase();
+            visibleCommands = COMMANDS.filter(function (cmd) {
+                return (!cmd.when || cmd.when()) && commandMatches(cmd, q);
+            });
+            activeIndex = Math.min(activeIndex, Math.max(visibleCommands.length - 1, 0));
+            if (!visibleCommands.length) {
+                list.innerHTML = '<div class="lime-command-palette__empty">Ничего не найдено</div>';
+                return;
+            }
+            list.innerHTML = visibleCommands.map(function (cmd, i) {
+                return '<button type="button" class="lime-command-palette__item' + (i === activeIndex ? " is-active" : "") + '" role="option" aria-selected="' + (i === activeIndex ? "true" : "false") + '" data-command-index="' + i + '">' +
+                    '<span><span class="lime-command-palette__title">' + escapeText(cmd.title) + '</span>' +
+                    '<span class="lime-command-palette__meta">' + escapeText(cmd.keywords || "") + '</span></span>' +
+                    (cmd.shortcut ? '<span class="lime-command-palette__shortcut">' + escapeText(cmd.shortcut) + '</span>' : '') +
+                '</button>';
+            }).join("");
+        }
+        function setActive(next) {
+            if (!visibleCommands.length) return;
+            activeIndex = Math.max(0, Math.min(visibleCommands.length - 1, next));
+            renderCommands(input.value);
+            var active = list.querySelector('[data-command-index="' + activeIndex + '"]');
+            if (active) active.scrollIntoView({ block: "nearest" });
+        }
+        function runCommandItem(index) {
+            var cmd = visibleCommands[index];
+            if (!cmd) return;
+            closePalette();
+            cmd.run();
+        }
+        function onInputKeydown(e) {
+            if (e.key === "Escape") { e.preventDefault(); closePalette(); return; }
+            if (e.key === "ArrowDown") { e.preventDefault(); setActive(activeIndex + 1); return; }
+            if (e.key === "ArrowUp") { e.preventDefault(); setActive(activeIndex - 1); return; }
+            if (e.key === "Enter") { e.preventDefault(); runCommandItem(activeIndex); }
+        }
+        function openPalette() {
+            ensurePalette();
+            lastFocus = document.activeElement;
+            activeIndex = 0;
+            palette.classList.add("is-open");
+            input.value = "";
+            renderCommands("");
+            setTimeout(function () { input.focus(); }, 0);
+        }
+        function closePalette() {
+            if (!palette || !palette.classList.contains("is-open")) return;
+            palette.classList.remove("is-open");
+            if (lastFocus && lastFocus.focus) lastFocus.focus();
+        }
+        if (launcher) launcher.addEventListener("click", openPalette);
+        document.addEventListener("keydown", function (e) {
+            if (!(e.ctrlKey || e.metaKey) || (e.key || "").toLowerCase() !== "k") return;
+            e.preventDefault();
+            if (palette && palette.classList.contains("is-open")) closePalette();
+            else openPalette();
+        });
+    })();
+
     // ===== PAGES / COMPONENTS UI =====
     var pagesBox = document.getElementById("lime-doc-pages");
     var pagesModal = document.getElementById("lime-doc-pages-modal");
@@ -4853,6 +5069,8 @@
         var activeMove = null;
         var activeRotate = null;
         var activeGridSpan = null;
+        var bodyDragPending = null; // DnD B: ожидание порога для перемещения free-блока за тело
+        var freeMoveEl = null;      // DnD B: блок с курсором move (подсказка перетаскивания)
         var guides = overlay.querySelector("[data-selection-guides]");
         var gesturePerf = { move: [], resize: [], rotate: [] };
         window.__LIME_V2_PERF__ = gesturePerf;
@@ -5011,13 +5229,13 @@
         function buildBlockToolbar(rect, found) {
             var nested = !!(found && found.parentBlock);
             var ops = [
-                { op: "dup", glyph: "⎘", label: "Дублировать (Ctrl+D)" },
-                { op: "up", glyph: "↑", label: "Поднять" },
-                { op: "down", glyph: "↓", label: "Опустить" }
+                { op: "dup", icon: "duplicate", label: "Дублировать (Ctrl+D)" },
+                { op: "up", icon: "up", label: "Поднять" },
+                { op: "down", icon: "down", label: "Опустить" }
             ];
-            if (nested) ops.push({ op: "unwrap", glyph: "⬅", label: "Вынести наружу" });
-            ops.push({ op: "aiedit", glyph: "✨", label: "AI: переписать" });
-            ops.push({ op: "del", glyph: "✕", label: "Удалить (Del)", danger: true });
+            if (nested) ops.push({ op: "unwrap", icon: "out", label: "Вынести наружу" });
+            ops.push({ op: "aiedit", icon: "features", label: "AI: переписать" });
+            ops.push({ op: "del", icon: "trash", label: "Удалить (Del)", danger: true });
             // Переиспользуем готовый компонент дизайн-системы .lime-block-toolbar (is-visible).
             var bar = document.createElement("div");
             bar.className = "lime-block-toolbar is-visible";
@@ -5025,7 +5243,7 @@
             bar.setAttribute("aria-label", "Действия над блоком");
             bar.innerHTML = ops.map(function (o) {
                 return '<button type="button" class="lime-block-toolbar__btn' + (o.danger ? " lime-block-toolbar__btn--danger" : "") +
-                    '" data-block-op="' + o.op + '" title="' + o.label + '" aria-label="' + o.label + '">' + o.glyph + '</button>';
+                    '" data-block-op="' + o.op + '" title="' + o.label + '" aria-label="' + o.label + '">' + ico(o.icon) + '</button>';
             }).join("");
             bar.style.left = rect.right + "px";
             bar.style.top = Math.max(0, rect.top - 38) + "px";
@@ -5077,6 +5295,7 @@
             var valid = state.ids.filter(function (id) { return !!ws.querySelector('[data-block-id="' + id + '"]'); });
             if (valid.length !== state.ids.length) { selection.replace(valid); return; }
             boxes.innerHTML = "";
+            if (freeMoveEl) { freeMoveEl.classList.remove("is-free-move"); freeMoveEl = null; }
             var group = freeGroup(state);
             state.ids.forEach(function (id) {
                 var el = ws.querySelector('[data-block-id="' + id + '"]');
@@ -5087,7 +5306,7 @@
                 box.setAttribute("data-selection-id", id);
                 place(box, localRect(el));
                 if (!group && id === state.primaryId) {
-                    if (freeInfo(id)) addTransformHandles(box, true);
+                    if (freeInfo(id)) { addTransformHandles(box, true); el.classList.add("is-free-move"); freeMoveEl = el; }
                     else if (gridInfo(id)) addGridSpanHandle(box);
                 }
                 boxes.appendChild(box);
@@ -5345,6 +5564,68 @@
             try { handle.setPointerCapture(e.pointerId); } catch (_) { /* no-op */ }
             e.preventDefault(); e.stopPropagation();
         });
+        // ===== DnD B: перемещение free-блока за его тело (не только за move-handle) =====
+        // Текст остаётся редактируемым: на pointerdown НЕ зовём preventDefault (клик ставит каретку),
+        // а move стартует только после порога 5px. Двигаем уже активный (primary) free-блок; жест
+        // переиспользует ту же машинерию activeMove (snap/guides/commit), капчёр — на selection-box.
+        function endBodyDragPending() {
+            bodyDragPending = null;
+            window.removeEventListener("pointermove", onBodyDragMove, true);
+            window.removeEventListener("pointerup", endBodyDragPending, true);
+            window.removeEventListener("pointercancel", endBodyDragPending, true);
+        }
+        function beginBodyMove(moveId, e) {
+            var moveInfo = freeInfo(moveId);
+            var moveEl = ws.querySelector('[data-block-id="' + moveId + '"]');
+            var moveBox = boxes.querySelector('[data-selection-id="' + moveId + '"]');
+            if (!moveInfo || !moveEl || !moveBox || !window.LimeSnap) return false;
+            var selected = selection.get().ids;
+            var moveItems = [];
+            selected.forEach(function (sid) {
+                var si = freeInfo(sid);
+                var sEl = ws.querySelector('[data-block-id="' + sid + '"]');
+                var sBox = boxes.querySelector('[data-selection-id="' + sid + '"]');
+                if (si && si.siblings === moveInfo.siblings && sEl && sBox) {
+                    moveItems.push({ id: sid, source: si.source, start: si.frame, next: si.frame, blockEl: sEl, box: sBox });
+                }
+            });
+            if (moveItems.length !== selected.length) {
+                moveItems = [{ id: moveId, source: moveInfo.source, start: moveInfo.frame, next: moveInfo.frame, blockEl: moveEl, box: moveBox }];
+            }
+            var excluded = {};
+            moveItems.forEach(function (item) { excluded[item.id] = true; });
+            activeMove = {
+                id: moveId, source: moveInfo.source, start: moveInfo.frame, next: moveInfo.frame,
+                items: moveItems, targets: moveTargets(moveInfo, excluded), pointerId: e.pointerId,
+                clientX: e.clientX, clientY: e.clientY, blockEl: moveEl, box: moveBox, groupBox: null
+            };
+            try { moveBox.setPointerCapture(e.pointerId); } catch (_) { /* no-op */ }
+            return true;
+        }
+        function onBodyDragMove(e) {
+            if (!bodyDragPending || e.pointerId !== bodyDragPending.pointerId) return;
+            if (Math.abs(e.clientX - bodyDragPending.x0) + Math.abs(e.clientY - bodyDragPending.y0) < 5) return;
+            var id = bodyDragPending.id;
+            endBodyDragPending();
+            if (activeMove || activeResize || activeRotate) return;
+            if (beginBodyMove(id, e)) {
+                var sel = window.getSelection && window.getSelection();
+                if (sel && sel.removeAllRanges) sel.removeAllRanges();
+                e.preventDefault();
+            }
+        }
+        ws.addEventListener("pointerdown", function (e) {
+            if (e.button !== 0 || isViewportPanning() || activeMove || activeResize || activeRotate) return;
+            var blockEl = e.target.closest(".lime-block[data-block-id]");
+            if (!blockEl) return;
+            var id = blockEl.getAttribute("data-block-id");
+            if (selection.get().primaryId !== id) return; // телом двигаем только активный блок
+            if (!freeInfo(id)) return;                     // только free-ребёнок
+            bodyDragPending = { id: id, x0: e.clientX, y0: e.clientY, pointerId: e.pointerId };
+            window.addEventListener("pointermove", onBodyDragMove, true);
+            window.addEventListener("pointerup", endBodyDragPending, true);
+            window.addEventListener("pointercancel", endBodyDragPending, true);
+        });
         document.addEventListener("pointermove", function (e) {
             if (activeRotate && activeRotate.pointerId === e.pointerId) {
                 var rotatePerfStarted = performance.now();
@@ -5563,6 +5844,170 @@
             if (activeGridSpan) { render(); activeGridSpan = null; }
             selection.clear();
         });
+        // ===== DnD A: перетаскивание из палитры с дропом в конкретную точку холста =====
+        // Клик по плитке по-прежнему добавляет блок в конец (fallback). Drag (>5px) включает
+        // призрак у курсора и индикатор места вставки: линия — для потока (stack/grid), рамка —
+        // для free-контейнера (блок ляжет по координатам курсора).
+        function childrenListEl(blockEl) {
+            return blockEl && blockEl.querySelector(":scope > .lime-block__inner > .lime-block__children");
+        }
+        function layoutModeOf(block) {
+            var t = targetBlock(block);
+            var d = t && L.resolvedDesign && L.resolvedDesign(t.design, currentBp);
+            return (d && d.layout && d.layout.mode) || "stack";
+        }
+        function freeFrameAt(containerEl, clientX, clientY) {
+            var listEl = childrenListEl(containerEl) || containerEl;
+            var r = listEl.getBoundingClientRect();
+            var zoom = viewport.get().zoom || 1;
+            var w = 200, h = 100;
+            return {
+                x: Math.max(0, Math.round((clientX - r.left) / zoom - w / 2)),
+                y: Math.max(0, Math.round((clientY - r.top) / zoom - h / 2)),
+                width: w, height: h, rotation: 0
+            };
+        }
+        function indexAmong(listEl, clientY) {
+            var kids = listEl.querySelectorAll(":scope > .lime-block");
+            for (var i = 0; i < kids.length; i++) {
+                var r = kids[i].getBoundingClientRect();
+                if (clientY < r.top + r.height / 2) return i;
+            }
+            return kids.length;
+        }
+        function isOverCanvas(x, y) {
+            var sr = stage.getBoundingClientRect();
+            return x >= sr.left && x <= sr.right && y >= sr.top && y <= sr.bottom;
+        }
+        function paletteDropTarget(clientX, clientY) {
+            if (!isOverCanvas(clientX, clientY)) return null;
+            var prevPE = overlay.style.pointerEvents;
+            overlay.style.pointerEvents = "none";
+            var el = document.elementFromPoint(clientX, clientY);
+            overlay.style.pointerEvents = prevPE;
+            var blockEl = el && el.closest(".lime-block[data-block-id]");
+            if (!blockEl) return { parentId: null, index: pageBlocks().length, free: false };
+            var found = findBlock(blockEl.getAttribute("data-block-id"));
+            if (!found) return { parentId: null, index: pageBlocks().length, free: false };
+            var blk = found.block, t = targetBlock(blk);
+            // Навели на контейнер → кладём ВНУТРЬ него.
+            if (t && L.isContainer(t.type) && t.type !== "component" && !blk.locked) {
+                if (layoutModeOf(blk) === "free") {
+                    return { parentId: blk.id, index: (t.children && t.children.length) || 0, free: true, frame: freeFrameAt(blockEl, clientX, clientY) };
+                }
+                var listEl = childrenListEl(blockEl);
+                return { parentId: blk.id, index: listEl ? indexAmong(listEl, clientY) : ((t.children && t.children.length) || 0), free: false };
+            }
+            // Иначе — как сосед в родительском списке.
+            var parentBlock = found.parentBlock;
+            var parentId = parentBlock ? parentBlock.id : null;
+            if (parentBlock && layoutModeOf(parentBlock) === "free") {
+                var pEl = ws.querySelector('[data-block-id="' + parentBlock.id + '"]');
+                return { parentId: parentId, index: (found.parent && found.parent.length) || 0, free: true, frame: freeFrameAt(pEl, clientX, clientY) };
+            }
+            var br = blockEl.getBoundingClientRect();
+            return { parentId: parentId, index: found.index + (clientY > br.top + br.height / 2 ? 1 : 0), free: false };
+        }
+        function dropLineRect(t, clientY) {
+            var listEl = t.parentId
+                ? childrenListEl(ws.querySelector('[data-block-id="' + t.parentId + '"]'))
+                : ws.querySelector(".lime-doc-page");
+            if (!listEl) { var wr = ws.getBoundingClientRect(); return { left: wr.left, top: clientY, width: wr.width }; }
+            var lr = listEl.getBoundingClientRect();
+            var kids = listEl.querySelectorAll(":scope > .lime-block");
+            var top;
+            if (!kids.length) top = lr.top + 4;
+            else if (t.index >= kids.length) top = kids[kids.length - 1].getBoundingClientRect().bottom;
+            else top = kids[t.index].getBoundingClientRect().top;
+            return { left: lr.left, top: top, width: lr.width };
+        }
+        function dropBlockAt(type, t) {
+            var b = L.createBlock(type);
+            if (t.free && t.frame) { b.design = {}; b.design[currentBp] = { frame: t.frame }; }
+            var commandApplied = runCommand("insertBlock", { block: b, parentId: t.parentId, pageIndex: active, index: t.index });
+            if (!commandApplied) {
+                if (t.parentId) { var pb = byId(t.parentId); if (pb) { if (!pb.children) pb.children = []; pb.children.splice(t.index, 0, b); } }
+                else pageBlocks().splice(t.index, 0, b);
+            }
+            selectedId = b.id;
+            finishInsert(b, t.parentId, t.index, commandApplied);
+            selection.replace([b.id]);
+        }
+        function initPaletteDrag() {
+            var tiles = document.querySelectorAll("[data-doc-add]");
+            var drag = null, ghost = null, ind = null;
+            function cleanup() {
+                window.removeEventListener("pointermove", onMove, true);
+                window.removeEventListener("pointerup", onUp, true);
+                window.removeEventListener("pointercancel", onUp, true);
+                if (ghost) { ghost.remove(); ghost = null; }
+                if (ind) { ind.remove(); ind = null; }
+                document.body.classList.remove("is-palette-dragging");
+            }
+            function begin() {
+                drag.started = true;
+                ghost = document.createElement("div");
+                ghost.className = "lime-palette-ghost";
+                ghost.textContent = (drag.tile.textContent || drag.type).trim();
+                document.body.appendChild(ghost);
+                ind = document.createElement("div");
+                ind.className = "lime-drop-ind";
+                overlay.appendChild(ind);
+                document.body.classList.add("is-palette-dragging");
+            }
+            function paint(t, x, y) {
+                if (!ind) return;
+                ind.className = "lime-drop-ind";
+                if (!t) { ind.style.display = "none"; return; }
+                ind.style.display = "block";
+                var sr = stage.getBoundingClientRect();
+                if (t.free && t.frame) {
+                    var zoom = viewport.get().zoom || 1, w = t.frame.width * zoom, h = t.frame.height * zoom;
+                    ind.classList.add("is-frame");
+                    ind.style.left = (x - sr.left - w / 2) + "px";
+                    ind.style.top = (y - sr.top - h / 2) + "px";
+                    ind.style.width = w + "px";
+                    ind.style.height = h + "px";
+                } else {
+                    var pos = dropLineRect(t, y);
+                    ind.classList.add("is-line");
+                    ind.style.left = (pos.left - sr.left) + "px";
+                    ind.style.top = (pos.top - sr.top) + "px";
+                    ind.style.width = pos.width + "px";
+                    ind.style.height = "";
+                }
+            }
+            function onMove(e) {
+                if (!drag) return;
+                if (!drag.started) {
+                    if (Math.abs(e.clientX - drag.x0) + Math.abs(e.clientY - drag.y0) < 5) return;
+                    begin();
+                }
+                ghost.style.left = e.clientX + "px";
+                ghost.style.top = e.clientY + "px";
+                drag.target = paletteDropTarget(e.clientX, e.clientY);
+                paint(drag.target, e.clientX, e.clientY);
+                e.preventDefault();
+            }
+            function onUp(e) {
+                var d = drag; drag = null;
+                cleanup();
+                if (!d || !d.started) return; // обычный клик — обработает существующий click-хендлер
+                paletteJustDragged = true; // гасим парный click по плитке
+                if (d.target) dropBlockAt(d.type, d.target);
+            }
+            for (var i = 0; i < tiles.length; i++) {
+                tiles[i].addEventListener("pointerdown", function (e) {
+                    if (e.button !== 0) return;
+                    drag = { type: this.getAttribute("data-doc-add"), tile: this, x0: e.clientX, y0: e.clientY, started: false, target: null };
+                    window.addEventListener("pointermove", onMove, true);
+                    window.addEventListener("pointerup", onUp, true);
+                    window.addEventListener("pointercancel", onUp, true);
+                });
+            }
+        }
+        initPaletteDrag();
+
         window.__LIME_SELECTION__ = selection;
         refresh();
     }

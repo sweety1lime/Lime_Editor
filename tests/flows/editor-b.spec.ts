@@ -1615,6 +1615,42 @@ test("editor-b: breakpoint switcher changes preview device (@flow)", async ({ pa
   await expect(page.locator("#lime-doc-workspace")).toHaveAttribute("data-device", "desktop");
 });
 
+test("editor-v2 Calm Canvas: inspector, command palette and rail stay discoverable (@flow)", async ({ page }) => {
+  await page.goto("/Home/EditDoc?canvas=1&cmd=1");
+  if (await page.locator("#lime-doc-intro-skip").isVisible()) await page.locator("#lime-doc-intro-skip").click();
+
+  await expect(page.locator(".lime-editor")).toHaveClass(/no-inspector/);
+  await expect(page.locator("#lime-doc-inspector")).toHaveAttribute("aria-hidden", "true");
+  await expect(page.locator('[data-sidebar-panel="insert"]')).toBeVisible();
+
+  await page.locator('[data-sidebar-panel-toggle="layers"]').click();
+  await expect(page.locator('[data-sidebar-panel="layers"]')).toBeVisible();
+  await expect(page.locator('[data-sidebar-panel="insert"]')).toBeHidden();
+  await page.locator('[data-sidebar-panel-toggle="insert"]').click();
+  await expect(page.locator('[data-sidebar-panel="insert"]')).toBeVisible();
+
+  await page.keyboard.press("Control+K");
+  await expect(page.locator(".lime-command-palette")).toHaveClass(/is-open/);
+  await page.locator("[data-command-input]").fill("heading");
+  await expect(page.locator(".lime-command-palette__item").first()).toContainText("Вставить заголовок");
+  await page.keyboard.press("Enter");
+
+  await expect(page.locator(".lime-command-palette")).not.toHaveClass(/is-open/);
+  await expect(page.locator(topBlocks)).toHaveCount(1);
+  await expect(page.locator(".lime-editor")).not.toHaveClass(/no-inspector/);
+  await expect(page.locator("#lime-doc-inspector")).toHaveAttribute("aria-hidden", "false");
+
+  await page.locator("[data-doc-cmdk]").click();
+  await expect(page.locator(".lime-command-palette")).toHaveClass(/is-open/);
+  await page.locator("[data-command-input]").fill("layers");
+  await page.keyboard.press("Escape");
+  await expect(page.locator(".lime-command-palette")).not.toHaveClass(/is-open/);
+  await expect(page.locator("[data-doc-cmdk]")).toBeFocused();
+
+  await page.keyboard.press("Escape");
+  await expect(page.locator(".lime-editor")).toHaveClass(/no-inspector/);
+});
+
 test("editor-b: AI modal opens and reports quota/config status (@flow)", async ({ page }) => {
   await page.goto("/Home/EditDoc?classic=1");
   // Calm Canvas: «AI заново» теперь в overflow-меню «⋯» — сначала раскрываем его.
