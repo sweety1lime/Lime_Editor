@@ -591,6 +591,18 @@ function check(name, cond) {
     check("lightbox publish: data-lime-lightbox + экранированный src записи", pubL.html.includes("data-lime-lightbox") && pubL.html.includes('data-lime-lightbox-src="https://x/a.jpg&quot;q"'));
     var edL = L.render(lbDoc, { editable: true });
     check("lightbox editable: хук выбора картинки", edL.html.indexOf("data-lime-lightbox") === -1 && edL.html.includes('data-doc-pick="items.0.src"'));
+
+    var cdDoc = { version: 1, blocks: [{ id: "cd", type: "countdown", content: { label: "До старта", target: "2026-12-31T00:00" } }] };
+    var pubCd = L.render(cdDoc, {});
+    check("countdown publish: data-lime-countdown с датой + ячейки d/h/m/s", pubCd.html.includes('data-lime-countdown="2026-12-31T00:00"') && pubCd.html.includes('data-lime-cd="d"') && pubCd.html.includes('data-lime-cd="s"'));
+    var edCd = L.render(cdDoc, { editable: true });
+    check("countdown editable: без data-lime-countdown + редактируемая подпись", edCd.html.indexOf("data-lime-countdown") === -1 && edCd.html.includes('data-field="label"'));
+
+    var mdDoc = { version: 1, blocks: [{ id: "md", type: "modal", content: { button: "Открыть", title: "Окно", text: "Текст" } }] };
+    var pubM = L.render(mdDoc, {});
+    check("modal publish: кнопка-open + скрытый оверлей + закрытие", pubM.html.includes("data-lime-modal-open") && /data-lime-modal[ >]/.test(pubM.html) && pubM.html.includes("hidden") && pubM.html.includes("data-lime-modal-close"));
+    var edM = L.render(mdDoc, { editable: true });
+    check("modal editable: инлайн без рантайм-атрибутов + редактируемые поля", edM.html.includes("lime-modal-pop--inline") && edM.html.indexOf("data-lime-modal-open") === -1 && edM.html.includes('data-field="title"'));
 }
 
 // --- 1.2: hover-состояние компилируется в :hover-правило + transition ---

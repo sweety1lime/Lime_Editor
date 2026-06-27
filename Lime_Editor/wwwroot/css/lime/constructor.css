@@ -2729,3 +2729,35 @@ a.lime-cl-card:hover { transform: translateY(-2px); }
     background: rgba(0,0,0,0.85); cursor: zoom-out; padding: var(--space-6);
 }
 .lime-lightbox-overlay img { max-width: 92vw; max-height: 92vh; object-fit: contain; border-radius: var(--radius-md); }
+
+/* Обратный отсчёт */
+.lime-block__countdown { text-align: center; }
+.lime-cd__label { font-size: var(--text-lg); margin-bottom: var(--space-4); }
+.lime-cd__cells { display: flex; gap: var(--space-5); justify-content: center; flex-wrap: wrap; }
+.lime-cd__cell { display: flex; flex-direction: column; align-items: center; min-width: 64px; }
+.lime-cd__num { font-size: var(--text-3xl); font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
+.lime-cd__lbl { font-size: var(--text-xs); opacity: 0.6; margin-top: 4px; text-transform: uppercase; letter-spacing: .04em; }
+
+/* Модальное окно (самодостаточный блок) */
+.lime-block__modal { text-align: center; }
+.lime-block__modal-open {
+    display: inline-block; padding: 12px 24px; border: 0; border-radius: var(--radius-md);
+    background: var(--accent); color: var(--ink); font: inherit; font-weight: 600; cursor: pointer;
+}
+.lime-modal-pop {
+    position: fixed; inset: 0; z-index: var(--z-modal, 1000); display: flex; align-items: center; justify-content: center;
+    background: rgba(0,0,0,0.6); padding: var(--space-6); text-align: left;
+}
+.lime-modal-pop[hidden] { display: none; }
+.lime-modal-pop__inner {
+    position: relative; background: var(--bg-elev); color: var(--fg); width: 100%; max-width: 520px;
+    padding: var(--space-8); border-radius: var(--radius-lg); border: 1px solid var(--line);
+}
+.lime-modal-pop__title { margin: 0 0 var(--space-3); }
+.lime-modal-pop__close {
+    position: absolute; top: 8px; right: 14px; border: 0; background: none; cursor: pointer;
+    font-size: 24px; line-height: 1; color: inherit;
+}
+/* В редакторе окно показано инлайн (для правки), пунктирная рамка-метка. */
+.lime-modal-pop--inline { position: static; inset: auto; background: none; padding: var(--space-3) 0 0; display: block; }
+.lime-modal-pop--inline .lime-modal-pop__inner { max-width: none; border-style: dashed; }

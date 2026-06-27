@@ -1662,7 +1662,7 @@
         stats: "Цифры", features: "Фичи", navbar: "Навбар", footer: "Подвал", accordion: "FAQ",
         pricing: "Тарифы", testimonials: "Отзывы", logos: "Логотипы", steps: "Шаги", imageText: "Картинка+текст",
         socials: "Соцсети", form: "Форма", image: "Картинка", gallery: "Галерея", video: "Видео", embed: "Embed",
-        tabs: "Вкладки", carousel: "Слайдер", lightbox: "Лайтбокс",
+        tabs: "Вкладки", carousel: "Слайдер", lightbox: "Лайтбокс", countdown: "Отсчёт", modal: "Окно",
         collectionList: "Список", container: "Контейнер", columns: "Колонки", group: "Group", divider: "Разделитель", spacer: "Отступ"
     };
     function blockLabel(b) {
@@ -3172,6 +3172,13 @@
     // Привязка к данным (фуллстак): форма пишет в коллекцию, collectionList читает из неё.
     // Select наполняется асинхронно после рендера (см. populateCollectionPickers).
     function contentExtras(t) {
+        // Обратный отсчёт (этап 1.2): дата окончания. Заголовок правится прямо в блоке.
+        if (t.type === "countdown") {
+            var cdTarget = (t.content && t.content.target) || "";
+            return sec("Обратный отсчёт",
+                '<label class="lime-v2-field"><span>Дата окончания</span><input type="datetime-local" class="lime-input" data-doc-cd-target value="' + escapeText(cdTarget) + '"></label>' +
+                '<div class="lime-inspector__hint" style="margin-top:6px;">Таймер обнулится в эту дату. Подпись правится прямо в блоке.</div>');
+        }
         if (t.type !== "form" && t.type !== "collectionList") return "";
         var colSelect = '<select class="lime-select" data-doc-collection style="width:100%;"><option value="">— нет —</option></select>';
         if (t.type === "form") {
@@ -4100,6 +4107,8 @@
                     var shl = t.parentNode.querySelector(".lime-range__val");
                     if (shl) shl.textContent = t.value + (t.dataset.k === "alpha" ? "" : "px");
                 }
+            } else if (t.hasAttribute("data-doc-cd-target")) {
+                setContentFlag("target", t.value || null); // дата окончания отсчёта
             } else if (t.hasAttribute("data-doc-bind")) {
                 setContentFlag(t.getAttribute("data-doc-bind"), t.value || null); // привязка блока к полю записи
             } else if (t.hasAttribute("data-doc-collection")) {

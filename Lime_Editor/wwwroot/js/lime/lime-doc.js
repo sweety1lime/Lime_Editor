@@ -575,6 +575,34 @@
             var add = editable ? '<div class="lime-lightbox__item lime-doc-gallery-add" data-doc-gallery-add>+ слот</div>' : "";
             return '<div class="lime-block__lightbox"' + (editable ? "" : " data-lime-lightbox") + ">" + cells + add + "</div>";
         },
+        countdown: function (b, o) {
+            var c = b.content || {};
+            var editable = o && o.editable;
+            var target = c.target || "";
+            var units = [["d", "дней"], ["h", "часов"], ["m", "минут"], ["s", "секунд"]];
+            var cells = units.map(function (u) {
+                return '<div class="lime-cd__cell"><span class="lime-cd__num" data-lime-cd="' + u[0] + '">00</span><span class="lime-cd__lbl">' + u[1] + "</span></div>";
+            }).join("");
+            var label = ed(o, "label", c.label || "До события", "div", "lime-cd__label");
+            // Дата задаётся в инспекторе (datetime). В редакторе показываем подсказку, если не задана.
+            var hint = editable ? '<div class="lime-doc-drop-hint">Дата окончания задаётся в инспекторе (секция «Обратный отсчёт»).</div>' : "";
+            return '<div class="lime-block__countdown"' + (editable ? "" : ' data-lime-countdown="' + escAttr(target) + '"') + ">" + label + '<div class="lime-cd__cells">' + cells + "</div>" + hint + "</div>";
+        },
+        modal: function (b, o) {
+            var c = b.content || {};
+            var editable = o && o.editable;
+            var btn = '<button type="button" class="lime-block__modal-open"' + (editable ? "" : " data-lime-modal-open") + edattr(o, "button") + ">" + escHtml(c.button || "Открыть окно") + "</button>";
+            var inner = '<div class="lime-modal-pop__inner">' +
+                ed(o, "title", c.title || "Заголовок окна", "h3", "lime-modal-pop__title") +
+                ed(o, "text", c.text || "Текст модального окна.", "p", "lime-modal-pop__text") +
+                (editable ? "" : '<button type="button" class="lime-modal-pop__close" data-lime-modal-close aria-label="Закрыть">×</button>') +
+                "</div>";
+            if (editable) {
+                // В редакторе окно показано инлайн (для правки), без рантайм-атрибутов.
+                return '<div class="lime-block__modal is-editing">' + btn + '<div class="lime-modal-pop lime-modal-pop--inline">' + inner + "</div></div>";
+            }
+            return '<div class="lime-block__modal">' + btn + '<div class="lime-modal-pop" data-lime-modal hidden>' + inner + "</div></div>";
+        },
         pricing: function (b, o) {
             var plans = (b.content && b.content.plans) || [{ name: "План", price: "0₽", period: "/мес", features: ["Фича"], cta: "Выбрать" }];
             return '<div class="lime-block__pricing">' + plans.map(function (p, i) {
@@ -900,6 +928,8 @@
         tabs: { items: [{ label: "Вкладка 1", text: "Контент первой вкладки." }, { label: "Вкладка 2", text: "Контент второй вкладки." }] },
         carousel: { items: [{ src: "", alt: "" }, { src: "", alt: "" }], autoplay: "" },
         lightbox: { items: [{ src: "", alt: "" }, { src: "", alt: "" }] },
+        countdown: { label: "До запуска", target: "" },
+        modal: { button: "Открыть окно", title: "Заголовок окна", text: "Текст модального окна." },
         container: {},
         columns: { cols: 2 },
         group: {}

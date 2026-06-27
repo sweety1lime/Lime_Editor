@@ -119,13 +119,63 @@
         }
     }
 
+    // ===== Обратный отсчёт =====
+    function initCountdowns(scope) {
+        all(scope, "[data-lime-countdown]").forEach(function (root) {
+            if (root.getAttribute("data-lime-init") === "1") return;
+            root.setAttribute("data-lime-init", "1");
+            var target = new Date(root.getAttribute("data-lime-countdown")).getTime();
+            if (isNaN(target)) return;
+            var cd = {
+                d: root.querySelector('[data-lime-cd="d"]'), h: root.querySelector('[data-lime-cd="h"]'),
+                m: root.querySelector('[data-lime-cd="m"]'), s: root.querySelector('[data-lime-cd="s"]')
+            };
+            function pad(n) { return (n < 10 ? "0" : "") + n; }
+            var timer = null;
+            function tick() {
+                var diff = Math.max(0, target - Date.now());
+                var sec = Math.floor(diff / 1000);
+                if (cd.d) cd.d.textContent = pad(Math.floor(sec / 86400));
+                if (cd.h) cd.h.textContent = pad(Math.floor((sec % 86400) / 3600));
+                if (cd.m) cd.m.textContent = pad(Math.floor((sec % 3600) / 60));
+                if (cd.s) cd.s.textContent = pad(sec % 60);
+                if (diff <= 0 && timer) clearInterval(timer);
+            }
+            timer = setInterval(tick, 1000);
+            tick();
+        });
+    }
+
+    // ===== Модальное окно (самодостаточное: кнопка + оверлей в одном блоке) =====
+    function initModals(scope) {
+        all(scope, ".lime-block__modal").forEach(function (root) {
+            if (root.getAttribute("data-lime-init") === "1") return;
+            root.setAttribute("data-lime-init", "1");
+            var open = root.querySelector("[data-lime-modal-open]");
+            var pop = root.querySelector("[data-lime-modal]");
+            if (!open || !pop) return;
+            function show() { pop.removeAttribute("hidden"); pop.classList.add("is-open"); }
+            function hide() { pop.setAttribute("hidden", ""); pop.classList.remove("is-open"); }
+            open.addEventListener("click", show);
+            pop.addEventListener("click", function (e) {
+                if (e.target === pop || (e.target.closest && e.target.closest("[data-lime-modal-close]"))) hide();
+            });
+            document.addEventListener("keydown", function (e) { if (e.key === "Escape") hide(); });
+        });
+    }
+
     function init(scope) {
         initTabs(scope);
         initCarousels(scope);
         initLightbox(scope);
+        initCountdowns(scope);
+        initModals(scope);
     }
 
-    window.LimeInteractions = { init: init, initTabs: initTabs, initCarousels: initCarousels, initLightbox: initLightbox };
+    window.LimeInteractions = {
+        init: init, initTabs: initTabs, initCarousels: initCarousels,
+        initLightbox: initLightbox, initCountdowns: initCountdowns, initModals: initModals
+    };
 
     // Авто-старт только вне редактора (на публичной странице .lime-editor отсутствует).
     if (!document.querySelector(".lime-editor")) {

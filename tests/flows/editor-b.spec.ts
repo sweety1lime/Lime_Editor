@@ -1716,4 +1716,12 @@ test("editor-v2 1.2: interactive blocks (tabs/carousel/lightbox) insert and rend
   // Лайтбокс: грид с хуком выбора картинки.
   await page.locator('[data-doc-add="lightbox"]').click();
   await expect(page.locator("#lime-doc-workspace .lime-block__lightbox [data-doc-pick]").first()).toBeVisible();
+
+  // Отсчёт: ячейки таймера в редакторе (без рантайма).
+  await page.locator('[data-doc-add="countdown"]').click();
+  await expect(page.locator("#lime-doc-workspace .lime-block__countdown .lime-cd__num").first()).toBeVisible();
+
+  // Окно: в редакторе показано инлайн (для правки).
+  await page.locator('[data-doc-add="modal"]').click();
+  await expect(page.locator("#lime-doc-workspace .lime-block__modal .lime-modal-pop--inline")).toBeVisible();
 });

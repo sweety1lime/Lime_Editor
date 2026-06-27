@@ -79,8 +79,9 @@ namespace Lime_Editor.Services
             {
                 animScripts += "<script src=\"/js/lime/lime-pages.js\" defer></script>\n";
             }
-            // Интерактивные блоки (этап 1.2): рантайм tabs/carousel/lightbox — только при их наличии.
-            if (innerHtml != null && (innerHtml.Contains("data-lime-tabs") || innerHtml.Contains("data-lime-carousel") || innerHtml.Contains("data-lime-lightbox")))
+            // Интерактивные блоки (этап 1.2): рантайм tabs/carousel/lightbox/countdown/modal — при наличии.
+            if (innerHtml != null && (innerHtml.Contains("data-lime-tabs") || innerHtml.Contains("data-lime-carousel") ||
+                innerHtml.Contains("data-lime-lightbox") || innerHtml.Contains("data-lime-countdown") || innerHtml.Contains("data-lime-modal")))
             {
                 animScripts += "<script src=\"/js/lime/lime-interactions.js\" defer></script>\n";
             }
