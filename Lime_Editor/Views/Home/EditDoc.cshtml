@@ -132,6 +132,12 @@
                         <button type="button" class="lime-topbar-more__item" role="menuitem" data-doc-theme-open title="Тема сайта"><svg class="lime-ico"><use href="#i-palette"/></svg> Тема сайта</button>
                         <button type="button" class="lime-topbar-more__item" role="menuitem" data-doc-code-open title="Глобальный CSS и код в head"><svg class="lime-ico"><use href="#i-embed"/></svg> Код сайта</button>
                         <button type="button" class="lime-topbar-more__item" role="menuitem" data-doc-anim-preview title="Проиграть анимации появления"><svg class="lime-ico"><use href="#i-play"/></svg> Превью анимаций</button>
+                        @if (isEdit)
+                        {
+                            <div style="height:1px; background: var(--line); margin: 4px 0;"></div>
+                            <a class="lime-topbar-more__item" role="menuitem" href="/Export/Nextjs?siteId=@Model.SiteId&style=blob" title="Скачать сайт как готовый проект Next.js (рендер движком)"><svg class="lime-ico"><use href="#i-down"/></svg> Скачать код (Next.js)</a>
+                            <a class="lime-topbar-more__item" role="menuitem" href="/Export/Nextjs?siteId=@Model.SiteId&style=jsx" title="Скачать как Next.js с React-компонентами"><svg class="lime-ico"><use href="#i-down"/></svg> Скачать код (React)</a>
+                        }
                     </div>
                 </div>
                 <button type="button" class="lime-btn lime-btn--primary lime-btn--sm" data-doc-save data-site-id="@(Model.SiteId?.ToString() ?? "")">
