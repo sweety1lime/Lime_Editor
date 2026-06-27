@@ -571,6 +571,28 @@ function check(name, cond) {
     check("CMS2 лента: карточка ссылается на _url записи", home.body.includes('<a class="lime-cl-card" href="/u/u/s/post/1-p1"'));
 }
 
+// --- 1.2: интерактивные блоки (tabs/carousel/lightbox) — рендер + publish/editable различие ---
+{
+    var tabsDoc = { version: 1, blocks: [{ id: "tb", type: "tabs", content: { items: [{ label: "Один", text: "Текст 1" }, { label: "Два", text: "Текст 2" }] } }] };
+    var pubT = L.render(tabsDoc, {});
+    check("tabs publish: data-lime-tabs + первый таб активен", pubT.html.includes("data-lime-tabs") && pubT.html.includes('data-lime-tab="0"') && pubT.html.includes("Один"));
+    check("tabs publish: непервая панель скрыта (hidden)", /data-lime-tabpanel="1"[^>]*hidden/.test(pubT.html));
+    var edT = L.render(tabsDoc, { editable: true });
+    check("tabs editable: все панели видимы, без data-lime + редактируемые лейблы", edT.html.indexOf("data-lime-tabs") === -1 && edT.html.indexOf("hidden") === -1 && edT.html.includes('data-field="items.0.label"'));
+
+    var carDoc = { version: 1, blocks: [{ id: "cr", type: "carousel", content: { items: [{ src: "https://x/a.jpg", alt: "" }, { src: "https://x/b.jpg", alt: "" }], autoplay: "5" } }] };
+    var pubC = L.render(carDoc, {});
+    check("carousel publish: data-lime-carousel + autoplay + слайды + навигация", pubC.html.includes("data-lime-carousel") && pubC.html.includes('data-lime-autoplay="5"') && pubC.html.includes("lime-carousel__slide") && pubC.html.includes("data-lime-carousel-next"));
+    var edC = L.render(carDoc, { editable: true });
+    check("carousel editable: без рантайм-атрибутов, есть хуки галереи", edC.html.indexOf("data-lime-carousel") === -1 && edC.html.includes("data-doc-gallery-add"));
+
+    var lbDoc = { version: 1, blocks: [{ id: "lb", type: "lightbox", content: { items: [{ src: 'https://x/a.jpg"q', alt: "" }] } }] };
+    var pubL = L.render(lbDoc, {});
+    check("lightbox publish: data-lime-lightbox + экранированный src записи", pubL.html.includes("data-lime-lightbox") && pubL.html.includes('data-lime-lightbox-src="https://x/a.jpg&quot;q"'));
+    var edL = L.render(lbDoc, { editable: true });
+    check("lightbox editable: хук выбора картинки", edL.html.indexOf("data-lime-lightbox") === -1 && edL.html.includes('data-doc-pick="items.0.src"'));
+}
+
 // --- 1.2: hover-состояние компилируется в :hover-правило + transition ---
 {
     const doc = {

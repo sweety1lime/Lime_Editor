@@ -64,6 +64,7 @@ namespace Lime_Editor.Services
                 Add(zip, "app/[slug]/[record]/page.jsx", RecordPageJsx); // CMS 2.0: динамические страницы записей
                 Add(zip, "public/js/lime-animate.js", ReadWebFile("js/lime/lime-animate.js"));
                 Add(zip, "public/js/lime-polish.js", ReadWebFile("js/lime/lime-polish.js"));
+                Add(zip, "public/js/lime-interactions.js", ReadWebFile("js/lime/lime-interactions.js")); // интерактивные блоки (этап 1.2)
 
                 if (idiomatic)
                 {
@@ -282,6 +283,7 @@ export default function RootLayout({ children }) {
         <Script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js" strategy="afterInteractive" />
         <Script src="/js/lime-animate.js" strategy="afterInteractive" />
         <Script src="/js/lime-polish.js" strategy="afterInteractive" />
+        <Script src="/js/lime-interactions.js" strategy="afterInteractive" />
       </body>
     </html>
   );

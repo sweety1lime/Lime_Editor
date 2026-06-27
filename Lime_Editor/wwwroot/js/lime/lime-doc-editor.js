@@ -1662,6 +1662,7 @@
         stats: "Цифры", features: "Фичи", navbar: "Навбар", footer: "Подвал", accordion: "FAQ",
         pricing: "Тарифы", testimonials: "Отзывы", logos: "Логотипы", steps: "Шаги", imageText: "Картинка+текст",
         socials: "Соцсети", form: "Форма", image: "Картинка", gallery: "Галерея", video: "Видео", embed: "Embed",
+        tabs: "Вкладки", carousel: "Слайдер", lightbox: "Лайтбокс",
         collectionList: "Список", container: "Контейнер", columns: "Колонки", group: "Group", divider: "Разделитель", spacer: "Отступ"
     };
     function blockLabel(b) {

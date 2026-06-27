@@ -1695,3 +1695,25 @@ test("editor-b: media block shows picker placeholder (@flow)", async ({ page }) 
   await page.locator("[data-lime-modal-close]").click();
   await expect(page.locator("#lime-media-modal")).not.toHaveClass(/is-open/);
 });
+
+test("editor-v2 1.2: interactive blocks (tabs/carousel/lightbox) insert and render editable (@flow)", async ({ page }) => {
+  await page.goto("/Home/EditDoc?canvas=1&cmd=1");
+  if (await page.locator("#lime-doc-intro-skip").isVisible()) await page.locator("#lime-doc-intro-skip").click();
+  // Тайлы лежат в свёрнутых <details> групп палитры — раскрываем, чтобы кликнуть.
+  await page.evaluate(() => document.querySelectorAll(".lime-tile-group").forEach((d: any) => { d.open = true; }));
+
+  // Вкладки: в редакторе все панели видимы (для правки), рантайм-атрибутов нет.
+  await page.locator('[data-doc-add="tabs"]').click();
+  const tabs = page.locator("#lime-doc-workspace .lime-block__tabs");
+  await expect(tabs).toBeVisible();
+  await expect(tabs.locator(".lime-tabs__panel")).toHaveCount(2);
+  expect(await tabs.getAttribute("data-lime-tabs")).toBeNull();
+
+  // Слайдер: переиспользует хуки галереи (добавить/выбрать слайд).
+  await page.locator('[data-doc-add="carousel"]').click();
+  await expect(page.locator("#lime-doc-workspace .lime-block__carousel [data-doc-gallery-add]")).toBeVisible();
+
+  // Лайтбокс: грид с хуком выбора картинки.
+  await page.locator('[data-doc-add="lightbox"]').click();
+  await expect(page.locator("#lime-doc-workspace .lime-block__lightbox [data-doc-pick]").first()).toBeVisible();
+});

@@ -79,6 +79,11 @@ namespace Lime_Editor.Services
             {
                 animScripts += "<script src=\"/js/lime/lime-pages.js\" defer></script>\n";
             }
+            // Интерактивные блоки (этап 1.2): рантайм tabs/carousel/lightbox — только при их наличии.
+            if (innerHtml != null && (innerHtml.Contains("data-lime-tabs") || innerHtml.Contains("data-lime-carousel") || innerHtml.Contains("data-lime-lightbox")))
+            {
+                animScripts += "<script src=\"/js/lime/lime-interactions.js\" defer></script>\n";
+            }
             // Кастомный <head>-код владельца (этап 0.2): meta/link/style после санитайза.
             var customHead = PublishedHtmlSanitizer.SanitizeHead(ExtractDocHead(documentJson));
             return "<!DOCTYPE html>\n" +

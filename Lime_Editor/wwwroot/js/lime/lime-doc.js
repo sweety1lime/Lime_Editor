@@ -530,6 +530,51 @@
                     "</details>";
             }).join("") + "</div>";
         },
+        // --- Интерактивные блоки (этап 1.2). Рендер — чистая разметка + data-* (Jint-safe);
+        // поведение оживляет lime-interactions.js ТОЛЬКО на публикации. В редакторе (editable)
+        // всё показано развёрнутым для правки, data-lime-* не эмитятся (рантайм не вмешивается). ---
+        tabs: function (b, o) {
+            var items = (b.content && b.content.items) || [{ label: "Вкладка 1", text: "Контент первой вкладки." }, { label: "Вкладка 2", text: "Контент второй вкладки." }];
+            var editable = o && o.editable;
+            var list = items.map(function (it, i) {
+                return '<button type="button" class="lime-tabs__tab' + (i === 0 ? " is-active" : "") + '"' + (editable ? "" : ' data-lime-tab="' + i + '"') + edattr(o, "items." + i + ".label") + ">" + escHtml(it.label) + "</button>";
+            }).join("");
+            var panels = items.map(function (it, i) {
+                var hide = (!editable && i > 0) ? " hidden" : "";
+                return '<div class="lime-tabs__panel' + (i === 0 ? " is-active" : "") + '"' + (editable ? "" : ' data-lime-tabpanel="' + i + '"') + hide + "><p" + edattr(o, "items." + i + ".text") + ">" + escHtml(it.text) + "</p></div>";
+            }).join("");
+            return '<div class="lime-block__tabs"' + (editable ? "" : " data-lime-tabs") + '><div class="lime-tabs__list" role="tablist">' + list + '</div><div class="lime-tabs__panels">' + panels + "</div></div>";
+        },
+        carousel: function (b, o) {
+            var c = b.content || {};
+            var items = c.items || [{ src: "", alt: "" }, { src: "", alt: "" }];
+            var editable = o && o.editable;
+            var slides = items.map(function (it, i) {
+                var img = it.src
+                    ? '<img src="' + escAttr(it.src) + '" alt="' + escAttr(it.alt || "") + '" loading="lazy" decoding="async">'
+                    : (editable ? '<div class="lime-carousel__ph" data-doc-pick="items.' + i + '.src">+ фото</div>' : "");
+                var del = editable ? '<button type="button" class="lime-doc-gallery-del" data-doc-gallery-del="' + i + '" title="Убрать">×</button>' : "";
+                return '<div class="lime-carousel__slide"' + (editable ? "" : ' data-lime-slide="' + i + '"') + ">" + img + del + "</div>";
+            }).join("");
+            var add = editable ? '<button type="button" class="lime-carousel__add lime-doc-gallery-add" data-doc-gallery-add>+ слайд</button>' : "";
+            var nav = editable ? "" : '<button type="button" class="lime-carousel__nav lime-carousel__prev" data-lime-carousel-prev aria-label="Назад">‹</button><button type="button" class="lime-carousel__nav lime-carousel__next" data-lime-carousel-next aria-label="Вперёд">›</button>';
+            var auto = (!editable && c.autoplay) ? ' data-lime-autoplay="' + escAttr(c.autoplay) + '"' : "";
+            return '<div class="lime-block__carousel"' + (editable ? "" : " data-lime-carousel" + auto) + '><div class="lime-carousel__track">' + slides + "</div>" + nav + add + "</div>";
+        },
+        lightbox: function (b, o) {
+            var items = (b.content && b.content.items) || [{ src: "", alt: "" }];
+            var editable = o && o.editable;
+            var cells = items.map(function (it, i) {
+                var del = editable ? '<button type="button" class="lime-doc-gallery-del" data-doc-gallery-del="' + i + '" title="Убрать">×</button>' : "";
+                if (it.src) {
+                    return '<div class="lime-lightbox__item"' + (editable ? ' data-doc-pick="items.' + i + '.src"' : ' data-lime-lightbox-src="' + escAttr(it.src) + '"') + ">" +
+                        '<img src="' + escAttr(it.src) + '" alt="' + escAttr(it.alt || "") + '" loading="lazy" decoding="async">' + del + "</div>";
+                }
+                return editable ? '<div class="lime-lightbox__item" data-doc-pick="items.' + i + '.src">+ фото' + del + "</div>" : "";
+            }).join("");
+            var add = editable ? '<div class="lime-lightbox__item lime-doc-gallery-add" data-doc-gallery-add>+ слот</div>' : "";
+            return '<div class="lime-block__lightbox"' + (editable ? "" : " data-lime-lightbox") + ">" + cells + add + "</div>";
+        },
         pricing: function (b, o) {
             var plans = (b.content && b.content.plans) || [{ name: "План", price: "0₽", period: "/мес", features: ["Фича"], cta: "Выбрать" }];
             return '<div class="lime-block__pricing">' + plans.map(function (p, i) {
@@ -852,6 +897,9 @@
         video: { youtubeId: "" },
         embed: { embedUrl: "", provider: "" },
         collectionList: { collection: "", layout: "cards", limit: 12, sortField: "", sortDir: "desc", filterField: "", filterValue: "", titleField: "", imageField: "", descField: "" },
+        tabs: { items: [{ label: "Вкладка 1", text: "Контент первой вкладки." }, { label: "Вкладка 2", text: "Контент второй вкладки." }] },
+        carousel: { items: [{ src: "", alt: "" }, { src: "", alt: "" }], autoplay: "" },
+        lightbox: { items: [{ src: "", alt: "" }, { src: "", alt: "" }] },
         container: {},
         columns: { cols: 2 },
         group: {}

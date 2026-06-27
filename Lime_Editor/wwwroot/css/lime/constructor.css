@@ -2680,3 +2680,52 @@ a.lime-cl-card:hover { transform: translateY(-2px); }
 .lime-cl-row { display: flex; flex-direction: column; gap: 2px; }
 .lime-cl-key { font-size: var(--text-xs); opacity: 0.6; }
 .lime-cl-val { font-size: var(--text-base); }
+
+/* ============================================================
+   Интерактивные блоки (этап 1.2): tabs / carousel / lightbox.
+   Рендер одинаков в редакторе и на публикации; поведение — lime-interactions.js (publish).
+   ============================================================ */
+/* Вкладки */
+.lime-block__tabs { display: flex; flex-direction: column; gap: var(--space-4); }
+.lime-tabs__list { display: flex; flex-wrap: wrap; gap: var(--space-2); border-bottom: 1px solid var(--line); }
+.lime-tabs__tab {
+    padding: 8px 16px; border: 0; background: none; cursor: pointer;
+    color: var(--fg-2); font: inherit; border-bottom: 2px solid transparent; margin-bottom: -1px;
+}
+.lime-tabs__tab.is-active { color: var(--accent); border-bottom-color: var(--accent); }
+.lime-tabs__panel { line-height: 1.6; }
+.lime-tabs__panel[hidden] { display: none; }
+
+/* Карусель */
+.lime-block__carousel { position: relative; overflow: hidden; border-radius: var(--radius-lg); }
+.lime-carousel__track { display: flex; transition: transform var(--t-base); }
+.lime-carousel__slide { flex: 0 0 100%; min-width: 0; position: relative; }
+.lime-carousel__slide img { width: 100%; height: 100%; max-height: 460px; object-fit: cover; display: block; }
+.lime-carousel__ph {
+    display: flex; align-items: center; justify-content: center; min-height: 220px;
+    background: rgba(127,127,127,0.1); color: var(--fg-muted); cursor: pointer;
+}
+/* В редакторе слайды показываем рядом (обзор), без перекрытия. */
+.lime-editor .lime-carousel__track { flex-wrap: wrap; gap: var(--space-2); }
+.lime-editor .lime-carousel__slide { flex: 0 0 calc(50% - var(--space-2)); }
+.lime-carousel__nav {
+    position: absolute; top: 50%; transform: translateY(-50%); z-index: 2;
+    width: 40px; height: 40px; border-radius: 50%; border: 0; cursor: pointer;
+    background: rgba(0,0,0,0.45); color: #fff; font-size: 22px; line-height: 1;
+}
+.lime-carousel__prev { left: 10px; }
+.lime-carousel__next { right: 10px; }
+.lime-carousel__add { margin-top: var(--space-2); }
+.lime-carousel__dots { position: absolute; bottom: 10px; left: 0; right: 0; display: flex; justify-content: center; gap: 6px; z-index: 2; }
+.lime-carousel__dot { width: 8px; height: 8px; border-radius: 50%; border: 0; background: rgba(255,255,255,0.5); cursor: pointer; }
+.lime-carousel__dot.is-active { background: #fff; }
+
+/* Лайтбокс-галерея */
+.lime-block__lightbox { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: var(--space-3); }
+.lime-lightbox__item { position: relative; border-radius: var(--radius-md); overflow: hidden; cursor: zoom-in; aspect-ratio: 1; }
+.lime-lightbox__item img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.lime-lightbox-overlay {
+    position: fixed; inset: 0; z-index: var(--z-modal, 1000); display: flex; align-items: center; justify-content: center;
+    background: rgba(0,0,0,0.85); cursor: zoom-out; padding: var(--space-6);
+}
+.lime-lightbox-overlay img { max-width: 92vw; max-height: 92vh; object-fit: contain; border-radius: var(--radius-md); }
