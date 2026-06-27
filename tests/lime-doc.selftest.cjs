@@ -512,7 +512,26 @@ function check(name, cond) {
     const pub = L.render(doc, { data: data });
     check("collectionList: карточки записей из данных", pub.html.includes("lime-block__collection") && pub.html.includes("Гаджет") && pub.html.includes("Штука"));
     check("collectionList: image-поле как <img> с экранированием", pub.html.includes('class="lime-cl-img" src="https://x/a.jpg&quot;x"'));
-    check("collectionList: метка поля из схемы", pub.html.includes("Название"));
+    // CMS 2.0: роль «заголовок» = значение текстового поля (а не метка схемы); метки только в fallback.
+    check("collectionList 2.0: заголовок-роль = значение поля, без метки", pub.html.includes('class="lime-cl-title">Гаджет') && !pub.html.includes("Название"));
+    check("collectionList 2.0: layout по умолчанию — cards", pub.html.includes("lime-block__collection--cards"));
+    // layout grid
+    const gridR = L.render({ version: 1, blocks: [{ id: "clg", type: "collectionList", content: { collection: "goods", layout: "grid" } }] }, { data: data });
+    check("collectionList 2.0: layout grid", gridR.html.includes("lime-block__collection--grid"));
+    // limit обрезает
+    const manyData = { goods: { fields: data.goods.fields, records: [{ title: "A" }, { title: "B" }, { title: "C" }, { title: "D" }] } };
+    const limR = L.render({ version: 1, blocks: [{ id: "cll", type: "collectionList", content: { collection: "goods", limit: 2 } }] }, { data: manyData });
+    check("collectionList 2.0: limit обрезает число карточек", (limR.html.match(/lime-cl-card/g) || []).length === 2);
+    // sort по текстовому полю (asc)
+    const sortData = { goods: { fields: data.goods.fields, records: [{ title: "Бета" }, { title: "Альфа" }] } };
+    const sortR = L.render({ version: 1, blocks: [{ id: "cls", type: "collectionList", content: { collection: "goods", sortField: "title", sortDir: "asc" } }] }, { data: sortData });
+    check("collectionList 2.0: sort asc по полю", sortR.html.indexOf("Альфа") >= 0 && sortR.html.indexOf("Альфа") < sortR.html.indexOf("Бета"));
+    // filter «содержит» без учёта регистра
+    const filtR = L.render({ version: 1, blocks: [{ id: "clf", type: "collectionList", content: { collection: "goods", filterField: "title", filterValue: "гадж" } }] }, { data: data });
+    check("collectionList 2.0: filter содержит (без регистра)", filtR.html.includes("Гаджет") && !filtR.html.includes("Штука"));
+    // коллекция без ролей (только number) → fallback key/value с меткой
+    const noRoleR = L.render({ version: 1, blocks: [{ id: "cln", type: "collectionList", content: { collection: "nums" } }] }, { data: { nums: { fields: [{ name: "qty", label: "Кол-во", type: "number" }], records: [{ qty: "5" }] } } });
+    check("collectionList 2.0: без ролей — fallback с меткой поля", noRoleR.html.includes("Кол-во") && noRoleR.html.includes("lime-cl-key"));
     const emptyPub = L.render(doc, {});
     check("collectionList: публикация без данных — пусто (не показываем контейнер)", emptyPub.html.indexOf("lime-block__collection") === -1);
     const ed = L.render(doc, { editable: true });

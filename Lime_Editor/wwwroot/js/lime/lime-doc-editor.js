@@ -3113,10 +3113,66 @@
     // Select наполняется асинхронно после рендера (см. populateCollectionPickers).
     function contentExtras(t) {
         if (t.type !== "form" && t.type !== "collectionList") return "";
-        var label = t.type === "form" ? "Записывать в коллекцию" : "Источник — коллекция";
-        return sec(label,
-            '<select class="lime-select" data-doc-collection style="width:100%;"><option value="">— нет —</option></select>' +
-            '<div class="lime-inspector__hint" style="margin-top:6px;">Коллекции создаются в разделе «Данные» (кабинет → твой сайт).</div>');
+        var colSelect = '<select class="lime-select" data-doc-collection style="width:100%;"><option value="">— нет —</option></select>';
+        if (t.type === "form") {
+            return sec("Записывать в коллекцию",
+                colSelect +
+                '<div class="lime-inspector__hint" style="margin-top:6px;">Коллекции создаются в разделе «Данные» (кабинет → твой сайт).</div>');
+        }
+        // collectionList 2.0: раскладка, лимит, сортировка, фильтр и роли полей карточки.
+        var c = t.content || {};
+        var curSlug = c.collection || "";
+        var fields = [];
+        if (collectionsCache) {
+            for (var i = 0; i < collectionsCache.length; i++) {
+                if (collectionsCache[i].slug === curSlug) {
+                    try { fields = JSON.parse(collectionsCache[i].schemaJson || "[]") || []; } catch (e) { fields = []; }
+                    break;
+                }
+            }
+        }
+        var escA = function (s) { return escapeText(s).replace(/"/g, "&quot;"); };
+        var fieldOpts = function (selected, blankLabel) {
+            var out = '<option value="">' + escapeText(blankLabel || "—") + "</option>";
+            for (var i = 0; i < fields.length; i++) {
+                var f = fields[i];
+                out += '<option value="' + escA(f.name) + '"' + (f.name === selected ? " selected" : "") + ">" + escapeText(f.label || f.name) + "</option>";
+            }
+            return out;
+        };
+        var layout = c.layout || "cards";
+        var seg = '<div class="lime-segmented">' +
+            [["cards", "Карточки"], ["grid", "Сетка"], ["list", "Список"]].map(function (o) {
+                return '<button type="button" class="' + (layout === o[0] ? "is-active" : "") + '" data-doc-cl-layout="' + o[0] + '">' + o[1] + "</button>";
+            }).join("") + "</div>";
+        var html = colSelect +
+            '<div class="lime-inspector__hint" style="margin-top:6px;">Коллекции создаются в разделе «Данные».</div>';
+        if (curSlug) {
+            html +=
+                '<div class="lime-inspector__hint" style="margin:10px 0 2px;">Раскладка</div>' + seg +
+                '<div class="lime-inspector__hint" style="margin:10px 0 2px;">Сколько показывать</div>' +
+                '<input type="number" min="1" max="200" class="lime-input" data-doc-cl-limit value="' + (parseInt(c.limit, 10) || 12) + '" style="width:100%;">';
+            if (fields.length) {
+                html +=
+                    '<div class="lime-inspector__hint" style="margin:10px 0 2px;">Сортировка</div>' +
+                    '<div class="lime-flex lime-gap-2">' +
+                    '<select class="lime-select" data-doc-cl-sortfield style="flex:1;">' + fieldOpts(c.sortField || "", "По дате (новые)") + "</select>" +
+                    '<select class="lime-select" data-doc-cl-sortdir style="width:104px;"><option value="desc"' + (c.sortDir !== "asc" ? " selected" : "") + ">↓ убыв.</option><option value=\"asc\"" + (c.sortDir === "asc" ? " selected" : "") + ">↑ возр.</option></select>" +
+                    "</div>" +
+                    '<div class="lime-inspector__hint" style="margin:10px 0 2px;">Фильтр (содержит)</div>' +
+                    '<div class="lime-flex lime-gap-2">' +
+                    '<select class="lime-select" data-doc-cl-filterfield style="flex:1;">' + fieldOpts(c.filterField || "", "— без фильтра —") + "</select>" +
+                    '<input type="text" class="lime-input" data-doc-cl-filterval placeholder="значение" value="' + escA(c.filterValue || "") + '" style="flex:1;">' +
+                    "</div>" +
+                    '<div class="lime-inspector__hint" style="margin:10px 0 2px;">Поля карточки (необязательно — иначе авто)</div>' +
+                    '<label class="lime-v2-field"><span>Обложка</span><select class="lime-select" data-doc-cl-imagefield>' + fieldOpts(c.imageField || "", "авто") + "</select></label>" +
+                    '<label class="lime-v2-field"><span>Заголовок</span><select class="lime-select" data-doc-cl-titlefield>' + fieldOpts(c.titleField || "", "авто") + "</select></label>" +
+                    '<label class="lime-v2-field"><span>Описание</span><select class="lime-select" data-doc-cl-descfield>' + fieldOpts(c.descField || "", "авто") + "</select></label>";
+            } else {
+                html += '<div class="lime-inspector__hint" style="margin-top:8px;">У коллекции пока нет полей — добавь их в разделе «Данные», чтобы настроить карточку.</div>';
+            }
+        }
+        return sec("Источник — коллекция", html);
     }
 
     // Секция «Эффекты и макет» (Фаза 6.2/6.3): fx-чипы + ширина контента + bento.
@@ -3986,6 +4042,24 @@
                 }
             } else if (t.hasAttribute("data-doc-collection")) {
                 setContentFlag("collection", t.value || null);
+                refreshInspector(); // перезаполнить поля карточки/сортировки под новую коллекцию
+            } else if (t.hasAttribute("data-doc-cl-limit")) {
+                var clLim = parseInt(t.value, 10);
+                setContentFlag("limit", clLim > 0 ? clLim : null);
+            } else if (t.hasAttribute("data-doc-cl-sortfield")) {
+                setContentFlag("sortField", t.value || null);
+            } else if (t.hasAttribute("data-doc-cl-sortdir")) {
+                setContentFlag("sortDir", t.value === "asc" ? "asc" : null);
+            } else if (t.hasAttribute("data-doc-cl-filterfield")) {
+                setContentFlag("filterField", t.value || null);
+            } else if (t.hasAttribute("data-doc-cl-filterval")) {
+                setContentFlag("filterValue", t.value || null);
+            } else if (t.hasAttribute("data-doc-cl-imagefield")) {
+                setContentFlag("imageField", t.value || null);
+            } else if (t.hasAttribute("data-doc-cl-titlefield")) {
+                setContentFlag("titleField", t.value || null);
+            } else if (t.hasAttribute("data-doc-cl-descfield")) {
+                setContentFlag("descField", t.value || null);
             } else if (t.hasAttribute("data-doc-class-add")) {
                 if (t.value) applyClassToBlock(t.value); // <select> применить класс (0.1)
             }
@@ -4096,6 +4170,7 @@
             if ((el = e.target.closest("[data-doc-fx]"))) { toggleFx(el.dataset.docFx); return; }
             if ((el = e.target.closest("[data-doc-width]"))) { setContentFlag("width", el.dataset.docWidth === "boxed" ? "boxed" : null); return; }
             if ((el = e.target.closest("[data-doc-bento]"))) { setContentFlag("layout", el.dataset.docBento === "on" ? "bento" : null); return; }
+            if ((el = e.target.closest("[data-doc-cl-layout]"))) { setContentFlag("layout", el.dataset.docClLayout === "cards" ? null : el.dataset.docClLayout); refreshInspector(); return; }
             // ----- движение -----
             if ((el = e.target.closest("[data-doc-sticky]"))) {
                 var stickySource = byId(selectedId);

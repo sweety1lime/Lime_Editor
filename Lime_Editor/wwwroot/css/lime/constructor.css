@@ -2650,15 +2650,31 @@
 /* ============================================================
    Фуллстак — блок «Список из коллекции» (collectionList).
    ============================================================ */
-.lime-block__collection {
-    display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: var(--space-4);
+.lime-block__collection { display: grid; gap: var(--space-5); }
+/* CMS 2.0 layout-варианты: cards (адаптивная сетка), grid (фикс-колонки), list (строки). */
+.lime-block__collection--cards { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
+.lime-block__collection--grid { grid-template-columns: repeat(3, 1fr); }
+.lime-block__collection--list { grid-template-columns: 1fr; gap: var(--space-4); }
+@media (max-width: 760px) {
+    .lime-block__collection--grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 480px) {
+    .lime-block__collection--grid { grid-template-columns: 1fr; }
 }
 .lime-cl-card {
-    border: 1px solid var(--line); border-radius: var(--radius-lg); padding: var(--space-5);
-    display: flex; flex-direction: column; gap: 8px; background: rgba(127,127,127,0.04);
+    border: 1px solid var(--line); border-radius: var(--radius-lg); overflow: hidden;
+    display: flex; flex-direction: column; background: rgba(127,127,127,0.04);
+    transition: border-color var(--t-fast), transform var(--t-fast);
 }
-.lime-cl-img { width: 100%; height: 150px; object-fit: cover; border-radius: var(--radius-md); display: block; }
-.lime-cl-img--ph { background: rgba(127,127,127,0.12); }
+.lime-cl-card:hover { border-color: var(--line-2); }
+/* list-вариант: обложка слева, контент справа */
+.lime-block__collection--list .lime-cl-card { flex-direction: row; align-items: stretch; }
+.lime-block__collection--list .lime-cl-img { width: 220px; height: auto; min-height: 120px; flex: none; }
+.lime-cl-img { width: 100%; height: 180px; object-fit: cover; display: block; }
+.lime-cl-img--ph { background: rgba(127,127,127,0.12); min-height: 120px; }
+.lime-cl-body { display: flex; flex-direction: column; gap: 6px; padding: var(--space-4) var(--space-5); }
+.lime-cl-title { font-size: var(--text-lg); font-weight: 700; line-height: 1.25; }
+.lime-cl-desc { font-size: var(--text-sm); opacity: 0.72; line-height: 1.5; }
 .lime-cl-row { display: flex; flex-direction: column; gap: 2px; }
 .lime-cl-key { font-size: var(--text-xs); opacity: 0.6; }
 .lime-cl-val { font-size: var(--text-base); }

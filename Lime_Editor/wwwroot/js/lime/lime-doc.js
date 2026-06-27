@@ -598,20 +598,76 @@
             if (!slug) {
                 return editable ? '<div class="lime-doc-drop-hint">Список из коллекции — выбери источник в инспекторе («Источник — коллекция»). Коллекции создаются в разделе «Данные».</div>' : "";
             }
+            // CMS 2.0: фильтр → сортировка → лимит. Чистые преобразования над массивом записей,
+            // одинаковые в редакторе/Jint/экспорте (без внешних зависимостей).
+            var filterField = c.filterField || "";
+            var filterVal = (c.filterValue == null ? "" : String(c.filterValue)).trim().toLowerCase();
+            if (filterField && filterVal) {
+                records = records.filter(function (r) {
+                    var v = r[filterField];
+                    return v != null && String(v).toLowerCase().indexOf(filterVal) >= 0;
+                });
+            }
+            var sortField = c.sortField || "";
+            if (sortField) {
+                var dir = c.sortDir === "asc" ? 1 : -1;
+                records = records.slice().sort(function (r1, r2) {
+                    var a = r1[sortField], bb = r2[sortField];
+                    var na = parseFloat(a), nb = parseFloat(bb);
+                    var numeric = !isNaN(na) && !isNaN(nb) && String(a).trim() !== "" && String(bb).trim() !== "";
+                    var cmp = numeric ? (na - nb)
+                        : String(a == null ? "" : a).localeCompare(String(bb == null ? "" : bb));
+                    return cmp * dir;
+                });
+            }
+            var limit = parseInt(c.limit, 10);
+            if (!(limit > 0)) limit = 12;
+            if (records.length > limit) records = records.slice(0, limit);
             if (!records.length && !editable) return ""; // публикация: пусто
+
+            // Роли полей карточки: явный выбор в инспекторе, иначе по соглашению
+            // (обложка = первое image-поле; заголовок = первое текстовое; описание = следующее текстовое).
+            var firstOfType = function (tp) { for (var i = 0; i < fields.length; i++) if (fields[i].type === tp) return fields[i].name; return ""; };
+            var firstText = function (skip) { for (var i = 0; i < fields.length; i++) { var f = fields[i]; if ((f.type === "text" || f.type === "longtext") && f.name !== skip) return f.name; } return ""; };
+            var imgField = c.imageField || firstOfType("image");
+            var titleField = c.titleField || firstText("");
+            var descField = c.descField || firstText(titleField);
+            var hasRoles = !!(imgField || titleField || descField);
+
+            var layout = (c.layout === "grid" || c.layout === "list") ? c.layout : "cards";
             var cards = records.map(function (rec) {
-                var inner = fields.map(function (f) {
-                    var v = rec[f.name];
-                    if (f.type === "image") {
-                        return v ? '<img class="lime-cl-img" src="' + escAttr(v) + '" alt="" loading="lazy" decoding="async">' : '<div class="lime-cl-img lime-cl-img--ph"></div>';
-                    }
-                    var text = (v == null || v === "") ? (editable ? "—" : "") : v;
-                    return '<div class="lime-cl-row"><span class="lime-cl-key">' + escHtml(f.label || f.name) + "</span><span class=\"lime-cl-val\">" + escHtml(text) + "</span></div>";
-                }).join("");
-                return '<div class="lime-cl-card">' + inner + "</div>";
+                if (!hasRoles) {
+                    // Коллекция без распознанных ролей — key/value-вид, чтобы карточка не была пустой.
+                    var rows = fields.map(function (f) {
+                        var v = rec[f.name];
+                        var text = (v == null || v === "") ? (editable ? "—" : "") : v;
+                        return '<div class="lime-cl-row"><span class="lime-cl-key">' + escHtml(f.label || f.name) + '</span><span class="lime-cl-val">' + escHtml(text) + "</span></div>";
+                    }).join("");
+                    return '<div class="lime-cl-card"><div class="lime-cl-body">' + rows + "</div></div>";
+                }
+                var img = "";
+                if (imgField) {
+                    var iv = rec[imgField];
+                    img = iv ? '<img class="lime-cl-img" src="' + escAttr(iv) + '" alt="" loading="lazy" decoding="async">'
+                        : (editable ? '<div class="lime-cl-img lime-cl-img--ph"></div>' : "");
+                }
+                var title = "";
+                if (titleField) {
+                    var tv = rec[titleField];
+                    var tt = (tv == null || tv === "") ? (editable ? "Заголовок записи" : "") : tv;
+                    if (tt !== "") title = '<div class="lime-cl-title">' + escHtml(tt) + "</div>";
+                }
+                var desc = "";
+                if (descField) {
+                    var dv = rec[descField];
+                    var dt = (dv == null || dv === "") ? (editable ? "Краткое описание записи появится здесь." : "") : dv;
+                    if (dt !== "") desc = '<div class="lime-cl-desc">' + escHtml(dt) + "</div>";
+                }
+                return '<div class="lime-cl-card">' + img + '<div class="lime-cl-body">' + title + desc + "</div></div>";
             }).join("");
-            var note = editable ? '<div class="lime-doc-drop-hint">Превью схемы коллекции «' + escHtml(slug) + '». Реальные записи появятся на опубликованной странице.</div>' : "";
-            return '<div class="lime-block__collection">' + cards + "</div>" + note;
+
+            var note = editable ? '<div class="lime-doc-drop-hint">Превью коллекции «' + escHtml(slug) + '» · ' + escHtml(layout) + '. Реальные записи появятся на опубликованной странице.</div>' : "";
+            return '<div class="lime-block__collection lime-block__collection--' + layout + '">' + cards + "</div>" + note;
         },
         divider: function () { return '<div class="lime-block__divider"><span></span></div>'; },
         spacer: function () { return '<div class="lime-block__spacer"></div>'; },
@@ -768,7 +824,7 @@
         gallery: { items: [{ src: "", alt: "" }, { src: "", alt: "" }, { src: "", alt: "" }] },
         video: { youtubeId: "" },
         embed: { embedUrl: "", provider: "" },
-        collectionList: { collection: "", layout: "cards", limit: 12 },
+        collectionList: { collection: "", layout: "cards", limit: 12, sortField: "", sortDir: "desc", filterField: "", filterValue: "", titleField: "", imageField: "", descField: "" },
         container: {},
         columns: { cols: 2 },
         group: {}
