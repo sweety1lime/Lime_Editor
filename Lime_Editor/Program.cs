@@ -45,7 +45,9 @@ namespace Lime_Editor
                     .ReadFrom.Configuration(context.Configuration)
                     .ReadFrom.Services(services)
                     .Enrich.FromLogContext()
-                    .WriteTo.Console())
+                    // RequestId в шаблоне — чтобы correlation-id был виден прямо в консольных логах.
+                    .WriteTo.Console(outputTemplate:
+                        "[{Timestamp:HH:mm:ss} {Level:u3}] {RequestId} {Message:lj}{NewLine}{Exception}"))
                 .ConfigureWebHostDefaults(webBuilder =>
                 {
                     webBuilder.UseStartup<Startup>();

@@ -28,7 +28,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="wwwroot\css\Template_1\" />
     <Folder Include="wwwroot\demoimages\" />
   </ItemGroup>
 

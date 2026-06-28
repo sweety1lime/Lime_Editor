@@ -163,6 +163,9 @@ namespace Lime_Editor
             // Самым первым — чтобы все последующие middleware видели исходную схему/IP от прокси.
             app.UseForwardedHeaders();
 
+            // Сразу после — correlation-id: все логи запроса (и заголовки/ошибки) несут RequestId.
+            app.UseLimeRequestCorrelation();
+
             // Security-заголовки — на все ответы (включая статику и страницы ошибок).
             // Строгий CSP вешается только на публичную отдачу /u (см. middleware).
             app.UseLimeSecurityHeaders();
