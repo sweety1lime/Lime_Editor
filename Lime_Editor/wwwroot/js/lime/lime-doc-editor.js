@@ -19,6 +19,7 @@
     var EditorContextMenu = window.LimeEditorContextMenu || {};
     var EditorMediaPicker = window.LimeEditorMediaPicker || {};
     var EditorSidebar = window.LimeEditorSidebar || {};
+    var EditorOnboarding = window.LimeEditorOnboarding || {};
     if (!EditorUtils.escapeText) throw new Error("LimeEditorUtils is required before lime-doc-editor.js");
     if (!EditorComponents.create) throw new Error("LimeEditorComponents is required before lime-doc-editor.js");
     if (!EditorCommandPalette.create) throw new Error("LimeEditorCommandPalette is required before lime-doc-editor.js");
@@ -27,6 +28,7 @@
     if (!EditorContextMenu.create) throw new Error("LimeEditorContextMenu is required before lime-doc-editor.js");
     if (!EditorMediaPicker.create) throw new Error("LimeEditorMediaPicker is required before lime-doc-editor.js");
     if (!EditorSidebar.create) throw new Error("LimeEditorSidebar is required before lime-doc-editor.js");
+    if (!EditorOnboarding.create) throw new Error("LimeEditorOnboarding is required before lime-doc-editor.js");
 
     var ws = document.getElementById("lime-doc-workspace");
     if (!ws) return;
@@ -4605,64 +4607,14 @@
         }
     }
 
-    // ===== ONBOARDING (этап 9.4): ненавязчивый coachmark-тур по ключевым зонам =====
-    // Показывается один раз (флаг в localStorage); ?tour=1 форсит независимо от флага.
-    var TOUR_KEY = "lime-onboarding-seen";
-    var TOUR_STEPS = [
-        { sel: ".lime-editor__sidebar", title: "Блоки", text: "Кликай блок в этой панели — он добавится на холст. Перетаскиванием меняешь порядок." },
-        { sel: "#lime-doc-workspace", title: "Холст", text: "Выбирай элемент кликом, двигай и меняй размер мышью. Ctrl+Z отменяет любое действие." },
-        { sel: "#lime-doc-inspector", title: "Инспектор", text: "Здесь правишь стили выбранного блока: цвета, отступы, типографику — без кода." },
-        { sel: "[data-doc-save]", title: "Публикация", text: "Готово? Нажми эту кнопку, чтобы опубликовать сайт. Изменения автосохраняются по ходу." }
-    ];
-    function runTour() {
-        var step = 0, spot = null;
-        var card = document.createElement("div");
-        card.className = "lime-tour-card";
-        card.setAttribute("data-doc-tour", "");
-        card.setAttribute("role", "dialog");
-        card.setAttribute("aria-label", "Знакомство с редактором");
-        document.body.appendChild(card);
-        function clearSpot() { if (spot) { spot.classList.remove("lime-tour-spot"); spot = null; } }
-        function finish() {
-            clearSpot();
-            card.remove();
-            try { localStorage.setItem(TOUR_KEY, "1"); } catch (e) { /* приватный режим */ }
-        }
-        function show() {
-            clearSpot();
-            var s = TOUR_STEPS[step];
-            spot = document.querySelector(s.sel);
-            if (spot) {
-                spot.classList.add("lime-tour-spot");
-                spot.scrollIntoView({ block: "nearest", inline: "nearest" });
-            }
-            var last = step === TOUR_STEPS.length - 1;
-            card.innerHTML =
-                '<div class="lime-tour-card__step">Шаг ' + (step + 1) + " из " + TOUR_STEPS.length + '</div>' +
-                '<div class="lime-tour-card__title">' + s.title + '</div>' +
-                '<div class="lime-tour-card__text">' + s.text + '</div>' +
-                '<div class="lime-tour-card__actions">' +
-                    '<button type="button" class="lime-btn lime-btn--ghost lime-btn--sm" data-tour-skip>Пропустить</button>' +
-                    '<button type="button" class="lime-btn lime-btn--primary lime-btn--sm" data-tour-next>' + (last ? "Готово" : "Далее") + '</button>' +
-                '</div>';
-        }
-        card.addEventListener("click", function (e) {
-            if (e.target.closest("[data-tour-skip]")) { finish(); return; }
-            if (e.target.closest("[data-tour-next]")) {
-                if (step >= TOUR_STEPS.length - 1) { finish(); return; }
-                step++; show();
-            }
-        });
-        show();
-    }
-    var tourForced = /[?&]tour=1\b/.test(location.search);
-    var tourSeen = false;
-    try { tourSeen = !!localStorage.getItem(TOUR_KEY); } catch (e) { /* приватный режим */ }
-    // Авто-показ один раз — только когда intro-оверлей не перехватывает (документ не пуст).
-    if (tourForced || (!tourSeen && totalBlocks() > 0)) {
-        if (tourForced && introEl) introEl.classList.remove("is-on");
-        runTour();
-    }
+    // ===== ONBOARDING (этап 9.4): coachmark-тур — модуль lime-editor-onboarding.js =====
+    // Авто-показ один раз (флаг в localStorage); ?tour=1 форсит. Документ не пуст — иначе
+    // показ перехватывает intro-оверлей (поэтому при форсе intro прячем).
+    EditorOnboarding.create({ document: document, window: window }).maybeAutoRun({
+        forced: /[?&]tour=1\b/.test(location.search),
+        hasContent: totalBlocks() > 0,
+        onForce: function () { if (introEl) introEl.classList.remove("is-on"); }
+    });
 
     function initV2Selection(stage, viewport, isViewportPanning) {
         if (!window.LimeSelection) return;
