@@ -75,9 +75,32 @@
         </div>
 
         <div class="lime-card lime-card--padded lime-mt-4">
-            <h3 style="margin-bottom: var(--space-2);">Опасная зона</h3>
-            <p class="lime-text-muted lime-mb-4">Удаление аккаунта в текущей версии недоступно. Свяжись через GitHub.</p>
-            <a class="lime-btn lime-btn--ghost" href="/Home/Logout">Выйти из аккаунта</a>
+            <h3 style="margin-bottom: var(--space-2);">Данные и аккаунт</h3>
+            <p class="lime-text-muted lime-mb-4">Скачай копию всех своих данных или удали аккаунт.</p>
+
+            @if (TempData["Error"] != null)
+            {
+                <div class="lime-alert lime-alert--danger lime-mb-4">@TempData["Error"]</div>
+            }
+
+            <div class="lime-flex lime-gap-3 lime-mb-6" style="flex-wrap: wrap;">
+                <a class="lime-btn lime-btn--ghost" href="/Home/ExportMyData">Скачать мои данные (JSON)</a>
+                <a class="lime-btn lime-btn--ghost" href="/Home/Logout">Выйти из аккаунта</a>
+            </div>
+
+            <h4 style="margin-bottom: var(--space-2);">Опасная зона</h4>
+            <p class="lime-text-muted lime-mb-4">
+                Удаление аккаунта необратимо: сайты, медиа, коллекции и заявки форм будут удалены навсегда.
+                Подтверди паролем.
+            </p>
+            <form asp-action="DeleteMyAccount" asp-controller="Home" method="post"
+                  onsubmit="return confirm('Удалить аккаунт навсегда? Это действие нельзя отменить.');">
+                <div class="lime-field" style="max-width: 320px;">
+                    <label class="lime-label" for="del-pass">Текущий пароль</label>
+                    <input class="lime-input" type="password" id="del-pass" name="password" autocomplete="current-password" required />
+                </div>
+                <button type="submit" class="lime-btn lime-btn--danger lime-mt-3">Удалить аккаунт</button>
+            </form>
         </div>
     </div>
 </section>

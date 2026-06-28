@@ -90,7 +90,8 @@ namespace Lime_Editor.Services
         {
             var plan = await ResolvePlanAsync(owner, ct);
             if (plan.MaxSites < 0) return true;
-            var count = await _db.Sites.CountAsync(s => s.UserId == owner.Id, ct);
+            // Считаем сайты ЯВНО заданного owner (не текущего посетителя) — обходим tenant-фильтр.
+            var count = await _db.Sites.IgnoreQueryFilters().CountAsync(s => s.UserId == owner.Id, ct);
             return count < plan.MaxSites;
         }
 

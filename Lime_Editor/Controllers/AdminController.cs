@@ -32,7 +32,8 @@ namespace Lime_Editor.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> RepublishAll()
         {
-            var sites = await db.Sites
+            // Админ оперирует сайтами всех пользователей — обходим tenant-фильтр.
+            var sites = await db.Sites.IgnoreQueryFilters()
                 .Where(s => s.IsPublished && s.PublishedDocumentJson != null)
                 .ToListAsync();
             var ok = 0;
@@ -60,8 +61,9 @@ namespace Lime_Editor.Controllers
 
         public async Task<IActionResult> Index()
         {
-            var publishedCount = await db.Sites.CountAsync(s => s.IsPublished);
-            var sitesCount = await db.Sites.CountAsync();
+            // Админ-дашборд считает сайты всех пользователей — обходим tenant-фильтр.
+            var publishedCount = await db.Sites.IgnoreQueryFilters().CountAsync(s => s.IsPublished);
+            var sitesCount = await db.Sites.IgnoreQueryFilters().CountAsync();
             var usersCount = await db.Users.CountAsync();
             var adminsCount = await (
                 from ur in db.UserRoles
@@ -96,7 +98,7 @@ namespace Lime_Editor.Controllers
                     Id = u.Id,
                     UserName = u.UserName,
                     Email = u.Email,
-                    SitesCount = db.Sites.Count(s => s.UserId == u.Id),
+                    SitesCount = db.Sites.IgnoreQueryFilters().Count(s => s.UserId == u.Id),
                 }
             ).ToListAsync();
 
@@ -151,7 +153,7 @@ namespace Lime_Editor.Controllers
         public async Task<IActionResult> Sites()
         {
             var rows = await (
-                from s in db.Sites
+                from s in db.Sites.IgnoreQueryFilters()
                 join u in db.Users on s.UserId equals u.Id
                 join t in db.Templates on s.TemplateId equals t.IdTemplate into tj
                 from t in tj.DefaultIfEmpty()
@@ -223,7 +225,8 @@ namespace Lime_Editor.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteSite(int idSite)
         {
-            var site = await db.Sites.FirstOrDefaultAsync(s => s.IdSite == idSite);
+            // Админ удаляет любой сайт — обходим tenant-фильтр.
+            var site = await db.Sites.IgnoreQueryFilters().FirstOrDefaultAsync(s => s.IdSite == idSite);
             if (site == null)
             {
                 return NotFound();

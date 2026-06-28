@@ -27,6 +27,9 @@ services:
     environment:
       ConnectionStrings__connect: "Host=postgres;Port=5432;Database=${POSTGRES_DB:-limeeditor};Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD}"
       ASPNETCORE_ENVIRONMENT: Production
+      # Host-header allow-list: только наш домен (Caddy сохраняет исходный Host при проксировании).
+      # Переопределяет fail-closed дефолт "localhost" из appsettings.json.
+      AllowedHosts: ${DOMAIN:?DOMAIN не задан (пример: lime.example.com)}
     expose:
       - "8080"
     volumes:

@@ -25,7 +25,8 @@ namespace Lime_Editor.Controllers
         public async Task<IActionResult> Index()
         {
             var baseUrl = $"{Request.Scheme}://{Request.Host}";
-            var sites = await (from s in db.Sites
+            // Глобальный sitemap.xml перечисляет опубликованные сайты всех пользователей — обходим tenant-фильтр.
+            var sites = await (from s in db.Sites.IgnoreQueryFilters()
                                where s.IsPublished && s.Slug != null
                                join u in db.Users on s.UserId equals u.Id
                                select new { u.UserName, s.Slug, s.PublishedAt, s.UpdatedAt })

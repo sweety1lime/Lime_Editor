@@ -32,16 +32,29 @@ namespace Lime_Editor
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
+            // Текущий пользователь запроса — для EF global query filter (изоляция тенантов).
+            // Контекст БД инжектит ICurrentUser и фильтрует Site по владельцу автоматически.
+            services.AddHttpContextAccessor();
+            services.AddScoped<ICurrentUser, CurrentUser>();
+
             services.AddDbContext<LimeEditorContext>(x => x.UseNpgsql(Configuration.GetConnectionString("connect")));
 
             services.AddIdentity<ApplicationUser, IdentityRole<int>>(options =>
             {
-                options.Password.RequiredLength = 6;
+                // Парольная политика продукта: минимум 8 символов и хотя бы одна цифра.
+                // Заглавные/спецсимволы НЕ требуем намеренно — не выталкиваем пользователей в
+                // менеджеры паролей на ровном месте, но 8+цифра отсекает тривиальные пароли.
+                options.Password.RequiredLength = 8;
                 options.Password.RequireNonAlphanumeric = false;
                 options.Password.RequireUppercase = false;
-                options.Password.RequireDigit = false;
+                options.Password.RequireDigit = true;
                 options.User.RequireUniqueEmail = true;
                 options.SignIn.RequireConfirmedAccount = false; // подтверждение email добавим позже
+                // Защита от брутфорса: PasswordSignInAsync вызывается с lockoutOnFailure: true,
+                // поэтому эти настройки реально применяются. 5 неудач → блок на 15 минут.
+                options.Lockout.MaxFailedAccessAttempts = 5;
+                options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
+                options.Lockout.AllowedForNewUsers = true;
             })
                 .AddEntityFrameworkStores<LimeEditorContext>()
                 .AddDefaultTokenProviders();
@@ -76,6 +89,12 @@ namespace Lime_Editor
             services.AddSingleton<ITemplateExportService, TemplateExportService>();
             services.AddSingleton<NextExportService>(); // «eject» в Next.js (Итерация 4)
             services.AddSingleton<IImageProcessor, ImageSharpProcessor>();
+            // Хранилище медиа за абстракцией (Фаза 5): дефолт — локальный диск. Позже здесь
+            // подключится S3/R2 без правок контроллеров. Singleton: зависит только от IWebHostEnvironment.
+            services.AddSingleton<IMediaStorage, LocalDiskMediaStorage>();
+            // Транзакционные письма (восстановление пароля). SMTP через env (SMTP_*),
+            // без него — лог-режим (см. EmailSender). Singleton: состояние только из env.
+            services.AddSingleton<IEmailSender, EmailSender>();
             // Серверная компиляция JSON-документов движка B (этап 0.2): singleton кэширует
             // исходник lime-doc.js, Jint-движок создаётся на каждый RenderSite.
             services.AddSingleton<IDocumentRenderer, JsDocumentRenderer>();
@@ -86,6 +105,7 @@ namespace Lime_Editor
             services.AddSingleton<AiContentService>();
             // Тарифы/лимиты (этап 3.4): scoped — работает с LimeEditorContext.
             services.AddScoped<IEntitlementService, EntitlementService>();
+            services.AddScoped<ISiteService, SiteService>();
             // Платёжный провайдер (пока ручной) + идемпотентный приём вебхуков.
             services.AddSingleton<IPaymentProvider, ManualPaymentProvider>();
             services.AddScoped<IBillingService, BillingService>();

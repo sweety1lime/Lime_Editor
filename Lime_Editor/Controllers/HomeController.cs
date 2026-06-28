@@ -1,61 +1,44 @@
 using Lime_Editor.Models;
 using Lime_Editor.Services;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json;
 using System;
 using System.Diagnostics;
-using System.IO;
 using System.Linq;
-using System.Net.Http.Headers;
 using System.Threading.Tasks;
 
 namespace Lime_Editor.Controllers
 {
     public class HomeController : Controller
     {
-        private readonly IWebHostEnvironment _environment;
         private readonly LimeEditorContext db;
         private readonly UserManager<ApplicationUser> _userManager;
-        private readonly SignInManager<ApplicationUser> _signInManager;
-        private readonly ITemplateExportService _exportService;
         private readonly IDocumentRenderer _docRenderer;
         private readonly IEntitlementService _entitlements;
+        private readonly ISiteService _sites;
 
         public HomeController(
-            IWebHostEnvironment environment,
             LimeEditorContext context,
             UserManager<ApplicationUser> userManager,
-            SignInManager<ApplicationUser> signInManager,
-            ITemplateExportService exportService,
             IDocumentRenderer docRenderer,
-            IEntitlementService entitlements)
+            IEntitlementService entitlements,
+            ISiteService sites)
         {
-            _environment = environment;
             db = context;
             _userManager = userManager;
-            _signInManager = signInManager;
-            _exportService = exportService;
             _docRenderer = docRenderer;
             _entitlements = entitlements;
+            _sites = sites;
         }
 
-        // Id текущего аутентифицированного пользователя (для [Authorize]-действий).
         private int CurrentUserId => int.Parse(_userManager.GetUserId(User));
 
-        // Проверка, что сайт принадлежит текущему пользователю (защита от IDOR).
-        private async Task<bool> UserOwnsSiteAsync(int? siteId)
+        private Task<bool> UserOwnsSiteAsync(int? siteId)
         {
-            if (siteId == null)
-            {
-                return false;
-            }
-            return await db.Sites.AnyAsync(s => s.IdSite == siteId && s.UserId == CurrentUserId);
+            return _sites.UserOwnsSiteAsync(CurrentUserId, siteId);
         }
 
         public async Task<IActionResult> Index()
@@ -64,7 +47,7 @@ namespace Lime_Editor.Controllers
             {
                 return RedirectToAction(nameof(MySites));
             }
-            // На лендинге показываем 3 публичных шаблона (без Custom Id=4).
+
             var templates = await db.Templates
                 .AsNoTracking()
                 .Where(t => t.IdTemplate != TemplateExportConfigs.CustomTemplateId)
@@ -73,97 +56,12 @@ namespace Lime_Editor.Controllers
             return View(templates);
         }
 
-        public IActionResult SignIn()
-        {
-            if (User.Identity != null && User.Identity.IsAuthenticated)
-            {
-                return RedirectToAction("MySites", "Home");
-            }
-            return View();
-        }
-
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        [EnableRateLimiting("auth")] // анти-брутфорс по IP (в пару к Identity-lockout)
-        public async Task<IActionResult> SignIn(LoginModel model)
-        {
-            if (ModelState.IsValid)
-            {
-                var result = await _signInManager.PasswordSignInAsync(
-                    model.Login, model.Password, isPersistent: false, lockoutOnFailure: true);
-                if (result.Succeeded)
-                {
-                    return RedirectToAction("MySites", "Home");
-                }
-                ModelState.AddModelError("", "Некорректные логин и(или) пароль");
-            }
-
-            return View(model);
-        }
-
-        public async Task<IActionResult> Logout()
-        {
-            await _signInManager.SignOutAsync();
-            return RedirectToAction("SignIn");
-        }
-
-        public IActionResult SignUp()
-        {
-            return View();
-        }
-
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        [EnableRateLimiting("auth")] // троттлинг массовой регистрации по IP
-        public async Task<IActionResult> SignUp(RegisterViewModel model)
-        {
-            if (ModelState.IsValid)
-            {
-                var user = new ApplicationUser { UserName = model.Login, Email = model.Email };
-                var result = await _userManager.CreateAsync(user, model.Password);
-                if (result.Succeeded)
-                {
-                    return RedirectToAction("SignIn");
-                }
-
-                foreach (var error in result.Errors)
-                {
-                    ModelState.AddModelError("", error.Description);
-                }
-            }
-
-            return View(model);
-        }
-
         [Authorize]
         public async Task<IActionResult> MySites()
         {
-            var userId = CurrentUserId;
-            // Один запрос с LEFT JOIN вместо N+1 (раньше: 1 запрос Sites + по запросу на каждый сайт).
-            var rows = await (
-                from s in db.Sites
-                where s.UserId == userId
-                join t in db.Templates on s.TemplateId equals t.IdTemplate into tj
-                from t in tj.DefaultIfEmpty()
-                select new { Site = s, Template = t }
-            ).ToListAsync();
-
-            foreach (var row in rows)
-            {
-                row.Site.TemplateInfo = row.Template;
-            }
-
-            // Счётчик новых (непрочитанных) заявок на каждый сайт — для бейджа «Заявки (N)».
-            var siteIds = rows.Select(r => r.Site.IdSite ?? 0).ToList();
-            var leadCounts = await db.FormSubmissions
-                .Where(f => !f.IsRead && siteIds.Contains(f.SiteId))
-                .GroupBy(f => f.SiteId)
-                .Select(g => new { SiteId = g.Key, Count = g.Count() })
-                .ToListAsync();
-            ViewBag.LeadCounts = leadCounts.ToDictionary(x => x.SiteId, x => x.Count);
-
-            var model = new SiteControlModel { Sites = rows.Select(r => r.Site).ToList() };
-            return View(model);
+            var dashboard = await _sites.GetDashboardAsync(CurrentUserId);
+            ViewBag.LeadCounts = dashboard.LeadCounts;
+            return View(dashboard.Model);
         }
 
         [Authorize]
@@ -171,13 +69,13 @@ namespace Lime_Editor.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> UpdateSite(SiteControlModel controlModel)
         {
-            var site = (Site)JsonConvert.DeserializeObject(controlModel.Site, typeof(Site));
-            if (!await UserOwnsSiteAsync(site.IdSite))
+            var site = JsonConvert.DeserializeObject<Site>(controlModel.Site);
+            if (site == null || !await UserOwnsSiteAsync(site.IdSite))
             {
                 return Forbid();
             }
-            // Движок A удалён: редактирование существующего сайта идёт в EditDoc (Движок B).
-            return RedirectToAction("EditDoc", new { siteId = site.IdSite });
+
+            return RedirectToAction(nameof(EditDoc), new { siteId = site.IdSite });
         }
 
         [Authorize]
@@ -185,26 +83,21 @@ namespace Lime_Editor.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteSite(SiteControlModel controlModel)
         {
-            var site = (Site)JsonConvert.DeserializeObject(controlModel.Site, typeof(Site));
-            if (!await UserOwnsSiteAsync(site.IdSite))
+            var site = JsonConvert.DeserializeObject<Site>(controlModel.Site);
+            if (site == null || !await _sites.DeleteSiteAsync(CurrentUserId, site.IdSite))
             {
                 return Forbid();
             }
-            var siteToRemove = await db.Sites.FirstAsync(x => x.IdSite == site.IdSite);
-            db.Sites.Remove(siteToRemove);
-            await db.SaveChangesAsync();
-            return RedirectToAction("MySites", "Home");
+
+            return RedirectToAction(nameof(MySites), "Home");
         }
 
         [Authorize]
         public IActionResult Templates()
         {
-            // Витрина — клиентский грид шаблонов Движка B (lime-templates.js). Легаси
-            // DB-шаблоны (Движок A) удалены.
             return View();
         }
 
-        // Новый редактор на JSON-движке (Трек B). Strangler: рядом со старым EditTemplates.
         [Authorize]
         public async Task<IActionResult> EditDoc(int? siteId)
         {
@@ -214,18 +107,20 @@ namespace Lime_Editor.Controllers
                 SiteName = "Новый сайт (движок B)",
                 DocumentJson = null,
             };
+
             if (siteId.HasValue)
             {
-                var userId = CurrentUserId;
-                var site = await db.Sites.FirstOrDefaultAsync(s => s.IdSite == siteId.Value && s.UserId == userId);
+                var site = await _sites.GetOwnedSiteAsync(CurrentUserId, siteId.Value);
                 if (site == null)
                 {
                     return Forbid();
                 }
+
                 if (site.TemplateId != TemplateExportConfigs.CustomTemplateId)
                 {
                     return BadRequest("Этот сайт нельзя редактировать через движок B.");
                 }
+
                 vm.SiteId = site.IdSite;
                 vm.SiteName = site.Name;
                 vm.MetaTitle = site.MetaTitle;
@@ -235,6 +130,7 @@ namespace Lime_Editor.Controllers
                 vm.DocVersion = site.UpdatedAt?.Ticks ?? 0;
                 vm.HasOriginalBackup = !string.IsNullOrEmpty(site.OriginalDocumentJson);
             }
+
             return View(vm);
         }
 
@@ -254,62 +150,58 @@ namespace Lime_Editor.Controllers
 
             if (siteId.HasValue)
             {
-                // UPDATE — редактируем существующий Custom-сайт (пишем в черновик).
-                var site = await db.Sites.FirstOrDefaultAsync(s => s.IdSite == siteId.Value && s.UserId == userId);
+                var site = await _sites.GetOwnedSiteAsync(userId, siteId.Value);
                 if (site == null)
                 {
                     return Forbid();
                 }
+
                 if (site.TemplateId != TemplateExportConfigs.CustomTemplateId)
                 {
                     return BadRequest("Этот сайт нельзя редактировать через Custom-конструктор.");
                 }
-                // Optimistic concurrency (этап 0.4): клиент прислал версию, с которой
-                // открыл документ. Расхождение = документ сохранён из другого окна —
-                // 409, а не молчаливый last-write-wins.
+
                 if (Site.IsVersionConflict(baseVersion, site.UpdatedAt))
                 {
                     return Conflict(new { error = "version", version = site.UpdatedAt?.Ticks ?? 0 });
                 }
+
                 site.MetaTitle = metaTitle;
                 site.MetaDescription = metaDescription;
                 site.OgImage = ogImage;
                 if (documentJson != null)
                 {
-                    // Раскатка Editor V2: один раз снимаем резервную копию исходного документа
-                    // перед самой первой перезаписью (страховка миграции v1→v2).
                     if (Site.ShouldBackupOriginal(site.OriginalDocumentJson, site.DocumentJson, documentJson))
                     {
                         site.OriginalDocumentJson = site.DocumentJson;
                     }
+
                     site.DocumentJson = documentJson;
                 }
+
                 site.DraftFolder = WrapCustomHtml(html, site);
-                // Неопубликованный сайт держим синхронным (Folder обязателен в БД);
-                // опубликованный — Folder меняется только при повторной Publish.
                 if (!site.IsPublished)
                 {
                     site.Folder = site.DraftFolder;
                 }
+
                 site.UpdatedAt = DateTime.UtcNow;
                 await db.SaveChangesAsync();
-                // Автосейву возвращаем свежую версию — клиент продолжает цепочку с неё.
-                return auto ? Json(new { version = site.UpdatedAt.Value.Ticks }) : RedirectToAction("MySites");
+                return auto ? Json(new { version = site.UpdatedAt.Value.Ticks }) : RedirectToAction(nameof(MySites));
             }
 
-            // CREATE — новый сайт. Лимит тарифа на число сайтов (этап 3.4).
             if (!await _entitlements.CanCreateSiteAsync(OwnerRef.ForUser(userId)))
             {
                 return auto ? StatusCode(403, new { error = "site_limit" }) : RedirectToAction("Index", "Billing");
             }
+
             var name = "Новый сайт";
-            var slug = await GenerateUniqueSlugAsync(userId, name);
             var created = new Site
             {
                 Name = name,
                 UserId = userId,
                 TemplateId = TemplateExportConfigs.CustomTemplateId,
-                Slug = slug,
+                Slug = await _sites.GenerateUniqueSlugAsync(userId, name),
                 IsPublished = false,
                 MetaTitle = metaTitle,
                 MetaDescription = metaDescription,
@@ -321,115 +213,40 @@ namespace Lime_Editor.Controllers
             created.DraftFolder = created.Folder;
             db.Sites.Add(created);
             await db.SaveChangesAsync();
-            return auto ? Json(new { version = created.UpdatedAt.Value.Ticks }) : RedirectToAction("MySites");
+            return auto ? Json(new { version = created.UpdatedAt.Value.Ticks }) : RedirectToAction(nameof(MySites));
         }
 
-        // Откат сайта к резервной копии исходного документа (раскатка Editor V2). Сервер сам
-        // перекомпилирует черновик из оригинального JSON. Бэкап НЕ стирается — можно открыть и
-        // продолжить с исходного состояния. Без бэкапа — нечего восстанавливать.
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> RestoreOriginal(int siteId)
         {
-            var userId = CurrentUserId;
-            var site = await db.Sites.FirstOrDefaultAsync(s => s.IdSite == siteId && s.UserId == userId);
+            var site = await _sites.GetOwnedSiteAsync(CurrentUserId, siteId);
             if (site == null)
             {
                 return Forbid();
             }
+
             if (string.IsNullOrEmpty(site.OriginalDocumentJson))
             {
                 return BadRequest(new { error = "no_backup" });
             }
+
             site.DocumentJson = site.OriginalDocumentJson;
             var body = _docRenderer.RenderSite(site.OriginalDocumentJson);
-            site.DraftFolder = Services.PublishedPageBuilder.WrapCustomHtml(body, site, site.OriginalDocumentJson);
+            site.DraftFolder = PublishedPageBuilder.WrapCustomHtml(body, site, site.OriginalDocumentJson);
             if (!site.IsPublished)
             {
                 site.Folder = site.DraftFolder;
             }
+
             site.UpdatedAt = DateTime.UtcNow;
             await db.SaveChangesAsync();
-            return RedirectToAction("EditDoc", new { siteId });
+            return RedirectToAction(nameof(EditDoc), new { siteId });
         }
 
-        // Wrap для сохранения Folder в БД вынесен в Services.PublishedPageBuilder (этап 0.2) —
-        // он нужен и Publish здесь, и RepublishAll в админке.
         private static string WrapCustomHtml(string innerHtml, Site site)
-            => Services.PublishedPageBuilder.WrapCustomHtml(innerHtml, site, site.DocumentJson);
-
-        private async Task<string> GenerateUniqueSlugAsync(int userId, string baseName)
         {
-            var baseSlug = SlugGenerator.Generate(baseName);
-            var slug = baseSlug;
-            var i = 1;
-            while (await db.Sites.AnyAsync(s => s.UserId == userId && s.Slug == slug))
-            {
-                slug = $"{baseSlug}-{i++}";
-            }
-            return slug;
-        }
-
-        [Authorize]
-        public async Task<IActionResult> Profile()
-        {
-            var user = await _userManager.GetUserAsync(User);
-            if (user == null)
-            {
-                return RedirectToAction("SignIn");
-            }
-
-            var model = new ProfileViewModel
-            {
-                Id = user.Id,
-                Login = user.UserName,
-                Email = user.Email,
-                Name = user.Name,
-                LastName = user.LastName
-            };
-            return View(model);
-        }
-
-        [Authorize]
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        public async Task<IActionResult> EditProfile(ProfileViewModel model)
-        {
-            if (!ModelState.IsValid)
-            {
-                return View("Profile", model);
-            }
-
-            // Текущий пользователь берётся из cookie, а не из формы — нельзя отредактировать чужой профиль.
-            var user = await _userManager.GetUserAsync(User);
-            if (user == null)
-            {
-                return RedirectToAction("SignIn");
-            }
-
-            user.Name = model.Name;
-            user.LastName = model.LastName;
-            user.Email = model.Email;
-            user.UserName = model.Login;
-
-            var updateResult = await _userManager.UpdateAsync(user);
-            if (!updateResult.Succeeded)
-            {
-                foreach (var error in updateResult.Errors)
-                {
-                    ModelState.AddModelError("", error.Description);
-                }
-                return View("Profile", model);
-            }
-
-            if (!string.IsNullOrEmpty(model.Password))
-            {
-                var token = await _userManager.GeneratePasswordResetTokenAsync(user);
-                await _userManager.ResetPasswordAsync(user, token, model.Password);
-            }
-
-            await _signInManager.RefreshSignInAsync(user);
-            return RedirectToAction("Profile");
+            return PublishedPageBuilder.WrapCustomHtml(innerHtml, site, site.DocumentJson);
         }
 
         [Authorize]
@@ -437,39 +254,33 @@ namespace Lime_Editor.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Publish(int idSite)
         {
-            if (!await UserOwnsSiteAsync(idSite))
+            var userId = CurrentUserId;
+            var target = await _sites.GetOwnedSiteAsync(userId, idSite);
+            if (target == null)
             {
                 return Forbid();
             }
-            var target = await db.Sites.FirstAsync(s => s.IdSite == idSite);
-            // Старые сайты (созданные до миграции AddPublishingAndCustomTemplate) имеют Slug = NULL —
-            // на лету генерим уникальный slug из имени, иначе публичный URL будет /u/{user}/ → 404.
+
             if (string.IsNullOrEmpty(target.Slug))
             {
-                target.Slug = await GenerateUniqueSlugAsync(CurrentUserId, target.Name);
+                target.Slug = await _sites.GenerateUniqueSlugAsync(userId, target.Name);
             }
-            // Движок B: сервер компилирует publish-HTML из JSON тем же lime-doc.js, что и клиент.
-            // Снапшот JSON фиксируем отдельно — DocumentJson дальше живёт как черновик автосейва,
-            // а republish идёт из снапшота. (Движок A удалён — legacy-ветки DraftFolder больше нет.)
+
             if (!string.IsNullOrEmpty(target.DocumentJson))
             {
-                // Гейт тарифа (этап 3.4): кастомный CSS/<head> уходит в публикацию только на планах
-                // с AllowCustomCode. Иначе вырезаем его из снапшота — черновик (DocumentJson) при этом
-                // не трогаем, чтобы при апгрейде тарифа код вернулся в следующую публикацию.
-                var plan = await _entitlements.ResolvePlanAsync(OwnerRef.ForUser(CurrentUserId));
+                var plan = await _entitlements.ResolvePlanAsync(OwnerRef.ForUser(userId));
                 target.PublishedDocumentJson = plan.AllowCustomCode
                     ? target.DocumentJson
                     : PublishedPageBuilder.StripCustomCode(target.DocumentJson);
                 var body = _docRenderer.RenderSite(target.PublishedDocumentJson);
                 target.Folder = PublishedPageBuilder.WrapCustomHtml(body, target, target.PublishedDocumentJson);
             }
+
             target.IsPublished = true;
             target.PublishedAt = DateTime.UtcNow;
-            // Сообщество (этап 3): опубликованный сайт по умолчанию виден в галерее
-            // (он и так публичен по ссылке); скрыть можно кнопкой в «Мои сайты».
             target.ShowInGallery = true;
             await db.SaveChangesAsync();
-            return RedirectToAction("MySites");
+            return RedirectToAction(nameof(MySites));
         }
 
         [Authorize]
@@ -477,14 +288,12 @@ namespace Lime_Editor.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Unpublish(int idSite)
         {
-            if (!await UserOwnsSiteAsync(idSite))
+            if (!await _sites.UnpublishAsync(CurrentUserId, idSite))
             {
                 return Forbid();
             }
-            var target = await db.Sites.FirstAsync(s => s.IdSite == idSite);
-            target.IsPublished = false;
-            await db.SaveChangesAsync();
-            return RedirectToAction("MySites");
+
+            return RedirectToAction(nameof(MySites));
         }
 
         [Authorize]
@@ -492,14 +301,12 @@ namespace Lime_Editor.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> ChangeName(string site, int idSite)
         {
-            if (!await UserOwnsSiteAsync(idSite))
+            if (!await _sites.RenameSiteAsync(CurrentUserId, idSite, site))
             {
                 return Forbid();
             }
-            var target = await db.Sites.FirstAsync(x => x.IdSite.Value == idSite);
-            target.Name = site;
-            await db.SaveChangesAsync();
-            return RedirectToAction("MySites", "Home");
+
+            return RedirectToAction(nameof(MySites), "Home");
         }
 
         [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]

@@ -18,7 +18,7 @@ namespace Lime_Editor.Services
     public sealed class OrphanMediaCleanupService : BackgroundService
     {
         private readonly IServiceProvider _services;
-        private readonly IWebHostEnvironment _env;
+        private readonly IMediaStorage _storage;
         private readonly ILogger<OrphanMediaCleanupService> _logger;
 
         public static readonly TimeSpan Interval = TimeSpan.FromHours(24);
@@ -27,11 +27,11 @@ namespace Lime_Editor.Services
 
         public OrphanMediaCleanupService(
             IServiceProvider services,
-            IWebHostEnvironment env,
+            IMediaStorage storage,
             ILogger<OrphanMediaCleanupService> logger)
         {
             _services = services;
-            _env = env;
+            _storage = storage;
             _logger = logger;
         }
 
@@ -44,9 +44,14 @@ namespace Lime_Editor.Services
             {
                 try
                 {
+                    var mediaRoot = _storage.LocalRootForMaintenance;
+                    if (string.IsNullOrEmpty(mediaRoot))
+                    {
+                        // Не файловое хранилище (напр. S3) — осиротевшие объекты чистят lifecycle-правила бакета.
+                        return;
+                    }
                     using var scope = _services.CreateScope();
                     var db = scope.ServiceProvider.GetRequiredService<LimeEditorContext>();
-                    var mediaRoot = Path.Combine(_env.WebRootPath, Controllers.MediaController.MediaFolder);
                     var deleted = await CleanupAsync(db, mediaRoot, MinAge, stoppingToken);
                     if (deleted > 0)
                     {

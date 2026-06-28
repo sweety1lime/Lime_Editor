@@ -40,8 +40,9 @@ namespace Lime_Editor.Controllers
         {
             var userId = CurrentUserIdOrNull;
 
+            // Публичная галерея показывает сайты всех пользователей — обходим tenant-фильтр.
             var query =
-                from s in db.Sites.AsNoTracking()
+                from s in db.Sites.AsNoTracking().IgnoreQueryFilters()
                 join u in db.Users on s.UserId equals u.Id
                 where s.IsPublished && s.ShowInGallery && s.Slug != null
                 select new CommunityCard
@@ -75,7 +76,9 @@ namespace Lime_Editor.Controllers
         public async Task<IActionResult> Like(int siteId, string sort = "new")
         {
             var userId = CurrentUserIdOrNull.Value;
-            var canLike = await db.Sites.AnyAsync(s => s.IdSite == siteId && s.IsPublished && s.ShowInGallery);
+            // Лайкают чужие публичные сайты — обходим tenant-фильтр.
+            var canLike = await db.Sites.IgnoreQueryFilters()
+                .AnyAsync(s => s.IdSite == siteId && s.IsPublished && s.ShowInGallery);
             if (!canLike)
             {
                 return NotFound();
@@ -102,7 +105,8 @@ namespace Lime_Editor.Controllers
         public async Task<IActionResult> Clone(int siteId)
         {
             var userId = CurrentUserIdOrNull.Value;
-            var source = await db.Sites.AsNoTracking()
+            // Клонируем чужой публичный сайт из галереи — обходим tenant-фильтр на чтении источника.
+            var source = await db.Sites.AsNoTracking().IgnoreQueryFilters()
                 .FirstOrDefaultAsync(s => s.IdSite == siteId && s.IsPublished && s.ShowInGallery);
             if (source == null)
             {

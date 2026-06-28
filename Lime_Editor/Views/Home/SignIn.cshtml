@@ -10,6 +10,11 @@
             <h1 class="lime-auth__title display">С возвращением</h1>
             <p class="lime-auth__subtitle">Войди, чтобы продолжить работу над своими сайтами.</p>
 
+            @if (TempData["Message"] != null)
+            {
+                <div class="lime-alert lime-alert--success lime-mb-4">@TempData["Message"]</div>
+            }
+
             @if (!ViewData.ModelState.IsValid)
             {
                 var summary = ViewData.ModelState[string.Empty];
@@ -32,6 +37,9 @@
                     <label asp-for="Password" class="lime-label">Пароль</label>
                     <input asp-for="Password" class="lime-input" type="password" required placeholder="••••••••">
                     <span asp-validation-for="Password" class="lime-validation"></span>
+                    <div style="text-align:right;margin-top:6px;">
+                        <a href="@Url.Action("ForgotPassword")" class="lime-text-muted">Забыли пароль?</a>
+                    </div>
                 </div>
 
                 <button type="submit" class="lime-btn lime-btn--primary lime-btn--lg" style="width:100%;margin-top:6px;">Войти →</button>

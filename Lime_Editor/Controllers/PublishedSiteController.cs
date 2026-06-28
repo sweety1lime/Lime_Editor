@@ -40,7 +40,8 @@ namespace Lime_Editor.Controllers
             }
 
             // Без AsNoTracking: тут же инкрементируем счётчик просмотров (этап 3).
-            var site = await db.Sites
+            // Публичный показ: отдаём сайт ВЛАДЕЛЬЦА из URL, а не текущего посетителя — обходим tenant-фильтр.
+            var site = await db.Sites.IgnoreQueryFilters()
                 .FirstOrDefaultAsync(s => s.UserId == user.Id && s.Slug == slug && s.IsPublished);
             if (site == null)
             {
@@ -85,7 +86,8 @@ namespace Lime_Editor.Controllers
             var user = await _userManager.FindByNameAsync(username);
             if (user == null) return NotFound();
 
-            var site = await db.Sites
+            // Публичный показ: отдаём сайт ВЛАДЕЛЬЦА из URL, а не текущего посетителя — обходим tenant-фильтр.
+            var site = await db.Sites.IgnoreQueryFilters()
                 .FirstOrDefaultAsync(s => s.UserId == user.Id && s.Slug == slug && s.IsPublished);
             if (site == null || string.IsNullOrEmpty(site.PublishedDocumentJson)) return NotFound();
 
@@ -159,7 +161,7 @@ namespace Lime_Editor.Controllers
         {
             var user = await _userManager.FindByNameAsync(username);
             if (user == null) return (null, null);
-            var site = await db.Sites.AsNoTracking()
+            var site = await db.Sites.AsNoTracking().IgnoreQueryFilters()
                 .FirstOrDefaultAsync(s => s.UserId == user.Id && s.Slug == slug && s.IsPublished);
             if (site == null || string.IsNullOrEmpty(site.PublishedDocumentJson)) return (null, null);
             return (site, $"/u/{username}/{slug}");

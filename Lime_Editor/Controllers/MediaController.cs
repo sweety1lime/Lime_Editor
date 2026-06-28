@@ -24,7 +24,7 @@ namespace Lime_Editor.Controllers
 
         private readonly LimeEditorContext db;
         private readonly UserManager<ApplicationUser> _userManager;
-        private readonly IWebHostEnvironment _env;
+        private readonly IMediaStorage _storage;
         private readonly IImageProcessor _imageProcessor;
         private readonly IHttpClientFactory _httpFactory;
         private readonly IEntitlementService _entitlements;
@@ -32,14 +32,14 @@ namespace Lime_Editor.Controllers
         public MediaController(
             LimeEditorContext context,
             UserManager<ApplicationUser> userManager,
-            IWebHostEnvironment env,
+            IMediaStorage storage,
             IImageProcessor imageProcessor,
             IHttpClientFactory httpFactory,
             IEntitlementService entitlements)
         {
             db = context;
             _userManager = userManager;
-            _env = env;
+            _storage = storage;
             _imageProcessor = imageProcessor;
             _httpFactory = httpFactory;
             _entitlements = entitlements;
@@ -64,19 +64,20 @@ namespace Lime_Editor.Controllers
         public async Task<IActionResult> ApiList()
         {
             var userId = CurrentUserId;
-            var items = await db.MediaAssets
+            // Материализуем, затем строим URL через хранилище (его нельзя звать внутри EF-проекции).
+            var assets = await db.MediaAssets
                 .Where(m => m.UserId == userId)
                 .OrderByDescending(m => m.UploadedAt)
-                .Select(m => new
-                {
-                    id = m.Id,
-                    url = $"/media/{userId}/{m.StoredFileName}",
-                    name = m.OriginalName,
-                    contentType = m.ContentType,
-                    sizeBytes = m.SizeBytes,
-                    uploadedAt = m.UploadedAt,
-                })
                 .ToListAsync();
+            var items = assets.Select(m => new
+            {
+                id = m.Id,
+                url = _storage.PublicUrl(userId, m.StoredFileName),
+                name = m.OriginalName,
+                contentType = m.ContentType,
+                sizeBytes = m.SizeBytes,
+                uploadedAt = m.UploadedAt,
+            });
             return Json(items);
         }
 
@@ -181,12 +182,9 @@ namespace Lime_Editor.Controllers
             }
 
             var userId = CurrentUserId;
-            // Имя на диске — Guid + расширение от процессора (может отличаться от исходного, напр. .jpeg → .jpg).
+            // Имя в хранилище — Guid + расширение от процессора (может отличаться от исходного, напр. .jpeg → .jpg).
             var storedName = Guid.NewGuid().ToString("N") + processed.Extension;
-            var userDir = Path.Combine(_env.WebRootPath, MediaFolder, userId.ToString());
-            Directory.CreateDirectory(userDir);
-
-            await System.IO.File.WriteAllBytesAsync(Path.Combine(userDir, storedName), processed.Bytes);
+            await _storage.SaveAsync(userId, storedName, processed.Bytes);
 
             db.MediaAssets.Add(new MediaAsset
             {
@@ -215,11 +213,7 @@ namespace Lime_Editor.Controllers
                 return NotFound();
             }
 
-            var path = Path.Combine(_env.WebRootPath, MediaFolder, userId.ToString(), asset.StoredFileName);
-            if (System.IO.File.Exists(path))
-            {
-                System.IO.File.Delete(path);
-            }
+            _storage.Delete(userId, asset.StoredFileName);
             db.MediaAssets.Remove(asset);
             await db.SaveChangesAsync();
             return RedirectToAction(nameof(Index));

@@ -1,3 +1,4 @@
+using Lime_Editor.Services;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
@@ -8,13 +9,19 @@ namespace Lime_Editor.Models
 {
     public partial class LimeEditorContext : IdentityDbContext<ApplicationUser, IdentityRole<int>, int>
     {
+        // Текущий пользователь для global query filter. null → фильтр отключён (аноним/фон/миграции/тесты).
+        private readonly int? _currentUserId;
+
         public LimeEditorContext()
         {
         }
 
-        public LimeEditorContext(DbContextOptions<LimeEditorContext> options)
+        // Единственный конструктор с DbContextOptions (иначе EF не выберет однозначно).
+        // ICurrentUser необязателен: при отсутствии (тесты/фон) фильтр тенанта отключается.
+        public LimeEditorContext(DbContextOptions<LimeEditorContext> options, ICurrentUser currentUser = null)
             : base(options)
         {
+            _currentUserId = currentUser?.UserId;
         }
 
         public virtual DbSet<Site> Sites { get; set; }
@@ -78,6 +85,15 @@ namespace Lime_Editor.Models
                     .WithMany()
                     .HasForeignKey(e => e.UserId)
                     .OnDelete(DeleteBehavior.Cascade);
+
+                // Tenant-изоляция в архитектуру: по умолчанию запрос видит только сайты текущего
+                // пользователя — забытый "&& UserId ==" больше не утечёт чужими данными.
+                // Когда пользователя нет (аноним/фон/тесты данных) — фильтр отключён.
+                // Легитимные кросс-тенантные чтения (публичный показ /u, галерея, админка,
+                // sitemap, приём публичных форм) явно вызывают IgnoreQueryFilters().
+                // Сравнение через nullable (== _currentUserId, без .Value) — иначе InMemory-провайдер
+                // вычисляет .Value при null и падает «Nullable object must have a value».
+                entity.HasQueryFilter(s => _currentUserId == null || s.UserId == _currentUserId);
             });
 
             modelBuilder.Entity<Template>(entity =>

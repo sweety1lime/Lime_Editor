@@ -53,8 +53,10 @@ namespace Lime_Editor.Controllers
             {
                 return BadRequest();
             }
+            // Публичный приём формы: проверяем чужой опубликованный сайт — обходим tenant-фильтр.
             var siteExists = await db.Sites
                 .AsNoTracking()
+                .IgnoreQueryFilters()
                 .AnyAsync(s => s.IdSite == siteId && s.IsPublished);
             if (!siteExists)
             {
