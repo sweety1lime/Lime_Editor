@@ -15,6 +15,11 @@
                 <div class="lime-alert lime-alert--success lime-mb-4">@TempData["Message"]</div>
             }
 
+            @if (TempData["Error"] != null)
+            {
+                <div class="lime-alert lime-alert--danger lime-mb-4">@TempData["Error"]</div>
+            }
+
             @if (!ViewData.ModelState.IsValid)
             {
                 var summary = ViewData.ModelState[string.Empty];

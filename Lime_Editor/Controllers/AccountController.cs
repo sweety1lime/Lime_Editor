@@ -185,6 +185,8 @@ namespace Lime_Editor.Controllers
                 var result = await _userManager.CreateAsync(user, model.Password);
                 if (result.Succeeded)
                 {
+                    await SendEmailConfirmationAsync(user);
+                    TempData["Message"] = "Аккаунт создан. Мы отправили письмо для подтверждения адреса — проверьте почту.";
                     return RedirectToAction(nameof(SignIn));
                 }
 
@@ -195,6 +197,58 @@ namespace Lime_Editor.Controllers
             }
 
             return View(HomeView("SignUp"), model);
+        }
+
+        // Письмо с подтверждением адреса. Шлётся через IEmailSender (в dev — лог-режим).
+        private async Task SendEmailConfirmationAsync(ApplicationUser user)
+        {
+            var token = await _userManager.GenerateEmailConfirmationTokenAsync(user);
+            var encoded = WebEncoders.Base64UrlEncode(System.Text.Encoding.UTF8.GetBytes(token));
+            var link = Url.Action(nameof(ConfirmEmail), null,
+                new { userId = user.Id, token = encoded }, Request.Scheme);
+            var html = $"<p>Подтвердите адрес, чтобы активировать аккаунт в Lime:</p>" +
+                       $"<p><a href=\"{link}\">Подтвердить email</a></p>" +
+                       $"<p>Если вы не регистрировались — просто проигнорируйте это письмо.</p>";
+            await _emailSender.SendAsync(user.Email, "Подтверждение email — Lime", html);
+        }
+
+        [HttpGet("ConfirmEmail")]
+        public async Task<IActionResult> ConfirmEmail(int userId, string token)
+        {
+            if (userId == 0 || string.IsNullOrEmpty(token))
+            {
+                return RedirectToAction(nameof(SignIn));
+            }
+
+            var user = await _userManager.FindByIdAsync(userId.ToString());
+            if (user == null)
+            {
+                TempData["Error"] = "Ссылка недействительна.";
+                return RedirectToAction(nameof(SignIn));
+            }
+
+            string decoded;
+            try
+            {
+                decoded = System.Text.Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(token));
+            }
+            catch (FormatException)
+            {
+                TempData["Error"] = "Ссылка недействительна или устарела.";
+                return RedirectToAction(nameof(SignIn));
+            }
+
+            var result = await _userManager.ConfirmEmailAsync(user, decoded);
+            if (result.Succeeded)
+            {
+                TempData["Message"] = "Email подтверждён — теперь можно войти.";
+            }
+            else
+            {
+                TempData["Error"] = "Не удалось подтвердить email: ссылка недействительна или устарела.";
+            }
+
+            return RedirectToAction(nameof(SignIn));
         }
 
         [Authorize]

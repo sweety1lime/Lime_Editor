@@ -1,4 +1,5 @@
 using Lime_Editor.Models;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -48,6 +49,37 @@ namespace Lime.Tests.Integration
             Assert.Single(mine);
             Assert.Equal(2001, mine[0].IdSite);
             Assert.DoesNotContain(mine, s => s.UserId != 7);
+        }
+
+        [Fact]
+        public async Task ConfirmEmail_WithoutToken_RedirectsToSignIn_NotError()
+        {
+            var client = _factory.CreateClient(new WebApplicationFactoryClientOptions
+            {
+                AllowAutoRedirect = false
+            });
+
+            // Битая/пустая ссылка подтверждения не должна валить сервер — мягкий редирект на вход.
+            var response = await client.GetAsync("/Home/ConfirmEmail");
+
+            Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+            Assert.Contains("/Home/SignIn", response.Headers.Location?.ToString() ?? string.Empty);
+        }
+
+        [Fact]
+        public async Task EmailConfirmationToken_RoundTrips_AndConfirmsUser()
+        {
+            using var scope = _factory.Services.CreateScope();
+            var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+            var user = new ApplicationUser { UserName = "confirmme", Email = "confirmme@test.local" };
+            Assert.True((await userManager.CreateAsync(user, "TestPass1!")).Succeeded);
+            Assert.False(await userManager.IsEmailConfirmedAsync(user));
+
+            var token = await userManager.GenerateEmailConfirmationTokenAsync(user);
+            var result = await userManager.ConfirmEmailAsync(user, token);
+
+            Assert.True(result.Succeeded);
+            Assert.True(await userManager.IsEmailConfirmedAsync(user));
         }
     }
 }

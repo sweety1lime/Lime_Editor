@@ -49,7 +49,10 @@ namespace Lime_Editor
                 options.Password.RequireUppercase = false;
                 options.Password.RequireDigit = true;
                 options.User.RequireUniqueEmail = true;
-                options.SignIn.RequireConfirmedAccount = false; // подтверждение email добавим позже
+                // Подтверждение email: код готов (письмо шлётся при регистрации, есть ConfirmEmail).
+                // Enforcement включается флагом Identity:RequireConfirmedEmail — после подключения
+                // боевого SMTP. По умолчанию false, чтобы dev/без-почты не блокировал вход.
+                options.SignIn.RequireConfirmedAccount = Configuration.GetValue<bool>("Identity:RequireConfirmedEmail");
                 // Защита от брутфорса: PasswordSignInAsync вызывается с lockoutOnFailure: true,
                 // поэтому эти настройки реально применяются. 5 неудач → блок на 15 минут.
                 options.Lockout.MaxFailedAccessAttempts = 5;
