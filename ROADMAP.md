@@ -81,10 +81,12 @@
 **Цель:** управляемость кода. Делается параллельно/после запуска, по приоритету.
 
 ### 4.1 🟡 Разбить god-files
-- **Что:** `wwwroot/js/lime/lime-doc-editor.js` (было 6285 строк; сейчас 5682) и `HomeController` (CRUD сайтов + профиль + auth в одном).
+- **Что:** `wwwroot/js/lime/lime-doc-editor.js` (было 6285 строк; сейчас 5629) и `HomeController` (CRUD сайтов + профиль + auth в одном).
 - **Как:** редактор — выделить модули (toolbar/inspector/canvas/dnd) через ES-модули или namespaced-IIFE, по одному срезу за раз с прогоном Playwright editor-v2 после каждого. Контроллер — вынести Site-CRUD в `SiteService`, профиль/аккаунт в отдельный контроллер.
 - **Сделано 2026-06-28:** `HomeController` разрезан до 276 строк; auth/profile/GDPR-account вынесены в `AccountController` со старыми URL `/Home/*`; Site-CRUD/ownership/dashboard/slug вынесены в `SiteService`; из редактора вынесены первые namespaced-IIFE модули `lime-editor-utils.js` (path/id/csrf/html helpers), `lime-editor-components.js` (component target/source/design/style helpers), `lime-editor-command-palette.js` (Ctrl+K UI/search/keyboard handling), `lime-editor-inspector-controls.js` (style inspector control rendering/registry helpers), `lime-editor-layers.js` (layer tree labels/flattening/virtualized rendering), `lime-editor-context-menu.js` (block context menu rendering/positioning/close handling), `lime-editor-media-picker.js` (media modal tabs/list/upload/stock/select handling) и `lime-editor-sidebar.js` (sidebar rail panels/block search wiring). Затем вынесен
-  `lime-editor-onboarding.js` (coachmark-тур этапа 9.4 — полностью изолирован от состояния редактора).
+  `lime-editor-onboarding.js` (coachmark-тур этапа 9.4 — полностью изолирован от состояния редактора),
+  а затем группой `lime-editor-topbar.js` (overflow-меню «⋯») и `lime-editor-intro.js` (стартовый
+  промпт пустого документа; deps totalBlocks/runGenerate, hide+dismiss для skip/тура).
 - **Проверено 2026-06-28:** `node --check` для вынесенных JS; smoke media picker/sidebar; `dotnet build Lime_Editor.sln --no-restore`; `npm run test:e2e:editor-v2` 41/41 (после выноса onboarding — перепрогон зелёный); `dotnet test Lime_Editor.sln --no-build` 172/172.
 - **Когда:** continuous; не блокирует запуск. Резать инкрементально, не «большой переписью».
 - **Готово когда:** ни один файл > ~1500 строк; тесты/смоки зелёные после каждого среза.

@@ -20,6 +20,8 @@
     var EditorMediaPicker = window.LimeEditorMediaPicker || {};
     var EditorSidebar = window.LimeEditorSidebar || {};
     var EditorOnboarding = window.LimeEditorOnboarding || {};
+    var EditorTopbar = window.LimeEditorTopbar || {};
+    var EditorIntro = window.LimeEditorIntro || {};
     if (!EditorUtils.escapeText) throw new Error("LimeEditorUtils is required before lime-doc-editor.js");
     if (!EditorComponents.create) throw new Error("LimeEditorComponents is required before lime-doc-editor.js");
     if (!EditorCommandPalette.create) throw new Error("LimeEditorCommandPalette is required before lime-doc-editor.js");
@@ -29,6 +31,8 @@
     if (!EditorMediaPicker.create) throw new Error("LimeEditorMediaPicker is required before lime-doc-editor.js");
     if (!EditorSidebar.create) throw new Error("LimeEditorSidebar is required before lime-doc-editor.js");
     if (!EditorOnboarding.create) throw new Error("LimeEditorOnboarding is required before lime-doc-editor.js");
+    if (!EditorTopbar.init) throw new Error("LimeEditorTopbar is required before lime-doc-editor.js");
+    if (!EditorIntro.create) throw new Error("LimeEditorIntro is required before lime-doc-editor.js");
 
     var ws = document.getElementById("lime-doc-workspace");
     if (!ws) return;
@@ -4400,32 +4404,8 @@
         fontSel.value = themeFont;
         fontSel.addEventListener("input", function () { beginCheckpointMutation(); doc.theme.font = fontSel.value; render(); markDirty(); });
     }
-    // ===== Топбар: overflow-меню «⋯» (редизайн) =====
-    // Вторичные действия (AI/Тема/Код/Превью) убраны из постоянного хрома в выпадашку.
-    // Кнопки сохранили свои data-doc-* хуки — обработчики ниже находят их querySelector'ом.
-    (function () {
-        var more = document.querySelector("[data-topbar-more]");
-        if (!more) return;
-        var toggle = more.querySelector("[data-topbar-more-toggle]");
-        var menu = more.querySelector(".lime-topbar-more__menu");
-        if (!toggle || !menu) return;
-        function setOpen(open) {
-            menu.hidden = !open;
-            toggle.setAttribute("aria-expanded", open ? "true" : "false");
-        }
-        toggle.addEventListener("click", function (e) {
-            e.stopPropagation();
-            setOpen(menu.hidden);
-        });
-        // Клик по пункту выполняет действие (его навешенный обработчик) и закрывает меню.
-        menu.addEventListener("click", function () { setOpen(false); });
-        document.addEventListener("click", function (e) {
-            if (!menu.hidden && !more.contains(e.target)) setOpen(false);
-        });
-        document.addEventListener("keydown", function (e) {
-            if (e.key === "Escape" && !menu.hidden) { setOpen(false); toggle.focus(); }
-        });
-    })();
+    // ===== Топбар: overflow-меню «⋯» — модуль lime-editor-topbar.js =====
+    EditorTopbar.init({ document: document });
 
     var themeOpen = document.querySelector("[data-doc-theme-open]");
     var themeModal = document.getElementById("lime-doc-theme-modal");
@@ -4571,41 +4551,8 @@
         });
     }
 
-    // ===== INTRO OVERLAY (стартовый промпт для пустого документа) =====
-    var introEl = document.getElementById("lime-doc-intro");
-    if (introEl) {
-        var introPrompt = document.getElementById("lime-doc-intro-prompt");
-        var introMsg = document.getElementById("lime-doc-intro-msg");
-        var introGo = document.getElementById("lime-doc-intro-go");
-        var introSkip = document.getElementById("lime-doc-intro-skip");
-        var introChips = document.getElementById("lime-doc-intro-chips");
-        var hideIntro = function () {
-            introEl.classList.add("is-hidden");
-            setTimeout(function () { introEl.classList.remove("is-on", "is-hidden"); }, 480);
-        };
-        var introRun = function () {
-            if (introMsg) { introMsg.textContent = ""; introMsg.classList.remove("is-error"); }
-            runGenerate(introPrompt ? introPrompt.value : "", {
-                btn: introGo,
-                onError: function (m) { if (introMsg) { introMsg.textContent = m; introMsg.classList.add("is-error"); } },
-                onSuccess: hideIntro
-            });
-        };
-        if (introGo) introGo.addEventListener("click", introRun);
-        if (introSkip) introSkip.addEventListener("click", hideIntro);
-        if (introChips) introChips.addEventListener("click", function (e) {
-            var c = e.target.closest(".lime-le-chip");
-            if (c && introPrompt) { introPrompt.value = c.textContent.trim(); introPrompt.focus(); }
-        });
-        if (introPrompt) introPrompt.addEventListener("keydown", function (e) {
-            if ((e.metaKey || e.ctrlKey) && e.key === "Enter") { e.preventDefault(); introRun(); }
-        });
-        // Показываем только на пустом новом документе.
-        if (totalBlocks() === 0) {
-            introEl.classList.add("is-on");
-            if (introPrompt) setTimeout(function () { introPrompt.focus(); }, 100);
-        }
-    }
+    // ===== INTRO OVERLAY (стартовый промпт для пустого документа) — модуль lime-editor-intro.js =====
+    var intro = EditorIntro.create({ document: document, totalBlocks: totalBlocks, runGenerate: runGenerate });
 
     // ===== ONBOARDING (этап 9.4): coachmark-тур — модуль lime-editor-onboarding.js =====
     // Авто-показ один раз (флаг в localStorage); ?tour=1 форсит. Документ не пуст — иначе
@@ -4613,7 +4560,7 @@
     EditorOnboarding.create({ document: document, window: window }).maybeAutoRun({
         forced: /[?&]tour=1\b/.test(location.search),
         hasContent: totalBlocks() > 0,
-        onForce: function () { if (introEl) introEl.classList.remove("is-on"); }
+        onForce: function () { intro.dismiss(); }
     });
 
     function initV2Selection(stage, viewport, isViewportPanning) {
