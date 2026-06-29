@@ -20,8 +20,8 @@ namespace Lime_Editor.Controllers
     public class MediaController : Controller
     {
         public const string MediaFolder = "media";
-        public const long MaxBytes = 5 * 1024 * 1024;
-        public static readonly string[] AllowedExtensions = { ".jpg", ".jpeg", ".png", ".gif", ".webp" };
+        public const long MaxBytes = MediaUploadSecurity.MaxFileBytes;
+        public static readonly string[] AllowedExtensions = MediaUploadSecurity.AllowedExtensions;
 
         private readonly LimeEditorContext db;
         private readonly UserManager<ApplicationUser> _userManager;
@@ -132,6 +132,7 @@ namespace Lime_Editor.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [RequestSizeLimit(MediaUploadSecurity.MaxUploadRequestBytes)]
         [EnableRateLimiting("upload")]
         public async Task<IActionResult> Upload(IFormFile file)
         {

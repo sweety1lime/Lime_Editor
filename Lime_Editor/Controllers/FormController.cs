@@ -22,6 +22,7 @@ namespace Lime_Editor.Controllers
         private const string SiteIdField = "__siteId";
         private const string TimestampField = "lime_ts";
         private const string CollectionField = "__collection";
+        private const int MaxSubmitBytes = 64 * 1024;
 
         private readonly LimeEditorContext db;
         private readonly UserManager<ApplicationUser> _userManager;
@@ -38,6 +39,7 @@ namespace Lime_Editor.Controllers
         [HttpPost]
         [IgnoreAntiforgeryToken] // публичная статичная страница токена не несёт; защита — honeypot+timetrap
         [EnableRateLimiting("public-write")] // анти-спам по IP
+        [RequestSizeLimit(MaxSubmitBytes)]
         public async Task<IActionResult> Submit()
         {
             var form = Request.Form;

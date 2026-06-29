@@ -6,7 +6,10 @@ namespace Lime_Editor.Services
 {
     public static class MediaUploadSecurity
     {
+        public const long MaxFileBytes = 5 * 1024 * 1024;
+        public const long MaxUploadRequestBytes = MaxFileBytes + 64 * 1024;
         public const int SignatureLength = 12;
+        public static readonly string[] AllowedExtensions = { ".jpg", ".jpeg", ".png", ".gif", ".webp" };
 
         private static readonly Dictionary<string, string[]> ContentTypes = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase)
         {

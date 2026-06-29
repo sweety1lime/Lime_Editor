@@ -4,6 +4,7 @@ using Lime_Editor.Services;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.HttpsPolicy;
 using Microsoft.AspNetCore.Identity;
@@ -70,7 +71,11 @@ namespace Lime_Editor
                 // HttpOnly уже дефолт. SecurePolicy=SameAsRequest (дефолт) + ForwardedHeaders ниже:
                 // за TLS-прокси схема становится https → cookie помечается Secure в проде,
                 // а в dev/тестах по http остаётся обычной (иначе авторизация бы не работала).
+                options.Cookie.HttpOnly = true;
                 options.Cookie.SameSite = SameSiteMode.Lax;
+                options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
+                options.ExpireTimeSpan = TimeSpan.FromHours(8);
+                options.SlidingExpiration = true;
             });
 
             // За reverse-proxy (Caddy/Nginx) приложение слушает plain HTTP — без этого оно не
@@ -85,10 +90,27 @@ namespace Lime_Editor
                 options.KnownProxies.Clear();
             });
 
+            services.Configure<FormOptions>(options =>
+            {
+                options.MultipartBodyLengthLimit = MediaUploadSecurity.MaxUploadRequestBytes;
+            });
+
             services.AddDistributedMemoryCache();
-            services.AddSession();
+            services.AddSession(options =>
+            {
+                options.IdleTimeout = TimeSpan.FromMinutes(30);
+                options.Cookie.HttpOnly = true;
+                options.Cookie.SameSite = SameSiteMode.Lax;
+                options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
+            });
             // Разрешаем XHR-вызовам присылать токен в заголовке X-CSRF-TOKEN.
-            services.AddAntiforgery(o => o.HeaderName = "X-CSRF-TOKEN");
+            services.AddAntiforgery(o =>
+            {
+                o.HeaderName = "X-CSRF-TOKEN";
+                o.Cookie.HttpOnly = true;
+                o.Cookie.SameSite = SameSiteMode.Lax;
+                o.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
+            });
             services.AddSingleton<ITemplateExportService, TemplateExportService>();
             services.AddSingleton<NextExportService>(); // «eject» в Next.js (Итерация 4)
             services.AddSingleton<IImageProcessor, ImageSharpProcessor>();
