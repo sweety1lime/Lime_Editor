@@ -13,6 +13,7 @@ namespace Lime_Editor.Models
         public string Login { get; set; }
 
         [Required(ErrorMessage = "Не указан пароль")]
+        [MinLength(8, ErrorMessage = "Пароль должен быть не короче 8 символов")]
         [DataType(DataType.Password)]
         public string Password { get; set; }
     }

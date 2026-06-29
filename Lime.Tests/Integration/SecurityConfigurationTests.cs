@@ -41,6 +41,22 @@ namespace Lime.Tests.Integration
         }
 
         [Fact]
+        public void Identity_UsesExplicitPasswordAndLockoutSettings()
+        {
+            using var scope = _factory.Services.CreateScope();
+            var options = scope.ServiceProvider.GetRequiredService<IOptions<IdentityOptions>>().Value;
+
+            Assert.Equal(8, options.Password.RequiredLength);
+            Assert.True(options.Password.RequireDigit);
+            Assert.False(options.Password.RequireUppercase);
+            Assert.False(options.Password.RequireNonAlphanumeric);
+            Assert.True(options.User.RequireUniqueEmail);
+            Assert.True(options.Lockout.AllowedForNewUsers);
+            Assert.Equal(5, options.Lockout.MaxFailedAccessAttempts);
+            Assert.Equal(TimeSpan.FromMinutes(15), options.Lockout.DefaultLockoutTimeSpan);
+        }
+
+        [Fact]
         public void SessionAndAntiforgeryCookies_UseExplicitSecuritySettings()
         {
             using var scope = _factory.Services.CreateScope();

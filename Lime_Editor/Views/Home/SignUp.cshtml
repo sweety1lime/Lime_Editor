@@ -45,13 +45,13 @@
 
                 <div class="lime-field">
                     <label asp-for="Password" class="lime-label">Пароль</label>
-                    <input asp-for="Password" class="lime-input" type="password" required minlength="6" placeholder="••••••••" oninput="window.LimeSignup&&window.LimeSignup.check()">
+                    <input asp-for="Password" class="lime-input" type="password" required minlength="8" placeholder="••••••••" oninput="window.LimeSignup&&window.LimeSignup.check()">
                     <span asp-validation-for="Password" class="lime-validation"></span>
                 </div>
 
                 <div class="lime-field">
                     <label class="lime-label" for="signup-confirm">Повторите пароль</label>
-                    <input id="signup-confirm" class="lime-input" type="password" required minlength="6" placeholder="••••••••" oninput="window.LimeSignup&&window.LimeSignup.check()">
+                    <input id="signup-confirm" class="lime-input" type="password" required minlength="8" placeholder="••••••••" oninput="window.LimeSignup&&window.LimeSignup.check()">
                     <span id="signup-confirm-msg" class="lime-help"></span>
                 </div>
 

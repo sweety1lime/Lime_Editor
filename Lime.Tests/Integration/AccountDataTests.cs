@@ -103,6 +103,19 @@ namespace Lime.Tests.Integration
         }
 
         [Fact]
+        public async Task SignUpPage_UsesServerPasswordMinimumLength()
+        {
+            var client = _factory.CreateClient();
+
+            var response = await client.GetAsync("/Home/SignUp");
+            response.EnsureSuccessStatusCode();
+            var html = await response.Content.ReadAsStringAsync();
+
+            Assert.Contains("minlength=\"8\"", html);
+            Assert.DoesNotContain("minlength=\"6\"", html);
+        }
+
+        [Fact]
         public async Task Logout_Get_DoesNotSignOut()
         {
             var client = await CreateSignedInClientAsync("logout-get");
