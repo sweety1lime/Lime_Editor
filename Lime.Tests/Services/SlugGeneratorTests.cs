@@ -34,5 +34,14 @@ namespace Lime.Tests.Services
             // Кириллица допустима, ToLowerInvariant её приводит к нижнему регистру.
             Assert.Equal("мой-сайт", SlugGenerator.Generate("Мой Сайт"));
         }
+
+        [Theory]
+        [InlineData("../evil", "evil")]
+        [InlineData("..\\evil", "evil")]
+        [InlineData("safe/name", "safename")]
+        public void Generate_RemovesPathSeparators(string input, string expected)
+        {
+            Assert.Equal(expected, SlugGenerator.Generate(input));
+        }
     }
 }

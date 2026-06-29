@@ -1,14 +1,17 @@
 using Lime_Editor.Models;
+using Lime_Editor.Controllers;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Threading.Tasks;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text.RegularExpressions;
+using System.Threading;
 using Xunit;
 
 namespace Lime.Tests.Integration
@@ -54,6 +57,27 @@ namespace Lime.Tests.Integration
             return client;
         }
 
+        private sealed class CapturingHandler : HttpMessageHandler
+        {
+            public Uri RequestUri { get; private set; }
+
+            protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+            {
+                RequestUri = request.RequestUri;
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent("{\"photos\":[]}")
+                });
+            }
+        }
+
+        private sealed class CapturingHttpClientFactory : IHttpClientFactory
+        {
+            public CapturingHandler Handler { get; } = new CapturingHandler();
+
+            public HttpClient CreateClient(string name) => new HttpClient(Handler);
+        }
+
         [Theory]
         [InlineData("/Media/Index")]
         public async Task Media_RedirectsToSignIn_WhenAnonymous(string url)
@@ -89,6 +113,30 @@ namespace Lime.Tests.Integration
             using var scope = _factory.Services.CreateScope();
             var db = scope.ServiceProvider.GetRequiredService<LimeEditorContext>();
             Assert.False(await db.MediaAssets.AnyAsync(m => m.UserId == user.Id));
+        }
+
+        [Fact]
+        public async Task Stock_ClampsPageAndQueryBeforeProviderRequest()
+        {
+            var previousKey = Environment.GetEnvironmentVariable("STOCK_PEXELS_KEY");
+            try
+            {
+                Environment.SetEnvironmentVariable("STOCK_PEXELS_KEY", "test-key");
+                var httpFactory = new CapturingHttpClientFactory();
+                var controller = new MediaController(null, null, null, null, httpFactory, null);
+
+                await controller.Stock("  " + new string('x', 200) + "  ", page: 999);
+
+                var uri = httpFactory.Handler.RequestUri;
+                Assert.NotNull(uri);
+                Assert.Contains("page=10", uri.Query);
+                Assert.Contains("query=" + new string('x', 120), uri.Query);
+                Assert.DoesNotContain(new string('x', 121), uri.Query);
+            }
+            finally
+            {
+                Environment.SetEnvironmentVariable("STOCK_PEXELS_KEY", previousKey);
+            }
         }
     }
 }

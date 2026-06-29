@@ -47,9 +47,9 @@ namespace Lime_Editor.Controllers
             var colIds = collections.Select(c => c.Id).ToList();
             var records = await db.CollectionRecords.Where(r => colIds.Contains(r.CollectionId)).ToListAsync();
 
-            var idiomatic = style == "jsx";
+            var idiomatic = string.Equals(style, "jsx", System.StringComparison.OrdinalIgnoreCase);
             var zip = _next.BuildZip(site.Name, docJson, collections, records, idiomatic);
-            var slug = string.IsNullOrWhiteSpace(site.Slug) ? "site" : site.Slug;
+            var slug = SlugGenerator.Generate(string.IsNullOrWhiteSpace(site.Slug) ? site.Name : site.Slug);
             return File(zip, "application/zip", slug + (idiomatic ? "-nextjs-react.zip" : "-nextjs.zip"));
         }
     }

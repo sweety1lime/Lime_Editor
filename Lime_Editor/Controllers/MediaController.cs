@@ -22,6 +22,8 @@ namespace Lime_Editor.Controllers
         public const string MediaFolder = "media";
         public const long MaxBytes = MediaUploadSecurity.MaxFileBytes;
         public static readonly string[] AllowedExtensions = MediaUploadSecurity.AllowedExtensions;
+        private const int MaxStockQueryLength = 120;
+        private const int MaxStockPage = 10;
 
         private readonly LimeEditorContext db;
         private readonly UserManager<ApplicationUser> _userManager;
@@ -89,6 +91,13 @@ namespace Lime_Editor.Controllers
         [Produces("application/json")]
         public async Task<IActionResult> Stock(string q, int page = 1)
         {
+            q = q?.Trim();
+            if (!string.IsNullOrEmpty(q) && q.Length > MaxStockQueryLength)
+            {
+                q = q.Substring(0, MaxStockQueryLength);
+            }
+            page = Math.Clamp(page, 1, MaxStockPage);
+
             var key = Environment.GetEnvironmentVariable("STOCK_PEXELS_KEY") ?? "";
             if (string.IsNullOrEmpty(key))
             {
