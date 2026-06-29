@@ -11,6 +11,8 @@ namespace Lime_Editor.Middleware
     // половина (делается при деплое, см. ROADMAP «Бэклог безопасности»).
     public static class SecurityHeadersMiddleware
     {
+        private const string CspReportUri = "; report-uri /Security/CspReport";
+
         // CSP для публичных страниц.
         //  - script-src БЕЗ 'unsafe-inline': движок lime-doc.js не эмитит inline-скриптов
         //    (рантаймы — внешние /js/lime/*, GSAP — с jsdelivr), поэтому это не ломает страницу,
@@ -64,11 +66,11 @@ namespace Lime_Editor.Middleware
 
                     if (isPublished)
                     {
-                        h["Content-Security-Policy"] = PublishedCsp;
+                        h["Content-Security-Policy"] = PublishedCsp + CspReportUri;
                     }
                     else if (IsHtmlResponse(ctx))
                     {
-                        h["Content-Security-Policy-Report-Only"] = AppReportOnlyCsp;
+                        h["Content-Security-Policy-Report-Only"] = AppReportOnlyCsp + CspReportUri;
                     }
                     return System.Threading.Tasks.Task.CompletedTask;
                 });

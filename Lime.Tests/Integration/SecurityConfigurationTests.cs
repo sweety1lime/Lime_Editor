@@ -72,10 +72,12 @@ namespace Lime.Tests.Integration
             var upload = typeof(MediaController).GetMethod(nameof(MediaController.Upload));
             var submit = typeof(FormController).GetMethod(nameof(FormController.Submit));
             var webhook = typeof(BillingController).GetMethod(nameof(BillingController.Webhook));
+            var cspReport = typeof(SecurityController).GetMethod(nameof(SecurityController.CspReport));
 
             AssertRequestSizeLimit(upload, MediaUploadSecurity.MaxUploadRequestBytes);
             AssertRequestSizeLimit(submit, 64 * 1024);
             AssertRequestSizeLimit(webhook, 64 * 1024);
+            AssertRequestSizeLimit(cspReport, SecurityController.MaxCspReportBytes);
         }
 
         [Fact]
@@ -83,6 +85,7 @@ namespace Lime.Tests.Integration
         {
             var restoreOriginal = typeof(HomeController).GetMethod(nameof(HomeController.RestoreOriginal));
             var webhook = typeof(BillingController).GetMethod(nameof(BillingController.Webhook));
+            var cspReport = typeof(SecurityController).GetMethod(nameof(SecurityController.CspReport));
 
             AssertHasAttribute(restoreOriginal, typeof(AuthorizeAttribute));
 
@@ -90,6 +93,11 @@ namespace Lime.Tests.Integration
             AssertHasAttribute(webhook, typeof(IgnoreAntiforgeryTokenAttribute));
             var rateLimit = webhook.CustomAttributes.Single(a => a.AttributeType == typeof(EnableRateLimitingAttribute));
             Assert.Equal("public-write", rateLimit.ConstructorArguments.Single().Value);
+
+            AssertHasAttribute(cspReport, typeof(AllowAnonymousAttribute));
+            AssertHasAttribute(cspReport, typeof(IgnoreAntiforgeryTokenAttribute));
+            var cspRateLimit = cspReport.CustomAttributes.Single(a => a.AttributeType == typeof(EnableRateLimitingAttribute));
+            Assert.Equal("public-write", cspRateLimit.ConstructorArguments.Single().Value);
         }
 
         private static void AssertRequestSizeLimit(MethodInfo method, long expectedBytes)

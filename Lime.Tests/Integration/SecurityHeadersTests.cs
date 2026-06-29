@@ -67,6 +67,7 @@ namespace Lime.Tests.Integration
             Assert.Contains("style-src 'self' 'unsafe-inline'", policy);
             Assert.Contains("object-src 'none'", policy);
             Assert.Contains("frame-ancestors 'self'", policy);
+            Assert.Contains("report-uri /Security/CspReport", policy);
 
             Assert.Equal("nosniff", response.Headers.GetValues("X-Content-Type-Options").First());
             Assert.True(response.Headers.Contains("Referrer-Policy"));
@@ -90,6 +91,7 @@ namespace Lime.Tests.Integration
             Assert.Contains("default-src 'self'", policy);
             Assert.Contains("form-action 'self'", policy);
             Assert.Contains("object-src 'none'", policy);
+            Assert.Contains("report-uri /Security/CspReport", policy);
             Assert.Equal("nosniff", response.Headers.GetValues("X-Content-Type-Options").First());
             Assert.Equal("SAMEORIGIN", response.Headers.GetValues("X-Frame-Options").First());
             Assert.Equal("camera=(), microphone=(), geolocation=(), payment=()",
