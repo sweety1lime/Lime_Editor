@@ -30,6 +30,16 @@ services:
       # Host-header allow-list: только наш домен (Caddy сохраняет исходный Host при проксировании).
       # Переопределяет fail-closed дефолт "localhost" из appsettings.json.
       AllowedHosts: ${DOMAIN:?DOMAIN не задан (пример: lime.example.com)}
+      Identity__RequireConfirmedEmail: ${IDENTITY_REQUIRE_CONFIRMED_EMAIL:-false}
+      AI_BASE_URL: ${AI_BASE_URL:-}
+      AI_API_KEY: ${AI_API_KEY:-}
+      STOCK_PEXELS_KEY: ${STOCK_PEXELS_KEY:-}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+      SMTP_SSL: ${SMTP_SSL:-true}
     expose:
       - "8080"
     volumes:
