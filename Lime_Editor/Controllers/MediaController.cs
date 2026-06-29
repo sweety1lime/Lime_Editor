@@ -214,6 +214,7 @@ namespace Lime_Editor.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [RequestSizeLimit(RequestBodyLimits.SmallFormBytes)]
         public async Task<IActionResult> Delete(int id)
         {
             var userId = CurrentUserId;

@@ -1,4 +1,5 @@
 using Lime_Editor.Models;
+using Lime_Editor.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -22,7 +23,7 @@ namespace Lime_Editor.Controllers
         private const string SiteIdField = "__siteId";
         private const string TimestampField = "lime_ts";
         private const string CollectionField = "__collection";
-        private const int MaxSubmitBytes = 64 * 1024;
+        private const long MaxSubmitBytes = RequestBodyLimits.PublicFormBytes;
 
         private readonly LimeEditorContext db;
         private readonly UserManager<ApplicationUser> _userManager;
@@ -214,6 +215,7 @@ namespace Lime_Editor.Controllers
         [Authorize]
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [RequestSizeLimit(RequestBodyLimits.SmallFormBytes)]
         public async Task<IActionResult> DeleteSubmission(int id)
         {
             var userId = CurrentUserId;

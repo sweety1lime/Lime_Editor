@@ -67,6 +67,7 @@ namespace Lime_Editor.Controllers
         [Authorize]
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [RequestSizeLimit(RequestBodyLimits.SmallFormBytes)]
         public async Task<IActionResult> UpdateSite(SiteControlModel controlModel)
         {
             var site = JsonConvert.DeserializeObject<Site>(controlModel.Site);
@@ -81,6 +82,7 @@ namespace Lime_Editor.Controllers
         [Authorize]
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [RequestSizeLimit(RequestBodyLimits.SmallFormBytes)]
         public async Task<IActionResult> DeleteSite(SiteControlModel controlModel)
         {
             var site = JsonConvert.DeserializeObject<Site>(controlModel.Site);
@@ -137,6 +139,7 @@ namespace Lime_Editor.Controllers
         [Authorize]
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [RequestSizeLimit(RequestBodyLimits.EditorDocumentBytes)]
         public async Task<IActionResult> EditTemplatesPost(
             string html, int? siteId, string metaTitle, string metaDescription, string ogImage,
             string documentJson = null, bool auto = false, long baseVersion = -1)
@@ -219,6 +222,7 @@ namespace Lime_Editor.Controllers
         [Authorize]
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [RequestSizeLimit(RequestBodyLimits.SmallFormBytes)]
         public async Task<IActionResult> RestoreOriginal(int siteId)
         {
             var site = await _sites.GetOwnedSiteAsync(CurrentUserId, siteId);
@@ -253,6 +257,7 @@ namespace Lime_Editor.Controllers
         [Authorize]
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [RequestSizeLimit(RequestBodyLimits.SmallFormBytes)]
         public async Task<IActionResult> Publish(int idSite)
         {
             var userId = CurrentUserId;
@@ -287,6 +292,7 @@ namespace Lime_Editor.Controllers
         [Authorize]
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [RequestSizeLimit(RequestBodyLimits.SmallFormBytes)]
         public async Task<IActionResult> Unpublish(int idSite)
         {
             if (!await _sites.UnpublishAsync(CurrentUserId, idSite))
@@ -300,6 +306,7 @@ namespace Lime_Editor.Controllers
         [Authorize]
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [RequestSizeLimit(RequestBodyLimits.SmallFormBytes)]
         public async Task<IActionResult> ChangeName(string site, int idSite)
         {
             if (!await _sites.RenameSiteAsync(CurrentUserId, idSite, site))

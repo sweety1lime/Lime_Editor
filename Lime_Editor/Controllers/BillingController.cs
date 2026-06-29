@@ -18,7 +18,7 @@ namespace Lime_Editor.Controllers
     [Authorize]
     public class BillingController : Controller
     {
-        private const int MaxWebhookBytes = 64 * 1024;
+        private const long MaxWebhookBytes = RequestBodyLimits.WebhookBytes;
 
         private readonly LimeEditorContext db;
         private readonly UserManager<ApplicationUser> _userManager;

@@ -1,4 +1,5 @@
 using Lime_Editor.Controllers;
+using Lime_Editor.Models;
 using Lime_Editor.Services;
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -75,9 +76,95 @@ namespace Lime.Tests.Integration
             var cspReport = typeof(SecurityController).GetMethod(nameof(SecurityController.CspReport));
 
             AssertRequestSizeLimit(upload, MediaUploadSecurity.MaxUploadRequestBytes);
-            AssertRequestSizeLimit(submit, 64 * 1024);
-            AssertRequestSizeLimit(webhook, 64 * 1024);
+            AssertRequestSizeLimit(submit, RequestBodyLimits.PublicFormBytes);
+            AssertRequestSizeLimit(webhook, RequestBodyLimits.WebhookBytes);
             AssertRequestSizeLimit(cspReport, SecurityController.MaxCspReportBytes);
+        }
+
+        [Fact]
+        public void EditorExportAndAiPostActions_HaveRequestSizeLimits()
+        {
+            AssertRequestSizeLimit(
+                typeof(HomeController).GetMethod(nameof(HomeController.EditTemplatesPost)),
+                RequestBodyLimits.EditorDocumentBytes);
+            AssertRequestSizeLimit(
+                typeof(TemplateController).GetMethod(nameof(TemplateController.DownloadSite)),
+                RequestBodyLimits.EditorDocumentBytes);
+            AssertRequestSizeLimit(
+                typeof(AiController).GetMethod(nameof(AiController.Generate)),
+                RequestBodyLimits.AiSmallBytes);
+            AssertRequestSizeLimit(
+                typeof(AiController).GetMethod(nameof(AiController.Rewrite)),
+                RequestBodyLimits.AiMediumBytes);
+            AssertRequestSizeLimit(
+                typeof(AiController).GetMethod(nameof(AiController.EditBlock)),
+                RequestBodyLimits.AiLargeBytes);
+            AssertRequestSizeLimit(
+                typeof(AiController).GetMethod(nameof(AiController.Suggest)),
+                RequestBodyLimits.AiLargeBytes);
+        }
+
+        [Fact]
+        public void DataPostActions_HaveRequestSizeLimits()
+        {
+            AssertSmallFormLimit(typeof(DataController).GetMethod(nameof(DataController.Create)));
+            AssertRequestSizeLimit(
+                typeof(DataController).GetMethod(nameof(DataController.CreateWithAi)),
+                RequestBodyLimits.AiSmallBytes);
+            AssertSmallFormLimit(typeof(DataController).GetMethod(nameof(DataController.AddField)));
+            AssertSmallFormLimit(typeof(DataController).GetMethod(nameof(DataController.RemoveField)));
+            AssertSmallFormLimit(typeof(DataController).GetMethod(nameof(DataController.DeleteCollection)));
+            AssertRequestSizeLimit(
+                typeof(DataController).GetMethod(nameof(DataController.AddRecord)),
+                RequestBodyLimits.DataFormBytes);
+            AssertSmallFormLimit(typeof(DataController).GetMethod(nameof(DataController.DeleteRecord)));
+        }
+
+        [Fact]
+        public void SmallAuthenticatedPostActions_HaveRequestSizeLimits()
+        {
+            AssertSmallFormLimit(typeof(HomeController).GetMethod(nameof(HomeController.UpdateSite)));
+            AssertSmallFormLimit(typeof(HomeController).GetMethod(nameof(HomeController.DeleteSite)));
+            AssertSmallFormLimit(typeof(HomeController).GetMethod(nameof(HomeController.RestoreOriginal)));
+            AssertSmallFormLimit(typeof(HomeController).GetMethod(nameof(HomeController.Publish)));
+            AssertSmallFormLimit(typeof(HomeController).GetMethod(nameof(HomeController.Unpublish)));
+            AssertSmallFormLimit(typeof(HomeController).GetMethod(nameof(HomeController.ChangeName)));
+
+            AssertSmallFormLimit(typeof(CommunityController).GetMethod(nameof(CommunityController.Like)));
+            AssertSmallFormLimit(typeof(CommunityController).GetMethod(nameof(CommunityController.Clone)));
+            AssertSmallFormLimit(typeof(CommunityController).GetMethod(nameof(CommunityController.ToggleGallery)));
+            AssertSmallFormLimit(typeof(FormController).GetMethod(nameof(FormController.DeleteSubmission)));
+            AssertSmallFormLimit(typeof(MediaController).GetMethod(nameof(MediaController.Delete)));
+
+            AssertSmallFormLimit(typeof(AdminController).GetMethod(nameof(AdminController.RepublishAll)));
+            AssertSmallFormLimit(typeof(AdminController).GetMethod(nameof(AdminController.SetPlan)));
+            AssertSmallFormLimit(typeof(AdminController).GetMethod(nameof(AdminController.ToggleAdmin)));
+            AssertSmallFormLimit(typeof(AdminController).GetMethod(nameof(AdminController.DeleteUser)));
+            AssertSmallFormLimit(typeof(AdminController).GetMethod(nameof(AdminController.DeleteSite)));
+        }
+
+        [Fact]
+        public void AccountPostActions_HaveRequestSizeLimits()
+        {
+            AssertSmallFormLimit(typeof(AccountController).GetMethod(
+                nameof(AccountController.SignIn),
+                new[] { typeof(LoginModel) }));
+            AssertSmallFormLimit(typeof(AccountController).GetMethod(nameof(AccountController.LogoutPost)));
+            AssertSmallFormLimit(typeof(AccountController).GetMethod(
+                nameof(AccountController.ForgotPassword),
+                new[] { typeof(string) }));
+            AssertSmallFormLimit(typeof(AccountController).GetMethod(
+                nameof(AccountController.ResetPassword),
+                new[] { typeof(string), typeof(string), typeof(string) }));
+            AssertSmallFormLimit(typeof(AccountController).GetMethod(
+                nameof(AccountController.SignUp),
+                new[] { typeof(RegisterViewModel) }));
+            AssertSmallFormLimit(typeof(AccountController).GetMethod(
+                nameof(AccountController.EditProfile),
+                new[] { typeof(ProfileViewModel) }));
+            AssertSmallFormLimit(typeof(AccountController).GetMethod(
+                nameof(AccountController.DeleteMyAccount),
+                new[] { typeof(string) }));
         }
 
         [Fact]
@@ -104,6 +191,11 @@ namespace Lime.Tests.Integration
         {
             var attr = method.CustomAttributes.Single(a => a.AttributeType == typeof(RequestSizeLimitAttribute));
             Assert.Equal(expectedBytes, attr.ConstructorArguments.Single().Value);
+        }
+
+        private static void AssertSmallFormLimit(MethodInfo method)
+        {
+            AssertRequestSizeLimit(method, RequestBodyLimits.SmallFormBytes);
         }
 
         private static void AssertHasAttribute(MethodInfo method, Type attributeType)

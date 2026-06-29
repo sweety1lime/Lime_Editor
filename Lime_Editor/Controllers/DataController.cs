@@ -104,6 +104,7 @@ namespace Lime_Editor.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [RequestSizeLimit(RequestBodyLimits.SmallFormBytes)]
         public async Task<IActionResult> Create(int siteId, string name)
         {
             var site = await OwnedSiteAsync(siteId);
@@ -129,6 +130,7 @@ namespace Lime_Editor.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         [EnableRateLimiting("ai")]
+        [RequestSizeLimit(RequestBodyLimits.AiSmallBytes)]
         public async Task<IActionResult> CreateWithAi(int siteId, string description)
         {
             var site = await OwnedSiteAsync(siteId);
@@ -207,6 +209,7 @@ namespace Lime_Editor.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [RequestSizeLimit(RequestBodyLimits.SmallFormBytes)]
         public async Task<IActionResult> AddField(int id, string fieldName, string fieldType, string fieldLabel)
         {
             var col = await OwnedCollectionAsync(id);
@@ -229,6 +232,7 @@ namespace Lime_Editor.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [RequestSizeLimit(RequestBodyLimits.SmallFormBytes)]
         public async Task<IActionResult> RemoveField(int id, string fieldName)
         {
             var col = await OwnedCollectionAsync(id);
@@ -242,6 +246,7 @@ namespace Lime_Editor.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [RequestSizeLimit(RequestBodyLimits.SmallFormBytes)]
         public async Task<IActionResult> DeleteCollection(int id)
         {
             var col = await OwnedCollectionAsync(id);
@@ -268,6 +273,7 @@ namespace Lime_Editor.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [RequestSizeLimit(RequestBodyLimits.DataFormBytes)]
         public async Task<IActionResult> AddRecord(int id)
         {
             var col = await OwnedCollectionAsync(id);
@@ -291,6 +297,7 @@ namespace Lime_Editor.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [RequestSizeLimit(RequestBodyLimits.SmallFormBytes)]
         public async Task<IActionResult> DeleteRecord(int id)
         {
             var rec = await db.CollectionRecords.FirstOrDefaultAsync(r => r.Id == id);

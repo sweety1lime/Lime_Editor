@@ -54,6 +54,7 @@ namespace Lime_Editor.Controllers
         [HttpPost("SignIn")]
         [ValidateAntiForgeryToken]
         [EnableRateLimiting("auth")]
+        [RequestSizeLimit(RequestBodyLimits.SmallFormBytes)]
         public async Task<IActionResult> SignIn(LoginModel model)
         {
             if (ModelState.IsValid)
@@ -80,6 +81,7 @@ namespace Lime_Editor.Controllers
         [Authorize]
         [HttpPost("Logout")]
         [ValidateAntiForgeryToken]
+        [RequestSizeLimit(RequestBodyLimits.SmallFormBytes)]
         public async Task<IActionResult> LogoutPost()
         {
             await _signInManager.SignOutAsync();
@@ -95,6 +97,7 @@ namespace Lime_Editor.Controllers
         [HttpPost("ForgotPassword")]
         [ValidateAntiForgeryToken]
         [EnableRateLimiting("auth")]
+        [RequestSizeLimit(RequestBodyLimits.SmallFormBytes)]
         public async Task<IActionResult> ForgotPassword(string email)
         {
             if (!string.IsNullOrWhiteSpace(email))
@@ -133,6 +136,7 @@ namespace Lime_Editor.Controllers
         [HttpPost("ResetPassword")]
         [ValidateAntiForgeryToken]
         [EnableRateLimiting("auth")]
+        [RequestSizeLimit(RequestBodyLimits.SmallFormBytes)]
         public async Task<IActionResult> ResetPassword(string email, string token, string password)
         {
             ViewBag.Email = email;
@@ -185,6 +189,7 @@ namespace Lime_Editor.Controllers
         [HttpPost("SignUp")]
         [ValidateAntiForgeryToken]
         [EnableRateLimiting("auth")]
+        [RequestSizeLimit(RequestBodyLimits.SmallFormBytes)]
         public async Task<IActionResult> SignUp(RegisterViewModel model)
         {
             if (ModelState.IsValid)
@@ -292,6 +297,7 @@ namespace Lime_Editor.Controllers
         [Authorize]
         [HttpPost("EditProfile")]
         [ValidateAntiForgeryToken]
+        [RequestSizeLimit(RequestBodyLimits.SmallFormBytes)]
         public async Task<IActionResult> EditProfile(ProfileViewModel model)
         {
             if (!ModelState.IsValid)
@@ -429,6 +435,7 @@ namespace Lime_Editor.Controllers
         [Authorize]
         [HttpPost("DeleteMyAccount")]
         [ValidateAntiForgeryToken]
+        [RequestSizeLimit(RequestBodyLimits.SmallFormBytes)]
         public async Task<IActionResult> DeleteMyAccount(string password)
         {
             var user = await _userManager.GetUserAsync(User);

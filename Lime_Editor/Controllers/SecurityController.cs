@@ -1,3 +1,4 @@
+using Lime_Editor.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
@@ -16,7 +17,7 @@ namespace Lime_Editor.Controllers
     [Route("Security")]
     public class SecurityController : Controller
     {
-        public const int MaxCspReportBytes = 16 * 1024;
+        public const long MaxCspReportBytes = RequestBodyLimits.CspReportBytes;
 
         private readonly ILogger<SecurityController> _logger;
 

@@ -73,6 +73,7 @@ namespace Lime_Editor.Controllers
         [Authorize]
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [RequestSizeLimit(RequestBodyLimits.SmallFormBytes)]
         public async Task<IActionResult> Like(int siteId, string sort = "new")
         {
             var userId = CurrentUserIdOrNull.Value;
@@ -102,6 +103,7 @@ namespace Lime_Editor.Controllers
         [Authorize]
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [RequestSizeLimit(RequestBodyLimits.SmallFormBytes)]
         public async Task<IActionResult> Clone(int siteId)
         {
             var userId = CurrentUserIdOrNull.Value;
@@ -158,6 +160,7 @@ namespace Lime_Editor.Controllers
         [Authorize]
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [RequestSizeLimit(RequestBodyLimits.SmallFormBytes)]
         public async Task<IActionResult> ToggleGallery(int idSite)
         {
             var userId = CurrentUserIdOrNull.Value;

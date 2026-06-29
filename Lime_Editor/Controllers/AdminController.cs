@@ -1,4 +1,5 @@
 using Lime_Editor.Models;
+using Lime_Editor.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -30,6 +31,7 @@ namespace Lime_Editor.Controllers
         // опубликованных страниц без пересохранения каждым пользователем.
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [RequestSizeLimit(RequestBodyLimits.SmallFormBytes)]
         public async Task<IActionResult> RepublishAll()
         {
             // Админ оперирует сайтами всех пользователей — обходим tenant-фильтр.
@@ -121,6 +123,7 @@ namespace Lime_Editor.Controllers
         // на тест. days=null → бессрочно; иначе период до now+days.
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [RequestSizeLimit(RequestBodyLimits.SmallFormBytes)]
         public async Task<IActionResult> SetPlan(int userId, string planCode, int? days)
         {
             var plan = await db.Plans.FindAsync(planCode);
@@ -175,6 +178,7 @@ namespace Lime_Editor.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [RequestSizeLimit(RequestBodyLimits.SmallFormBytes)]
         public async Task<IActionResult> ToggleAdmin(int userId)
         {
             // Защита: текущий админ не может снять роль с самого себя случайно — иначе можно остаться без админа.
@@ -203,6 +207,7 @@ namespace Lime_Editor.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [RequestSizeLimit(RequestBodyLimits.SmallFormBytes)]
         public async Task<IActionResult> DeleteUser(int userId)
         {
             var currentUserId = int.Parse(_userManager.GetUserId(User));
@@ -223,6 +228,7 @@ namespace Lime_Editor.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [RequestSizeLimit(RequestBodyLimits.SmallFormBytes)]
         public async Task<IActionResult> DeleteSite(int idSite)
         {
             // Админ удаляет любой сайт — обходим tenant-фильтр.

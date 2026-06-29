@@ -44,6 +44,7 @@ namespace Lime_Editor.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [RequestSizeLimit(RequestBodyLimits.AiSmallBytes)]
         public async Task<IActionResult> Generate(string prompt)
         {
             if (string.IsNullOrWhiteSpace(prompt) || prompt.Length > 2000)
@@ -78,6 +79,7 @@ namespace Lime_Editor.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [RequestSizeLimit(RequestBodyLimits.AiMediumBytes)]
         public async Task<IActionResult> Rewrite(string text, string instruction)
         {
             if (string.IsNullOrWhiteSpace(text) || text.Length > 4000 ||
@@ -113,6 +115,7 @@ namespace Lime_Editor.Controllers
         // блока (content + children); сервер переписывает только тексты и возвращает блок.
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [RequestSizeLimit(RequestBodyLimits.AiLargeBytes)]
         public async Task<IActionResult> EditBlock(string block, string instruction)
         {
             if (string.IsNullOrWhiteSpace(block) || block.Length > 20000 ||
@@ -155,6 +158,7 @@ namespace Lime_Editor.Controllers
         // и применяет одной undo-транзакцией с подтверждением — некорректный ответ не портит документ.
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [RequestSizeLimit(RequestBodyLimits.AiLargeBytes)]
         public async Task<IActionResult> Suggest(string context, string instruction, string breakpoint = null)
         {
             if (string.IsNullOrWhiteSpace(context) || context.Length > 20000 ||

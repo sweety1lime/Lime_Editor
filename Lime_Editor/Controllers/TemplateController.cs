@@ -19,6 +19,7 @@ namespace Lime_Editor.Controllers
         // входа TemplateController после удаления Движка A. Конфигурация — TemplateExportConfigs.
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [RequestSizeLimit(RequestBodyLimits.EditorDocumentBytes)]
         public async Task<IActionResult> DownloadSite(string html, int templateId)
         {
             var result = await _exportService.ExportAsync(templateId, html);
