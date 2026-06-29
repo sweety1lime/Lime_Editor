@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using SixLabors.ImageSharp;
 using System;
@@ -131,6 +132,7 @@ namespace Lime_Editor.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [EnableRateLimiting("upload")]
         public async Task<IActionResult> Upload(IFormFile file)
         {
             if (file == null || file.Length == 0)
@@ -151,7 +153,7 @@ namespace Lime_Editor.Controllers
                 TempData["Error"] = "Допустимы только " + string.Join(", ", AllowedExtensions);
                 return RedirectToAction(nameof(Index));
             }
-            if (string.IsNullOrEmpty(file.ContentType) || !file.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
+            if (!MediaUploadSecurity.IsAllowedContentType(ext, file.ContentType))
             {
                 TempData["Error"] = "Файл должен быть изображением.";
                 return RedirectToAction(nameof(Index));
@@ -172,8 +174,16 @@ namespace Lime_Editor.Controllers
             {
                 await using var memory = new MemoryStream();
                 await file.CopyToAsync(memory);
-                memory.Position = 0;
-                processed = await _imageProcessor.ProcessAsync(memory, ext);
+                var uploadedBytes = memory.ToArray();
+                var signatureLength = Math.Min(uploadedBytes.Length, MediaUploadSecurity.SignatureLength);
+                if (!MediaUploadSecurity.HasAllowedSignature(ext, uploadedBytes.AsSpan(0, signatureLength)))
+                {
+                    TempData["Error"] = "Формат файла не совпадает с расширением.";
+                    return RedirectToAction(nameof(Index));
+                }
+
+                using var imageInput = new MemoryStream(uploadedBytes, writable: false);
+                processed = await _imageProcessor.ProcessAsync(imageInput, ext);
             }
             catch (Exception ex) when (ex is InvalidDataException || ex is UnknownImageFormatException || ex is ImageFormatException)
             {

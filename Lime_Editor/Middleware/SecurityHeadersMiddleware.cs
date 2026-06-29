@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using System;
 
 namespace Lime_Editor.Middleware
 {
@@ -32,6 +33,20 @@ namespace Lime_Editor.Middleware
             "object-src 'none'; " +
             "frame-ancestors 'self'";
 
+        private const string AppReportOnlyCsp =
+            "default-src 'self'; " +
+            "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; " +
+            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
+            "font-src 'self' https://fonts.gstatic.com data:; " +
+            "img-src 'self' data: blob: https:; " +
+            "media-src 'self' https: data:; " +
+            "frame-src 'self' https:; " +
+            "connect-src 'self'; " +
+            "form-action 'self'; " +
+            "base-uri 'self'; " +
+            "object-src 'none'; " +
+            "frame-ancestors 'self'";
+
         public static IApplicationBuilder UseLimeSecurityHeaders(this IApplicationBuilder app)
         {
             return app.Use(async (ctx, next) =>
@@ -51,11 +66,22 @@ namespace Lime_Editor.Middleware
                     {
                         h["Content-Security-Policy"] = PublishedCsp;
                     }
+                    else if (IsHtmlResponse(ctx))
+                    {
+                        h["Content-Security-Policy-Report-Only"] = AppReportOnlyCsp;
+                    }
                     return System.Threading.Tasks.Task.CompletedTask;
                 });
 
                 await next();
             });
+        }
+
+        private static bool IsHtmlResponse(HttpContext ctx)
+        {
+            var contentType = ctx.Response.ContentType;
+            return !string.IsNullOrEmpty(contentType) &&
+                   contentType.IndexOf("text/html", StringComparison.OrdinalIgnoreCase) >= 0;
         }
     }
 }

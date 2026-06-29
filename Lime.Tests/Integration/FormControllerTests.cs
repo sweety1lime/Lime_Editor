@@ -71,5 +71,27 @@ namespace Lime.Tests.Integration
             Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
             Assert.Equal("/u/test/form-site?lime_sent=1#lime-form", response.Headers.Location?.ToString());
         }
+
+        [Fact]
+        public async Task Submit_IsRateLimitedByClientIp()
+        {
+            var siteId = await SeedPublishedSiteAsync();
+            var client = _factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+            var ip = "203.0.113." + Math.Abs(Guid.NewGuid().GetHashCode() % 200 + 1);
+
+            for (var i = 0; i < 20; i++)
+            {
+                using var allowed = new HttpRequestMessage(HttpMethod.Post, "/Form/Submit") { Content = ValidForm(siteId) };
+                allowed.Headers.TryAddWithoutValidation("X-Forwarded-For", ip);
+                var allowedResponse = await client.SendAsync(allowed);
+                Assert.Equal(HttpStatusCode.OK, allowedResponse.StatusCode);
+            }
+
+            using var rejected = new HttpRequestMessage(HttpMethod.Post, "/Form/Submit") { Content = ValidForm(siteId) };
+            rejected.Headers.TryAddWithoutValidation("X-Forwarded-For", ip);
+            var rejectedResponse = await client.SendAsync(rejected);
+
+            Assert.Equal((HttpStatusCode)429, rejectedResponse.StatusCode);
+        }
     }
 }

@@ -141,6 +141,10 @@ namespace Lime_Editor
                     ClientKey(ctx),
                     _ => new FixedWindowRateLimiterOptions { PermitLimit = 20, Window = TimeSpan.FromMinutes(1) }));
 
+                options.AddPolicy("upload", ctx => RateLimitPartition.GetFixedWindowLimiter(
+                    UserOrClientKey(ctx),
+                    _ => new FixedWindowRateLimiterOptions { PermitLimit = 10, Window = TimeSpan.FromMinutes(1) }));
+
                 options.AddPolicy("ai", ctx => RateLimitPartition.GetFixedWindowLimiter(
                     UserOrClientKey(ctx),
                     _ => new FixedWindowRateLimiterOptions { PermitLimit = 20, Window = TimeSpan.FromMinutes(1) }));

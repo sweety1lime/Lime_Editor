@@ -72,10 +72,11 @@ namespace Lime.Tests.Integration
             Assert.True(response.Headers.Contains("Referrer-Policy"));
             Assert.Equal("camera=(), microphone=(), geolocation=(), payment=()",
                 response.Headers.GetValues("Permissions-Policy").First());
+            Assert.False(response.Headers.Contains("Content-Security-Policy-Report-Only"));
         }
 
         [Fact]
-        public async Task AppPage_HasBaselineHeaders_ButNoCsp()
+        public async Task AppPage_HasBaselineHeaders_AndReportOnlyCsp()
         {
             var client = _factory.CreateClient();
             var response = await client.GetAsync("/Home/SignIn");
@@ -84,6 +85,11 @@ namespace Lime.Tests.Integration
             // На страницы приложения строгий CSP пока не вешаем (редактор использует inline-скрипты),
             // но базовая защита от clickjacking/MIME-sniffing должна быть.
             Assert.False(response.Headers.Contains("Content-Security-Policy"));
+            Assert.True(response.Headers.TryGetValues("Content-Security-Policy-Report-Only", out var reportOnly));
+            var policy = reportOnly.First();
+            Assert.Contains("default-src 'self'", policy);
+            Assert.Contains("form-action 'self'", policy);
+            Assert.Contains("object-src 'none'", policy);
             Assert.Equal("nosniff", response.Headers.GetValues("X-Content-Type-Options").First());
             Assert.Equal("SAMEORIGIN", response.Headers.GetValues("X-Frame-Options").First());
             Assert.Equal("camera=(), microphone=(), geolocation=(), payment=()",
