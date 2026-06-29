@@ -108,6 +108,23 @@ namespace Lime_Editor.Services
         private static readonly System.Collections.Generic.HashSet<string> HeadAllowedTags =
             new(System.StringComparer.OrdinalIgnoreCase) { "meta", "link", "style" };
 
+        private static bool IsSafeHeadUrl(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value) || value.StartsWith("//"))
+            {
+                return false;
+            }
+
+            if (Uri.TryCreate(value, UriKind.Absolute, out var uri))
+            {
+                return uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps;
+            }
+
+            var firstSpecial = value.IndexOfAny(new[] { '/', '?', '#' });
+            var firstColon = value.IndexOf(':');
+            return firstColon < 0 || (firstSpecial >= 0 && firstColon > firstSpecial);
+        }
+
         public static string SanitizeHead(string headHtml)
         {
             if (string.IsNullOrWhiteSpace(headHtml))
@@ -123,6 +140,11 @@ namespace Lime_Editor.Services
             {
                 if (node.NodeType != HtmlNodeType.Element) continue;
                 if (!HeadAllowedTags.Contains(node.Name)) continue;
+                if (node.Name.Equals("meta", System.StringComparison.OrdinalIgnoreCase) &&
+                    node.GetAttributeValue("http-equiv", "").Equals("refresh", System.StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
 
                 // Снимаем on*-обработчики на разрешённых тегах (на <style> их нет, но <link>/<meta> могут нести).
                 var onAttrs = node.Attributes
@@ -138,6 +160,7 @@ namespace Lime_Editor.Services
                                 rel.Contains("dns-prefetch") || rel.Contains("preload") ||
                                 rel.Contains("icon") || rel.Contains("manifest");
                     if (!okRel) continue;
+                    if (!IsSafeHeadUrl(node.GetAttributeValue("href", ""))) continue;
                 }
 
                 sb.Append(node.OuterHtml).Append('\n');

@@ -203,6 +203,26 @@ namespace Lime.Tests.Services
         }
 
         [Fact]
+        public void RenderSite_SocialHref_SanitizesUnsafeSchemes()
+        {
+            var doc = /*lang=json*/ @"{
+                ""version"": 1,
+                ""pages"": [ { ""slug"": """", ""title"": ""T"", ""blocks"": [
+                    { ""id"": ""s1"", ""type"": ""socials"", ""content"": { ""items"": [
+                        { ""platform"": ""Bad"", ""url"": ""javascript:alert(1)"" },
+                        { ""platform"": ""Good"", ""url"": ""https://example.com/profile"" }
+                    ] } }
+                ] } ]
+            }";
+
+            var html = new JsDocumentRenderer(EnginePath()).RenderSite(doc);
+
+            Assert.DoesNotContain("javascript:alert", html);
+            Assert.Contains("href=\"#\"", html);
+            Assert.Contains("href=\"https://example.com/profile\"", html);
+        }
+
+        [Fact]
         public void RenderSite_NullAndEmptyDoc_DoNotThrow()
         {
             var renderer = new JsDocumentRenderer(EnginePath());

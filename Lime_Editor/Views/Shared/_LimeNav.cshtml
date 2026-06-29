@@ -51,7 +51,9 @@
                     </button>
                     <div class="lime-dropdown__panel" role="menu">
                         <a class="lime-dropdown__item" href="/Home/Profile">Личный кабинет</a>
-                        <a class="lime-dropdown__item" href="/Home/Logout">Выход</a>
+                        <form asp-action="Logout" asp-controller="Home" method="post" style="margin:0;">
+                            <button type="submit" class="lime-dropdown__item" style="width:100%;border:0;background:transparent;text-align:left;">Выход</button>
+                        </form>
                     </div>
                 </div>
             }

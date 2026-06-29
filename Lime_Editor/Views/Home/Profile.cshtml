@@ -62,9 +62,14 @@
                 </div>
                 <hr>
                 <div class="lime-field" style="max-width: 360px;">
+                    <label class="lime-label" for="p-current-password">Текущий пароль <span class="lime-text-subtle">(для login/email/пароля)</span></label>
+                    <input id="p-current-password" class="lime-input" asp-for="CurrentPassword" type="password" autocomplete="current-password" placeholder="Нужен только для чувствительных изменений">
+                    <span asp-validation-for="CurrentPassword" class="lime-validation"></span>
+                </div>
+                <div class="lime-field" style="max-width: 360px;">
                     <label class="lime-label" for="p-password">Новый пароль <span class="lime-text-subtle">(необязательно)</span></label>
-                    <input id="p-password" class="lime-input" asp-for="Password" type="password" autocomplete="new-password" minlength="6" placeholder="Оставь пустым чтобы не менять">
-                    <span class="lime-help">Минимум 6 символов.</span>
+                    <input id="p-password" class="lime-input" asp-for="Password" type="password" autocomplete="new-password" minlength="8" placeholder="Оставь пустым чтобы не менять">
+                    <span class="lime-help">Минимум 8 символов.</span>
                 </div>
 
                 <div class="lime-flex lime-gap-2 lime-mt-6">
@@ -85,7 +90,9 @@
 
             <div class="lime-flex lime-gap-3 lime-mb-6" style="flex-wrap: wrap;">
                 <a class="lime-btn lime-btn--ghost" href="/Home/ExportMyData">Скачать мои данные (JSON)</a>
-                <a class="lime-btn lime-btn--ghost" href="/Home/Logout">Выйти из аккаунта</a>
+                <form asp-action="Logout" asp-controller="Home" method="post" style="margin:0;">
+                    <button type="submit" class="lime-btn lime-btn--ghost">Выйти из аккаунта</button>
+                </form>
             </div>
 
             <h4 style="margin-bottom: var(--space-2);">Опасная зона</h4>

@@ -41,6 +41,25 @@ namespace Lime.Tests.Services
             Assert.DoesNotContain("<base", clean);            // <base> не в whitelist
             Assert.DoesNotContain("rel=\"import\"", clean);   // опасный rel у link
             Assert.DoesNotContain("onload", clean);           // on*-атрибуты сняты
+            Assert.DoesNotContain("http-equiv=\"refresh\"", clean);
+        }
+
+        [Fact]
+        public void SanitizeHead_StripsUnsafeLinkUrls()
+        {
+            var head = "<link rel=\"stylesheet\" href=\"javascript:alert(1)\">" +
+                       "<link rel=\"preconnect\" href=\"//evil.test\">" +
+                       "<link rel=\"icon\" href=\"data:image/svg+xml;base64,AAAA\">" +
+                       "<link rel=\"stylesheet\" href=\"/css/site.css\">" +
+                       "<link rel=\"stylesheet\" href=\"https://cdn.test/site.css\">";
+
+            var clean = PublishedHtmlSanitizer.SanitizeHead(head);
+
+            Assert.DoesNotContain("javascript:alert", clean);
+            Assert.DoesNotContain("//evil.test", clean);
+            Assert.DoesNotContain("data:image", clean);
+            Assert.Contains("/css/site.css", clean);
+            Assert.Contains("https://cdn.test/site.css", clean);
         }
 
         [Fact]

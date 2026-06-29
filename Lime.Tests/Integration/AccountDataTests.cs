@@ -3,8 +3,11 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using System.Collections.Generic;
 using System.Linq;
 using System.Net;
+using System.Net.Http;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Xunit;
 
@@ -18,6 +21,39 @@ namespace Lime.Tests.Integration
         private readonly WebFactory _factory;
 
         public AccountDataTests(WebFactory factory) => _factory = factory;
+
+        private async Task CreateUserAsync(string userName, string password = "TestPass1!")
+        {
+            using var scope = _factory.Services.CreateScope();
+            var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+            if (await userManager.FindByNameAsync(userName) != null) return;
+            var user = new ApplicationUser { UserName = userName, Email = userName + "@test.local", EmailConfirmed = true };
+            Assert.True((await userManager.CreateAsync(user, password)).Succeeded);
+        }
+
+        private static string AntiForgeryToken(string html)
+        {
+            var match = Regex.Match(html, "name=\"__RequestVerificationToken\" type=\"hidden\" value=\"([^\"]+)\"");
+            Assert.True(match.Success, "Antiforgery token not found.");
+            return WebUtility.HtmlDecode(match.Groups[1].Value);
+        }
+
+        private async Task<HttpClient> CreateSignedInClientAsync(string userName)
+        {
+            await CreateUserAsync(userName);
+            var client = _factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+            var signIn = await client.GetAsync("/Home/SignIn");
+            signIn.EnsureSuccessStatusCode();
+            var token = AntiForgeryToken(await signIn.Content.ReadAsStringAsync());
+            var response = await client.PostAsync("/Home/SignIn", new FormUrlEncodedContent(new[]
+            {
+                new KeyValuePair<string, string>("Login", userName),
+                new KeyValuePair<string, string>("Password", "TestPass1!"),
+                new KeyValuePair<string, string>("__RequestVerificationToken", token),
+            }));
+            Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+            return client;
+        }
 
         [Theory]
         [InlineData("/Home/ExportMyData")]
@@ -64,6 +100,115 @@ namespace Lime.Tests.Integration
 
             Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
             Assert.Contains("/Home/SignIn", response.Headers.Location?.ToString() ?? string.Empty);
+        }
+
+        [Fact]
+        public async Task Logout_Get_DoesNotSignOut()
+        {
+            var client = await CreateSignedInClientAsync("logout-get");
+
+            var logout = await client.GetAsync("/Home/Logout");
+            Assert.Equal(HttpStatusCode.Redirect, logout.StatusCode);
+
+            var profile = await client.GetAsync("/Home/Profile");
+            Assert.Equal(HttpStatusCode.OK, profile.StatusCode);
+        }
+
+        [Fact]
+        public async Task Logout_Post_RequiresAntiforgery()
+        {
+            var client = await CreateSignedInClientAsync("logout-post");
+
+            var response = await client.PostAsync("/Home/Logout", new FormUrlEncodedContent(System.Array.Empty<KeyValuePair<string, string>>()));
+
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        }
+
+        [Fact]
+        public async Task EditProfile_AllowsNonSensitiveChanges_WithoutCurrentPassword()
+        {
+            var userName = "profile-basic";
+            var client = await CreateSignedInClientAsync(userName);
+            var profile = await client.GetAsync("/Home/Profile");
+            profile.EnsureSuccessStatusCode();
+            var token = AntiForgeryToken(await profile.Content.ReadAsStringAsync());
+
+            var response = await client.PostAsync("/Home/EditProfile", new FormUrlEncodedContent(new[]
+            {
+                new KeyValuePair<string, string>("Login", userName),
+                new KeyValuePair<string, string>("Email", userName + "@test.local"),
+                new KeyValuePair<string, string>("Name", "Safe"),
+                new KeyValuePair<string, string>("LastName", "Change"),
+                new KeyValuePair<string, string>("Password", ""),
+                new KeyValuePair<string, string>("CurrentPassword", ""),
+                new KeyValuePair<string, string>("__RequestVerificationToken", token),
+            }));
+
+            Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+
+            using var scope = _factory.Services.CreateScope();
+            var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+            var user = await userManager.FindByNameAsync(userName);
+            Assert.Equal("Safe", user.Name);
+            Assert.Equal("Change", user.LastName);
+        }
+
+        [Fact]
+        public async Task EditProfile_SensitiveChangesRequireCurrentPassword()
+        {
+            var userName = "profile-sensitive";
+            var client = await CreateSignedInClientAsync(userName);
+            var profile = await client.GetAsync("/Home/Profile");
+            profile.EnsureSuccessStatusCode();
+            var token = AntiForgeryToken(await profile.Content.ReadAsStringAsync());
+
+            var response = await client.PostAsync("/Home/EditProfile", new FormUrlEncodedContent(new[]
+            {
+                new KeyValuePair<string, string>("Login", userName + "-new"),
+                new KeyValuePair<string, string>("Email", userName + "-new@test.local"),
+                new KeyValuePair<string, string>("Name", "Attempt"),
+                new KeyValuePair<string, string>("LastName", ""),
+                new KeyValuePair<string, string>("Password", "NewPass1!"),
+                new KeyValuePair<string, string>("CurrentPassword", ""),
+                new KeyValuePair<string, string>("__RequestVerificationToken", token),
+            }));
+
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+            using var scope = _factory.Services.CreateScope();
+            var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+            Assert.NotNull(await userManager.FindByNameAsync(userName));
+            Assert.Null(await userManager.FindByNameAsync(userName + "-new"));
+        }
+
+        [Fact]
+        public async Task EditProfile_EmailChange_WithCurrentPassword_ResetsEmailConfirmation()
+        {
+            var userName = "profile-email-reset";
+            var newEmail = userName + "-new@test.local";
+            var client = await CreateSignedInClientAsync(userName);
+            var profile = await client.GetAsync("/Home/Profile");
+            profile.EnsureSuccessStatusCode();
+            var token = AntiForgeryToken(await profile.Content.ReadAsStringAsync());
+
+            var response = await client.PostAsync("/Home/EditProfile", new FormUrlEncodedContent(new[]
+            {
+                new KeyValuePair<string, string>("Login", userName),
+                new KeyValuePair<string, string>("Email", newEmail),
+                new KeyValuePair<string, string>("Name", ""),
+                new KeyValuePair<string, string>("LastName", ""),
+                new KeyValuePair<string, string>("Password", ""),
+                new KeyValuePair<string, string>("CurrentPassword", "TestPass1!"),
+                new KeyValuePair<string, string>("__RequestVerificationToken", token),
+            }));
+
+            Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+
+            using var scope = _factory.Services.CreateScope();
+            var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+            var user = await userManager.FindByNameAsync(userName);
+            Assert.Equal(newEmail, user.Email);
+            Assert.False(await userManager.IsEmailConfirmedAsync(user));
         }
 
         [Fact]

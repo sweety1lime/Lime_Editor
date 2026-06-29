@@ -148,6 +148,14 @@
     function escAttr(s) {
         return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/"/g, "&quot;");
     }
+    function safeHref(s) {
+        var v = String(s == null ? "" : s).trim();
+        if (!v) return "#";
+        if (v.charAt(0) === "#") return v;
+        if (v.charAt(0) === "/") return v.indexOf("//") === 0 ? "#" : v;
+        if (/^(https?:|mailto:|tel:)/i.test(v)) return v;
+        return "#";
+    }
     function camelToKebab(k) {
         return k.replace(/[A-Z]/g, function (m) { return "-" + m.toLowerCase(); });
     }
@@ -655,7 +663,7 @@
         socials: function (b, o) {
             var items = (b.content && b.content.items) || [{ platform: "Telegram", url: "#" }];
             return '<div class="lime-block__socials">' + items.map(function (it, i) {
-                return '<a href="' + escAttr(it.url || "#") + '" class="lime-block__social"' + edattr(o, "items." + i + ".platform") + ">" + escHtml(it.platform) + "</a>";
+                return '<a href="' + escAttr(safeHref(it.url || "#")) + '" class="lime-block__social"' + edattr(o, "items." + i + ".platform") + ">" + escHtml(it.platform) + "</a>";
             }).join("") + "</div>";
         },
         form: function (b, o) {
@@ -729,7 +737,7 @@
             var cards = records.map(function (rec) {
                 // Динамические страницы: сервер кладёт rec._url (ссылка на детальную) → карточка-ссылка.
                 var url = rec._url;
-                var open = url ? '<a class="lime-cl-card" href="' + escAttr(url) + '">' : '<div class="lime-cl-card">';
+                var open = url ? '<a class="lime-cl-card" href="' + escAttr(safeHref(url)) + '">' : '<div class="lime-cl-card">';
                 var close = url ? "</a>" : "</div>";
                 if (!hasRoles) {
                     // Коллекция без распознанных ролей — key/value-вид, чтобы карточка не была пустой.

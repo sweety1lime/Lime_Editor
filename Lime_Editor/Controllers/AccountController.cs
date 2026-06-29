@@ -72,7 +72,15 @@ namespace Lime_Editor.Controllers
         }
 
         [HttpGet("Logout")]
-        public async Task<IActionResult> Logout()
+        public IActionResult Logout()
+        {
+            return RedirectToAction(nameof(SignIn));
+        }
+
+        [Authorize]
+        [HttpPost("Logout")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> LogoutPost()
         {
             await _signInManager.SignOutAsync();
             return RedirectToAction(nameof(SignIn));
@@ -212,6 +220,14 @@ namespace Lime_Editor.Controllers
             await _emailSender.SendAsync(user.Email, "Подтверждение email — Lime", html);
         }
 
+        private void AddIdentityErrors(IdentityResult result)
+        {
+            foreach (var error in result.Errors)
+            {
+                ModelState.AddModelError("", error.Description);
+            }
+        }
+
         [HttpGet("ConfirmEmail")]
         public async Task<IActionResult> ConfirmEmail(int userId, string token)
         {
@@ -289,26 +305,81 @@ namespace Lime_Editor.Controllers
                 return RedirectToAction(nameof(SignIn));
             }
 
+            var loginChanged = !string.Equals(user.UserName, model.Login, StringComparison.Ordinal);
+            var emailChanged = !string.Equals(user.Email, model.Email, StringComparison.OrdinalIgnoreCase);
+            var passwordChanged = !string.IsNullOrEmpty(model.Password);
+            var sensitiveChanged = loginChanged || emailChanged || passwordChanged;
+
+            if (sensitiveChanged)
+            {
+                if (string.IsNullOrEmpty(model.CurrentPassword) ||
+                    !await _userManager.CheckPasswordAsync(user, model.CurrentPassword))
+                {
+                    ModelState.AddModelError("", "Current password is required to change login, email, or password.");
+                    return View(HomeView("Profile"), model);
+                }
+            }
+
+            if (loginChanged)
+            {
+                var existing = await _userManager.FindByNameAsync(model.Login);
+                if (existing != null && existing.Id != user.Id)
+                {
+                    ModelState.AddModelError("", "Login is already taken.");
+                    return View(HomeView("Profile"), model);
+                }
+            }
+
+            if (emailChanged)
+            {
+                var existing = await _userManager.FindByEmailAsync(model.Email);
+                if (existing != null && existing.Id != user.Id)
+                {
+                    ModelState.AddModelError("", "Email is already taken.");
+                    return View(HomeView("Profile"), model);
+                }
+            }
+
+            if (passwordChanged)
+            {
+                var passwordResult = await _userManager.ChangePasswordAsync(user, model.CurrentPassword, model.Password);
+                if (!passwordResult.Succeeded)
+                {
+                    AddIdentityErrors(passwordResult);
+                    return View(HomeView("Profile"), model);
+                }
+            }
+
+            if (loginChanged)
+            {
+                var loginResult = await _userManager.SetUserNameAsync(user, model.Login);
+                if (!loginResult.Succeeded)
+                {
+                    AddIdentityErrors(loginResult);
+                    return View(HomeView("Profile"), model);
+                }
+            }
+
+            if (emailChanged)
+            {
+                var emailResult = await _userManager.SetEmailAsync(user, model.Email);
+                if (!emailResult.Succeeded)
+                {
+                    AddIdentityErrors(emailResult);
+                    return View(HomeView("Profile"), model);
+                }
+
+                await SendEmailConfirmationAsync(user);
+            }
+
             user.Name = model.Name;
             user.LastName = model.LastName;
-            user.Email = model.Email;
-            user.UserName = model.Login;
 
             var updateResult = await _userManager.UpdateAsync(user);
             if (!updateResult.Succeeded)
             {
-                foreach (var error in updateResult.Errors)
-                {
-                    ModelState.AddModelError("", error.Description);
-                }
-
+                AddIdentityErrors(updateResult);
                 return View(HomeView("Profile"), model);
-            }
-
-            if (!string.IsNullOrEmpty(model.Password))
-            {
-                var token = await _userManager.GeneratePasswordResetTokenAsync(user);
-                await _userManager.ResetPasswordAsync(user, token, model.Password);
             }
 
             await _signInManager.RefreshSignInAsync(user);

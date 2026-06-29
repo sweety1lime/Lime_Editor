@@ -23,5 +23,8 @@ namespace Lime_Editor.Models
         // Необязательное: если заполнено — пароль будет изменён.
         [DataType(DataType.Password)]
         public string Password { get; set; }
+
+        [DataType(DataType.Password)]
+        public string CurrentPassword { get; set; }
     }
 }

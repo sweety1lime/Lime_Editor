@@ -126,7 +126,7 @@ namespace Lime_Editor.Controllers
         // отдаём минимальную страницу «Спасибо».
         private IActionResult BackToSite(Microsoft.AspNetCore.Http.IFormCollection form, bool sent)
         {
-            var referer = Request.Headers["Referer"].ToString();
+            var referer = SafeReturnUrl(Request.Headers["Referer"].ToString());
             if (!string.IsNullOrEmpty(referer))
             {
                 var sep = referer.Contains('?') ? "&" : "?";
@@ -140,6 +140,40 @@ namespace Lime_Editor.Controllers
                     "text/html; charset=utf-8");
             }
             return Ok();
+        }
+
+        private string SafeReturnUrl(string referer)
+        {
+            if (string.IsNullOrWhiteSpace(referer))
+            {
+                return null;
+            }
+
+            if (Url.IsLocalUrl(referer))
+            {
+                return referer;
+            }
+
+            if (!Uri.TryCreate(referer, UriKind.Absolute, out var uri))
+            {
+                return null;
+            }
+
+            if (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps)
+            {
+                return null;
+            }
+
+            var requestPort = Request.Host.Port;
+            var samePort = requestPort.HasValue
+                ? uri.Port == requestPort.Value
+                : uri.IsDefaultPort;
+            if (!samePort || !string.Equals(uri.Host, Request.Host.Host, StringComparison.OrdinalIgnoreCase))
+            {
+                return null;
+            }
+
+            return referer;
         }
 
         [Authorize]

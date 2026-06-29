@@ -70,6 +70,8 @@ namespace Lime.Tests.Integration
 
             Assert.Equal("nosniff", response.Headers.GetValues("X-Content-Type-Options").First());
             Assert.True(response.Headers.Contains("Referrer-Policy"));
+            Assert.Equal("camera=(), microphone=(), geolocation=(), payment=()",
+                response.Headers.GetValues("Permissions-Policy").First());
         }
 
         [Fact]
@@ -84,6 +86,8 @@ namespace Lime.Tests.Integration
             Assert.False(response.Headers.Contains("Content-Security-Policy"));
             Assert.Equal("nosniff", response.Headers.GetValues("X-Content-Type-Options").First());
             Assert.Equal("SAMEORIGIN", response.Headers.GetValues("X-Frame-Options").First());
+            Assert.Equal("camera=(), microphone=(), geolocation=(), payment=()",
+                response.Headers.GetValues("Permissions-Policy").First());
         }
     }
 }

@@ -45,6 +45,7 @@ namespace Lime_Editor.Middleware
                     h["X-Content-Type-Options"] = "nosniff";
                     h["Referrer-Policy"] = "strict-origin-when-cross-origin";
                     h["X-Frame-Options"] = "SAMEORIGIN";
+                    h["Permissions-Policy"] = "camera=(), microphone=(), geolocation=(), payment=()";
 
                     if (isPublished)
                     {
