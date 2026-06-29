@@ -32,7 +32,7 @@ test("happy path: sign up → redirect to SignIn → login → MySites (@flow @a
   await page.locator('button[type="submit"]').click();
 
   await expect(page).toHaveURL(/\/Home\/MySites/);
-  await expect(page.locator(".lime-dashboard__welcome")).toContainText(login);
+  await expect(page.locator(".lime-dash-hi")).toContainText(login);
 });
 
 test("password mismatch shows inline warning (@flow @anonymous)", async ({ page }) => {
@@ -61,4 +61,25 @@ test("invalid login: existing user shows error (@flow @anonymous)", async ({ pag
   await page.fill('input[name="Password"]', "wrong");
   await page.locator('button[type="submit"]').click();
   await expect(page.locator(".lime-alert--danger")).toBeVisible();
+});
+
+test("forgot-password: link from SignIn → anti-enumeration confirmation (@flow @anonymous)", async ({ page }) => {
+  await page.goto("/Home/SignIn", { waitUntil: "domcontentloaded" });
+  await page.locator('a[href*="ForgotPassword"]').click();
+  await expect(page).toHaveURL(/\/Home\/ForgotPassword/);
+  await expect(page.locator(".lime-auth__title")).toContainText(/Забыли пароль/i);
+
+  // Несуществующий адрес — ответ обязан быть таким же, как для существующего (anti-enumeration).
+  await page.fill('input[name="email"]', `nobody_${Date.now().toString(36)}@test.local`);
+  await page.locator('button[type="submit"]').click();
+  await expect(page.locator(".lime-alert--success")).toContainText(/отправили ссылку|Проверь почту/i);
+});
+
+test("reset-password: invalid token is rejected (@flow @anonymous)", async ({ page }) => {
+  const url = `/Home/ResetPassword?email=${encodeURIComponent("nobody@test.local")}&token=bogus-token`;
+  await page.goto(url, { waitUntil: "domcontentloaded" });
+  await expect(page.locator("#rp-pass")).toBeVisible();
+  await page.fill("#rp-pass", "NewPassword1!");
+  await page.locator('button[type="submit"]').click();
+  await expect(page.locator(".lime-alert--danger")).toContainText(/недействительна|устарела/i);
 });
