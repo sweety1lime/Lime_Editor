@@ -42,6 +42,31 @@ services:
       retries: 3
       start_period: 30s
 
+  # Бэкап-сайдкар: раз в BACKUP_INTERVAL делает pg_dump (-Fc) + архив медиа в volume backups_data,
+  # с retention BACKUP_RETENTION_DAYS. Образ postgres:16 — версия pg_dump совпадает с сервером.
+  # Восстановление — см. ops/backup/RESTORE.md. Off-site-синк volume настраивается на хосте.
+  backup:
+    image: postgres:16
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD не задан в .env}
+      POSTGRES_DB: ${POSTGRES_DB:-limeeditor}
+      BACKUP_INTERVAL: ${BACKUP_INTERVAL:-86400}
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-14}
+      MEDIA_SRC: /media
+      BACKUP_DIR: /backups
+    volumes:
+      - ./ops/backup:/scripts:ro
+      - media_data:/media:ro
+      - backups_data:/backups
+    entrypoint: ["/bin/sh", "/scripts/entrypoint.sh"]
+
   caddy:
     image: caddy:2-alpine
     restart: unless-stopped
@@ -62,3 +87,4 @@ volumes:
   caddy_data:
   caddy_config:
   media_data:
+  backups_data:

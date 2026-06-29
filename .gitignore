@@ -256,6 +256,8 @@ Generated_Code/
 # because we have git ;-)
 _UpgradeReport_Files/
 Backup*/
+# core.ignorecase=true (Windows) заставляет Backup*/ матчить и наш ops/backup/ — возвращаем его.
+!ops/backup/
 UpgradeLog*.XML
 UpgradeLog*.htm
 ServiceFabricBackup/
