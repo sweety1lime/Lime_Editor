@@ -64,6 +64,13 @@ namespace Lime_Editor.Middleware
                     h["X-Frame-Options"] = "SAMEORIGIN";
                     h["Permissions-Policy"] = "camera=(), microphone=(), geolocation=(), payment=()";
 
+                    if (ctx.User?.Identity?.IsAuthenticated == true)
+                    {
+                        h["Cache-Control"] = "no-store, no-cache, max-age=0";
+                        h["Pragma"] = "no-cache";
+                        h["Expires"] = "Thu, 01 Jan 1970 00:00:00 GMT";
+                    }
+
                     if (isPublished)
                     {
                         h["Content-Security-Policy"] = PublishedCsp + CspReportUri;
