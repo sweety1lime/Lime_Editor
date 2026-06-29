@@ -46,6 +46,17 @@ namespace Lime.Tests.Services
             Assert.Equal(3, new FileInfo(path).Length);
         }
 
+        [Theory]
+        [InlineData("../outside.jpg")]
+        [InlineData("..\\outside.jpg")]
+        [InlineData("/tmp/outside.jpg")]
+        [InlineData("")]
+        public async Task Save_RejectsUnsafeStoredFileName(string storedFileName)
+        {
+            await Assert.ThrowsAsync<ArgumentException>(() =>
+                _storage.SaveAsync(5, storedFileName, new byte[] { 1 }));
+        }
+
         [Fact]
         public async Task Delete_RemovesOnlyThatFile()
         {
@@ -56,6 +67,19 @@ namespace Lime.Tests.Services
 
             Assert.False(File.Exists(Path.Combine(_webRoot, "media", "5", "a.jpg")));
             Assert.True(File.Exists(Path.Combine(_webRoot, "media", "5", "b.jpg")));
+        }
+
+        [Fact]
+        public void Delete_UnsafeStoredFileName_DoesNotEscapeUserFolder()
+        {
+            var mediaRoot = Path.Combine(_webRoot, "media");
+            Directory.CreateDirectory(mediaRoot);
+            var outsideUserFolder = Path.Combine(mediaRoot, "outside.jpg");
+            File.WriteAllBytes(outsideUserFolder, new byte[] { 9 });
+
+            _storage.Delete(5, "../outside.jpg");
+
+            Assert.True(File.Exists(outsideUserFolder));
         }
 
         [Fact]
@@ -80,6 +104,14 @@ namespace Lime.Tests.Services
         public void PublicUrl_MatchesServedPath()
         {
             Assert.Equal("/media/5/a.jpg", _storage.PublicUrl(5, "a.jpg"));
+        }
+
+        [Theory]
+        [InlineData("../outside.jpg")]
+        [InlineData("..\\outside.jpg")]
+        public void PublicUrl_RejectsUnsafeStoredFileName(string storedFileName)
+        {
+            Assert.Throws<ArgumentException>(() => _storage.PublicUrl(5, storedFileName));
         }
 
         [Fact]

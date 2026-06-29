@@ -29,12 +29,17 @@ namespace Lime_Editor.Services
         {
             var dir = UserDir(userId);
             Directory.CreateDirectory(dir);
-            await File.WriteAllBytesAsync(Path.Combine(dir, storedFileName), bytes, ct);
+            await File.WriteAllBytesAsync(SafeFilePath(userId, storedFileName), bytes, ct);
         }
 
         public void Delete(int userId, string storedFileName)
         {
-            var path = Path.Combine(UserDir(userId), storedFileName);
+            if (!TrySafeFilePath(userId, storedFileName, out var path))
+            {
+                Log.Warning("Rejected unsafe media file name {StoredFileName} for user {UserId}", storedFileName, userId);
+                return;
+            }
+
             if (File.Exists(path))
             {
                 File.Delete(path);
@@ -58,6 +63,56 @@ namespace Lime_Editor.Services
             }
         }
 
-        public string PublicUrl(int userId, string storedFileName) => $"/{Folder}/{userId}/{storedFileName}";
+        public string PublicUrl(int userId, string storedFileName)
+        {
+            if (!IsSafeStoredFileName(storedFileName))
+            {
+                throw new ArgumentException("Stored file name must not contain path segments.", nameof(storedFileName));
+            }
+
+            return $"/{Folder}/{userId}/{Uri.EscapeDataString(storedFileName)}";
+        }
+
+        private string SafeFilePath(int userId, string storedFileName)
+        {
+            if (!TrySafeFilePath(userId, storedFileName, out var path))
+            {
+                throw new ArgumentException("Stored file name must not contain path segments.", nameof(storedFileName));
+            }
+
+            return path;
+        }
+
+        private bool TrySafeFilePath(int userId, string storedFileName, out string path)
+        {
+            path = null;
+            if (!IsSafeStoredFileName(storedFileName))
+            {
+                return false;
+            }
+
+            var dir = Path.GetFullPath(UserDir(userId));
+            var candidate = Path.GetFullPath(Path.Combine(dir, storedFileName));
+            var prefix = dir.EndsWith(Path.DirectorySeparatorChar.ToString(), StringComparison.Ordinal)
+                ? dir
+                : dir + Path.DirectorySeparatorChar;
+
+            if (!candidate.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            path = candidate;
+            return true;
+        }
+
+        private static bool IsSafeStoredFileName(string storedFileName)
+        {
+            return !string.IsNullOrWhiteSpace(storedFileName) &&
+                   storedFileName.IndexOfAny(Path.GetInvalidFileNameChars()) < 0 &&
+                   storedFileName.IndexOf('/') < 0 &&
+                   storedFileName.IndexOf('\\') < 0 &&
+                   string.Equals(storedFileName, Path.GetFileName(storedFileName), StringComparison.Ordinal);
+        }
     }
 }
