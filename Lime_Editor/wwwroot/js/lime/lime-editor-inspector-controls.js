@@ -173,6 +173,7 @@
             registryProps: registryProps,
             renderControl: renderControl,
             section: section,
+            segmented: segmented,
             splitCssLength: splitCssLength,
             tokenSwatches: tokenSwatches,
             unitSelectHtml: unitSelectHtml

@@ -1868,6 +1868,7 @@
     var registryProps = inspectorControls.registryProps;
     var renderControl = inspectorControls.renderControl;
     var sec = inspectorControls.section;
+    var seg = inspectorControls.segmented; // сегмент-контрол стиля (data-doc-style/data-val) для bgInspector
     var splitCssLength = inspectorControls.splitCssLength;
     var tokenSwatches = inspectorControls.tokenSwatches;
     var unitSelectHtml = inspectorControls.unitSelectHtml;
@@ -3320,6 +3321,7 @@
         refreshInspector: refreshInspector,
         scheduleAutosave: scheduleAutosave,
         toHex: toHex,
+        seg: seg,
         colorRow: colorRow,
         tokenSwatches: tokenSwatches,
         sec: sec
