@@ -1,4 +1,5 @@
 using Lime_Editor.Models;
+using Lime_Editor.Services;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -25,6 +26,7 @@ namespace Lime_Editor
             {
                 Log.Information("Запуск Lime_Editor");
                 var host = CreateHostBuilder(args).Build();
+                ProductionConfigurationValidator.Validate(host.Services);
                 ApplyMigrationsWithRetry(host);
                 EnsureAdminInfrastructureAsync(host).GetAwaiter().GetResult();
                 host.Run();
