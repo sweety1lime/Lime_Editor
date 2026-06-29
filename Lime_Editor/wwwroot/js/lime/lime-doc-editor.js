@@ -22,6 +22,8 @@
     var EditorOnboarding = window.LimeEditorOnboarding || {};
     var EditorTopbar = window.LimeEditorTopbar || {};
     var EditorIntro = window.LimeEditorIntro || {};
+    var EditorTheme = window.LimeEditorTheme || {};
+    var EditorSiteCode = window.LimeEditorSiteCode || {};
     if (!EditorUtils.escapeText) throw new Error("LimeEditorUtils is required before lime-doc-editor.js");
     if (!EditorComponents.create) throw new Error("LimeEditorComponents is required before lime-doc-editor.js");
     if (!EditorCommandPalette.create) throw new Error("LimeEditorCommandPalette is required before lime-doc-editor.js");
@@ -33,6 +35,8 @@
     if (!EditorOnboarding.create) throw new Error("LimeEditorOnboarding is required before lime-doc-editor.js");
     if (!EditorTopbar.init) throw new Error("LimeEditorTopbar is required before lime-doc-editor.js");
     if (!EditorIntro.create) throw new Error("LimeEditorIntro is required before lime-doc-editor.js");
+    if (!EditorTheme.create) throw new Error("LimeEditorTheme is required before lime-doc-editor.js");
+    if (!EditorSiteCode.create) throw new Error("LimeEditorSiteCode is required before lime-doc-editor.js");
 
     var ws = document.getElementById("lime-doc-workspace");
     if (!ws) return;
@@ -4342,68 +4346,17 @@
         if (e.target.closest("[data-doc-ai-generate]")) aiGenerate();
     });
 
-    // ===== ТЕМА (токены сайта) =====
-    if (!doc.theme) doc.theme = {};
-    var THEME_KEYS = ["accent", "accent2", "bg", "fg", "muted"];
-    THEME_KEYS.forEach(function (k) {
-        var el = document.getElementById("lime-theme-" + k);
-        if (!el) return;
-        el.value = doc.theme[k] || L.DEFAULT_THEME[k];
-        el.addEventListener("input", function () { beginCheckpointMutation(); doc.theme[k] = el.value; render(); markDirty(); refreshPalettes(); });
+    // ===== ТЕМА (токены сайта) — модуль lime-editor-theme.js =====
+    EditorTheme.create({
+        document: document,
+        doc: doc,
+        defaultTheme: L.DEFAULT_THEME,
+        beginCheckpointMutation: beginCheckpointMutation,
+        render: render,
+        markDirty: markDirty,
+        fontOptionsHtml: fontOptionsHtml
     });
 
-    // Курируемые палитры — гардрейл вкуса: один клик задаёт все 5 токенов гармонично.
-    var PALETTES = [
-        { name: "Lime Ink", accent: "#c5f24e", accent2: "#a78bfa", bg: "#0b0e0a", fg: "#eef1ea", muted: "#828c79" },
-        { name: "Violet", accent: "#a78bfa", accent2: "#38bdf8", bg: "#0d0b1a", fg: "#eceafb", muted: "#8b86a8" },
-        { name: "Sunset", accent: "#fb7185", accent2: "#fbbf24", bg: "#1a0f12", fg: "#fdeef0", muted: "#b08a90" },
-        { name: "Ocean", accent: "#2dd4bf", accent2: "#38bdf8", bg: "#07171a", fg: "#e6fbf8", muted: "#7fa7a3" },
-        { name: "Royal", accent: "#6366f1", accent2: "#ec4899", bg: "#0a0a1f", fg: "#eef0ff", muted: "#8888aa" },
-        { name: "Forest", accent: "#84cc16", accent2: "#22c55e", bg: "#0a140d", fg: "#eaf5ea", muted: "#7d9180" },
-        { name: "Mono", accent: "#111111", accent2: "#6b7280", bg: "#ffffff", fg: "#14180f", muted: "#6b7280" },
-        { name: "Cream", accent: "#b45309", accent2: "#84cc16", bg: "#faf6ef", fg: "#1c1917", muted: "#78716c" }
-    ];
-    function paletteActive(p) {
-        return THEME_KEYS.every(function (k) {
-            return (doc.theme[k] || L.DEFAULT_THEME[k]).toLowerCase() === p[k].toLowerCase();
-        });
-    }
-    function refreshPalettes() {
-        var box = document.getElementById("lime-theme-palettes");
-        if (!box) return;
-        box.innerHTML = PALETTES.map(function (p, i) {
-            var bars = [p.bg, p.accent, p.accent2, p.fg].map(function (c) {
-                return '<span style="background:' + c + '"></span>';
-            }).join("");
-            return '<button type="button" class="lime-palette' + (paletteActive(p) ? " is-active" : "") + '" data-doc-palette="' + i + '" title="' + p.name + '">' +
-                '<span class="lime-palette__bar">' + bars + '</span>' +
-                '<span class="lime-palette__name">' + p.name + '</span></button>';
-        }).join("");
-    }
-    function applyPalette(p) {
-        beginCheckpointMutation();
-        THEME_KEYS.forEach(function (k) {
-            doc.theme[k] = p[k];
-            var el = document.getElementById("lime-theme-" + k);
-            if (el) el.value = p[k];
-        });
-        render(); markDirty(); refreshPalettes();
-    }
-    var palettesBox = document.getElementById("lime-theme-palettes");
-    if (palettesBox) {
-        palettesBox.addEventListener("click", function (e) {
-            var btn = e.target.closest("[data-doc-palette]");
-            if (btn) applyPalette(PALETTES[parseInt(btn.getAttribute("data-doc-palette"), 10)]);
-        });
-        refreshPalettes();
-    }
-    var fontSel = document.getElementById("lime-theme-font");
-    if (fontSel) {
-        var themeFont = doc.theme.font || L.DEFAULT_THEME.font;
-        fontSel.innerHTML = fontOptionsHtml(themeFont, false); // полный список Google Fonts
-        fontSel.value = themeFont;
-        fontSel.addEventListener("input", function () { beginCheckpointMutation(); doc.theme.font = fontSel.value; render(); markDirty(); });
-    }
     // ===== Топбар: overflow-меню «⋯» — модуль lime-editor-topbar.js =====
     EditorTopbar.init({ document: document });
 
@@ -4416,33 +4369,16 @@
         if (themeModal && e.target.closest("[data-doc-theme-close]")) themeModal.classList.remove("is-open");
     });
 
-    // ===== КОД САЙТА (этап 0.2): глобальный CSS + кастомный head =====
+    // ===== КОД САЙТА (этап 0.2): глобальный CSS + кастомный head — модуль lime-editor-site-code.js =====
+    // codeModal объявлен здесь (на него ссылается command palette ниже), логику ведёт модуль.
     var codeModal = document.getElementById("lime-doc-code-modal");
-    var cssArea = document.getElementById("lime-doc-custom-css");
-    var headArea = document.getElementById("lime-doc-custom-head");
-    var codeOpen = document.querySelector("[data-doc-code-open]");
-    if (codeOpen && codeModal) {
-        codeOpen.addEventListener("click", function () {
-            if (cssArea) cssArea.value = doc.customCss || "";
-            if (headArea) headArea.value = doc.head || "";
-            codeModal.classList.add("is-open");
-        });
-    }
-    // CSS правим живьём — render() обновляет холст; head только сохраняем (на холст не влияет).
-    if (cssArea) cssArea.addEventListener("input", function () {
-        beginCheckpointMutation();
-        doc.customCss = cssArea.value;
-        if (!doc.customCss) delete doc.customCss;
-        render(); markDirty();
-    });
-    if (headArea) headArea.addEventListener("input", function () {
-        beginCheckpointMutation();
-        doc.head = headArea.value;
-        if (!doc.head) delete doc.head;
-        markDirty();
-    });
-    document.addEventListener("click", function (e) {
-        if (codeModal && e.target.closest("[data-doc-code-close]")) codeModal.classList.remove("is-open");
+    EditorSiteCode.create({
+        document: document,
+        doc: doc,
+        codeModal: codeModal,
+        beginCheckpointMutation: beginCheckpointMutation,
+        render: render,
+        markDirty: markDirty
     });
 
     // ===== COMMAND PALETTE (Ctrl+K): discoverability without permanent chrome =====

@@ -88,7 +88,9 @@
   `lime-editor-onboarding.js` (coachmark-тур этапа 9.4 — полностью изолирован от состояния редактора),
   а затем группой `lime-editor-topbar.js` (overflow-меню «⋯») и `lime-editor-intro.js` (стартовый
   промпт пустого документа; deps totalBlocks/runGenerate, hide+dismiss для skip/тура).
+- **Сделано 2026-06-29:** вынесены `lime-editor-theme.js` (панель токенов сайта: 5 цветов + шрифт + 8 курируемых палитр; deps doc/defaultTheme/beginCheckpointMutation/render/markDirty/fontOptionsHtml; модальный тоггл оставлен inline — на `themeModal` ссылается command palette) и `lime-editor-site-code.js` (модалка «Код сайта»: кастомный CSS живьём + вставка в head; `codeModal` оставлен inline — на него ссылается command palette). `lime-doc-editor.js` 5629→5565.
 - **Проверено 2026-06-28:** `node --check` для вынесенных JS; smoke media picker/sidebar; `dotnet build Lime_Editor.sln --no-restore`; `npm run test:e2e:editor-v2` 41/41 (после выноса onboarding — перепрогон зелёный); `dotnet test Lime_Editor.sln --no-build` 172/172.
+- **Проверено 2026-06-29:** `node --check` (theme + site-code + main); `npm run test:e2e:editor-v2` 41/41 зелёные после каждого выноса.
 - **Когда:** continuous; не блокирует запуск. Резать инкрементально, не «большой переписью».
 - **Готово когда:** ни один файл > ~1500 строк; тесты/смоки зелёные после каждого среза.
 
