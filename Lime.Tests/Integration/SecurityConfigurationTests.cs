@@ -176,6 +176,12 @@ namespace Lime.Tests.Integration
         }
 
         [Fact]
+        public void ExternalApiProxyActions_HaveRateLimits()
+        {
+            AssertRateLimit(typeof(MediaController).GetMethod(nameof(MediaController.Stock)), "external-api");
+        }
+
+        [Fact]
         public void SensitivePostActions_HaveExplicitSecurityAttributes()
         {
             var restoreOriginal = typeof(HomeController).GetMethod(nameof(HomeController.RestoreOriginal));

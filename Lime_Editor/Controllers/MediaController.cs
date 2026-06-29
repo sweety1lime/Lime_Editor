@@ -89,6 +89,7 @@ namespace Lime_Editor.Controllers
         // Отдаём только URL картинок (хотлинк) — тот же контракт, что у ApiList.
         [HttpGet]
         [Produces("application/json")]
+        [EnableRateLimiting("external-api")]
         public async Task<IActionResult> Stock(string q, int page = 1)
         {
             q = q?.Trim();
