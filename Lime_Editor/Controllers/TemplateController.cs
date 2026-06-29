@@ -1,6 +1,7 @@
 using Lime_Editor.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using System.Threading.Tasks;
 
 namespace Lime_Editor.Controllers
@@ -20,6 +21,7 @@ namespace Lime_Editor.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         [RequestSizeLimit(RequestBodyLimits.EditorDocumentBytes)]
+        [EnableRateLimiting("export")]
         public async Task<IActionResult> DownloadSite(string html, int templateId)
         {
             var result = await _exportService.ExportAsync(templateId, html);

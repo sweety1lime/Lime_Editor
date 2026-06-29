@@ -3,6 +3,7 @@ using Lime_Editor.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using System.Linq;
 using System.Threading.Tasks;
@@ -31,6 +32,7 @@ namespace Lime_Editor.Controllers
 
         // style: "blob" (движок рендерит HTML) | "jsx" (настоящие React-компоненты + fallback).
         [HttpGet]
+        [EnableRateLimiting("export")]
         public async Task<IActionResult> Nextjs(int siteId, string style = "blob")
         {
             var site = await db.Sites.FirstOrDefaultAsync(s => s.IdSite == siteId && s.UserId == CurrentUserId);

@@ -168,6 +168,14 @@ namespace Lime.Tests.Integration
         }
 
         [Fact]
+        public void HeavyExportActions_HaveRateLimits()
+        {
+            AssertRateLimit(typeof(ExportController).GetMethod(nameof(ExportController.Nextjs)), "export");
+            AssertRateLimit(typeof(TemplateController).GetMethod(nameof(TemplateController.DownloadSite)), "export");
+            AssertRateLimit(typeof(AccountController).GetMethod(nameof(AccountController.ExportMyData)), "export");
+        }
+
+        [Fact]
         public void SensitivePostActions_HaveExplicitSecurityAttributes()
         {
             var restoreOriginal = typeof(HomeController).GetMethod(nameof(HomeController.RestoreOriginal));
@@ -178,13 +186,11 @@ namespace Lime.Tests.Integration
 
             AssertHasAttribute(webhook, typeof(AllowAnonymousAttribute));
             AssertHasAttribute(webhook, typeof(IgnoreAntiforgeryTokenAttribute));
-            var rateLimit = webhook.CustomAttributes.Single(a => a.AttributeType == typeof(EnableRateLimitingAttribute));
-            Assert.Equal("public-write", rateLimit.ConstructorArguments.Single().Value);
+            AssertRateLimit(webhook, "public-write");
 
             AssertHasAttribute(cspReport, typeof(AllowAnonymousAttribute));
             AssertHasAttribute(cspReport, typeof(IgnoreAntiforgeryTokenAttribute));
-            var cspRateLimit = cspReport.CustomAttributes.Single(a => a.AttributeType == typeof(EnableRateLimitingAttribute));
-            Assert.Equal("public-write", cspRateLimit.ConstructorArguments.Single().Value);
+            AssertRateLimit(cspReport, "public-write");
         }
 
         private static void AssertRequestSizeLimit(MethodInfo method, long expectedBytes)
@@ -196,6 +202,12 @@ namespace Lime.Tests.Integration
         private static void AssertSmallFormLimit(MethodInfo method)
         {
             AssertRequestSizeLimit(method, RequestBodyLimits.SmallFormBytes);
+        }
+
+        private static void AssertRateLimit(MethodInfo method, string expectedPolicy)
+        {
+            var attr = method.CustomAttributes.Single(a => a.AttributeType == typeof(EnableRateLimitingAttribute));
+            Assert.Equal(expectedPolicy, attr.ConstructorArguments.Single().Value);
         }
 
         private static void AssertHasAttribute(MethodInfo method, Type attributeType)

@@ -170,6 +170,10 @@ namespace Lime_Editor
                 options.AddPolicy("ai", ctx => RateLimitPartition.GetFixedWindowLimiter(
                     UserOrClientKey(ctx),
                     _ => new FixedWindowRateLimiterOptions { PermitLimit = 20, Window = TimeSpan.FromMinutes(1) }));
+
+                options.AddPolicy("export", ctx => RateLimitPartition.GetFixedWindowLimiter(
+                    UserOrClientKey(ctx),
+                    _ => new FixedWindowRateLimiterOptions { PermitLimit = 5, Window = TimeSpan.FromMinutes(1) }));
             });
         }
 

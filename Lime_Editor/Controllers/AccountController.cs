@@ -394,6 +394,7 @@ namespace Lime_Editor.Controllers
 
         [Authorize]
         [HttpGet("ExportMyData")]
+        [EnableRateLimiting("export")]
         public async Task<IActionResult> ExportMyData()
         {
             var userId = CurrentUserId;
