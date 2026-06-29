@@ -2,11 +2,13 @@ using Lime_Editor.Controllers;
 using Lime_Editor.Services;
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using System;
@@ -69,15 +71,36 @@ namespace Lime.Tests.Integration
         {
             var upload = typeof(MediaController).GetMethod(nameof(MediaController.Upload));
             var submit = typeof(FormController).GetMethod(nameof(FormController.Submit));
+            var webhook = typeof(BillingController).GetMethod(nameof(BillingController.Webhook));
 
             AssertRequestSizeLimit(upload, MediaUploadSecurity.MaxUploadRequestBytes);
             AssertRequestSizeLimit(submit, 64 * 1024);
+            AssertRequestSizeLimit(webhook, 64 * 1024);
+        }
+
+        [Fact]
+        public void SensitivePostActions_HaveExplicitSecurityAttributes()
+        {
+            var restoreOriginal = typeof(HomeController).GetMethod(nameof(HomeController.RestoreOriginal));
+            var webhook = typeof(BillingController).GetMethod(nameof(BillingController.Webhook));
+
+            AssertHasAttribute(restoreOriginal, typeof(AuthorizeAttribute));
+
+            AssertHasAttribute(webhook, typeof(AllowAnonymousAttribute));
+            AssertHasAttribute(webhook, typeof(IgnoreAntiforgeryTokenAttribute));
+            var rateLimit = webhook.CustomAttributes.Single(a => a.AttributeType == typeof(EnableRateLimitingAttribute));
+            Assert.Equal("public-write", rateLimit.ConstructorArguments.Single().Value);
         }
 
         private static void AssertRequestSizeLimit(MethodInfo method, long expectedBytes)
         {
             var attr = method.CustomAttributes.Single(a => a.AttributeType == typeof(RequestSizeLimitAttribute));
             Assert.Equal(expectedBytes, attr.ConstructorArguments.Single().Value);
+        }
+
+        private static void AssertHasAttribute(MethodInfo method, Type attributeType)
+        {
+            Assert.Contains(method.CustomAttributes, a => a.AttributeType == attributeType);
         }
     }
 }

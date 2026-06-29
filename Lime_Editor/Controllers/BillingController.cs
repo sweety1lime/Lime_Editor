@@ -18,6 +18,8 @@ namespace Lime_Editor.Controllers
     [Authorize]
     public class BillingController : Controller
     {
+        private const int MaxWebhookBytes = 64 * 1024;
+
         private readonly LimeEditorContext db;
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly IEntitlementService _entitlements;
@@ -65,6 +67,7 @@ namespace Lime_Editor.Controllers
         [HttpPost]
         [AllowAnonymous]
         [IgnoreAntiforgeryToken]
+        [RequestSizeLimit(MaxWebhookBytes)]
         [EnableRateLimiting("public-write")]
         public async Task<IActionResult> Webhook()
         {

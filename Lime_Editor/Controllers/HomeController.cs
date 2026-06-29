@@ -216,6 +216,7 @@ namespace Lime_Editor.Controllers
             return auto ? Json(new { version = created.UpdatedAt.Value.Ticks }) : RedirectToAction(nameof(MySites));
         }
 
+        [Authorize]
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> RestoreOriginal(int siteId)
