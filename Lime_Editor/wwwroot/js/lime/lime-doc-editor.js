@@ -111,6 +111,15 @@
     var escapeText = EditorUtils.escapeText;
     var rid = EditorUtils.rid;
     var csrfToken = EditorUtils.csrfToken;
+    // Нормализация цвета в #hex (для инъекции в inspector-controls / shadow / section-bg).
+    function toHex(value) {
+        if (!value) return "#000000";
+        if (value[0] === "#") return value;
+        var m = String(value).match(/^rgba?\((\d+),\s*(\d+),\s*(\d+)/i);
+        if (!m) return "#000000";
+        var h = function (n) { var x = parseInt(n, 10).toString(16); return x.length < 2 ? "0" + x : x; };
+        return "#" + h(m[1]) + h(m[2]) + h(m[3]);
+    }
     // Глубокий поиск блока (этап 1: блоки бывают вложены в контейнеры/колонки и в
     // children определений компонентов). Возвращает { block, parent: массив-владелец,
     // index, parentBlock: блок-контейнер или null (верхний уровень страницы) }.
