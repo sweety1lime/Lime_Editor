@@ -28,6 +28,7 @@
     var EditorAiPipeline = window.LimeEditorAiPipeline || {};
     var EditorShadow = window.LimeEditorShadow || {};
     var EditorClasses = window.LimeEditorClasses || {};
+    var EditorEffects = window.LimeEditorEffects || {};
     if (!EditorUtils.escapeText) throw new Error("LimeEditorUtils is required before lime-doc-editor.js");
     if (!EditorComponents.create) throw new Error("LimeEditorComponents is required before lime-doc-editor.js");
     if (!EditorCommandPalette.create) throw new Error("LimeEditorCommandPalette is required before lime-doc-editor.js");
@@ -45,6 +46,7 @@
     if (!EditorAiPipeline.create) throw new Error("LimeEditorAiPipeline is required before lime-doc-editor.js");
     if (!EditorShadow.create) throw new Error("LimeEditorShadow is required before lime-doc-editor.js");
     if (!EditorClasses.create) throw new Error("LimeEditorClasses is required before lime-doc-editor.js");
+    if (!EditorEffects.create) throw new Error("LimeEditorEffects is required before lime-doc-editor.js");
 
     var ws = document.getElementById("lime-doc-workspace");
     if (!ws) return;
@@ -1951,6 +1953,45 @@
     var deleteClass = classTools.deleteClass;
     var renameClass = classTools.renameClass;
 
+    // ----- Эффекты, движение и декор-слои — модуль lime-editor-effects.js. -----
+    var effectsTools = EditorEffects.create({
+        L: L,
+        ws: ws,
+        getSelectedId: function () { return selectedId; },
+        getCmdStore: function () { return cmdStore; },
+        byId: byId,
+        targetBlock: targetBlock,
+        clone: clone,
+        rid: rid,
+        sec: sec,
+        setBlockValue: setBlockValue,
+        commandBlockGesture: commandBlockGesture,
+        runCommands: runCommands,
+        openMediaPicker: openMediaPicker,
+        scheduleAutosave: scheduleAutosave,
+        markDirty: markDirty,
+        refreshInspector: refreshInspector,
+        render: render
+    });
+    var animInspector = effectsTools.animInspector;
+    var motionInspector = effectsTools.motionInspector;
+    var sceneInspector = effectsTools.sceneInspector;
+    var layersInspector = effectsTools.layersInspector;
+    var fxInspector = effectsTools.fxInspector;
+    var setSceneMode = effectsTools.setSceneMode;
+    var toggleFx = effectsTools.toggleFx;
+    var setSticky = effectsTools.setSticky;
+    var setMarquee = effectsTools.setMarquee;
+    var setMotionParallax = effectsTools.setMotionParallax;
+    var setSceneLength = effectsTools.setSceneLength;
+    var addLayer = effectsTools.addLayer;
+    var delLayer = effectsTools.delLayer;
+    var setLayerRng = effectsTools.setLayerRng;
+    var setLayerShape = effectsTools.setLayerShape;
+    var pickLayerImage = effectsTools.pickLayerImage;
+    var initLayerDrag = effectsTools.initLayerDrag;
+    var setAnim = effectsTools.setAnim;
+
     // ----- Многослойные тени (1.2) — модуль lime-editor-shadow.js. shadowBuilder отдаётся в
     // inspector-controls через thunk выше (он зовётся на рендере, когда shadowFx уже создан). -----
     var shadowFx = EditorShadow.create({
@@ -2427,100 +2468,6 @@
         return rec;
     }
 
-    // Секция «Анимация появления» — общая на блок (не зависит от брейкпоинта).
-    function animInspector(t) {
-        var curAnim = (t && t.anim) || "";
-        var presets = [
-            { v: "", l: "—", t: "Без анимации" }, { v: "fade-up", l: "↑", t: "Появление снизу" },
-            { v: "fade-in", l: "◍", t: "Проявление" }, { v: "zoom", l: "⊕", t: "Зум" },
-            { v: "slide-left", l: "←", t: "Выезд слева" }, { v: "slide-right", l: "→", t: "Выезд справа" }
-        ];
-        var presetSeg = '<div class="lime-segmented">' + presets.map(function (o) {
-            return '<button type="button" class="' + (curAnim === o.v ? "is-active" : "") + '" data-doc-anim="anim" data-val="' + o.v + '" title="' + o.t + '">' + o.l + '</button>';
-        }).join("") + '</div>';
-        var extra = curAnim
-            ? '<div class="lime-inspector__hint" style="margin:6px 0 2px;">Задержка, мс</div>' + animRng("animDelay", 0, 1000, 50, t.animDelay) +
-              '<div class="lime-inspector__hint" style="margin:6px 0 2px;">Длительность, с</div>' + animRng("animDuration", 0.2, 2, 0.1, t.animDuration)
-            : "";
-        return sec("Анимация появления", presetSeg + extra);
-    }
-
-    // Секция «Движение»: параллакс + sticky (+ marquee для контейнеров/колонок).
-    function motionInspector(t) {
-        var px = t.parallax || "";
-        var rows = '<div class="lime-inspector__hint" style="margin:2px 0;">Параллакс (глубина)</div>' +
-            '<div class="lime-range-row"><input type="range" class="lime-range" data-doc-motion="parallax" min="0" max="0.8" step="0.05" value="' + (parseFloat(px) || 0) + '"><span class="lime-range__val">' + (px || "0") + '</span></div>' +
-            '<div class="lime-inspector__hint" style="margin:8px 0 2px;">Залипание (sticky)</div>' +
-            '<div class="lime-segmented">' +
-            '<button type="button" class="' + (!t.sticky ? "is-active" : "") + '" data-doc-sticky="0">Нет</button>' +
-            '<button type="button" class="' + (t.sticky ? "is-active" : "") + '" data-doc-sticky="1">Sticky</button></div>';
-        if (L.isContainer(t.type)) {
-            var mq = t.marquee;
-            rows += '<div class="lime-inspector__hint" style="margin:8px 0 2px;">Бегущая строка (для содержимого)</div>' +
-                '<div class="lime-segmented">' +
-                '<button type="button" class="' + (!mq ? "is-active" : "") + '" data-doc-marquee="off">Нет</button>' +
-                '<button type="button" class="' + (mq && !mq.reverse ? "is-active" : "") + '" data-doc-marquee="ltr">→</button>' +
-                '<button type="button" class="' + (mq && mq.reverse ? "is-active" : "") + '" data-doc-marquee="rtl">←</button></div>';
-        }
-        return sec("Движение", rows);
-    }
-
-    // Секция «Сцена (scroll)» — scrollytelling для контейнеров/колонок (этап 8.2).
-    function sceneInspector(t) {
-        if (!L.isContainer(t.type)) return "";
-        var mode = (t.scene && t.scene.mode) || "";
-        var modes = [["", "Нет"], ["horizontal", "Горизонт."], ["steps", "Шаги"], ["pin", "Пин"]];
-        var seg = '<div class="lime-segmented">' + modes.map(function (o) {
-            return '<button type="button" class="' + (mode === o[0] ? "is-active" : "") + '" data-doc-scene="' + o[0] + '">' + o[1] + '</button>';
-        }).join("") + '</div>';
-        var len = (t.scene && t.scene.length) || 2;
-        var extra = mode
-            ? '<div class="lime-inspector__hint" style="margin:8px 0 2px;">Длина, экранов</div>' +
-              '<div class="lime-range-row"><input type="range" class="lime-range" data-doc-scene-len min="1" max="4" step="1" value="' + len + '"><span class="lime-range__val">' + len + '</span></div>' +
-              '<div class="lime-inspector__hint" style="margin:6px 0;">Эффект виден на опубликованной странице.</div>'
-            : "";
-        return sec("Сцена (scroll)", seg + extra);
-    }
-    function setSceneMode(mode) {
-        var source = byId(selectedId);
-        var b = targetBlock(source);
-        if (!b) return;
-        var next = mode ? { mode: mode, length: (b.scene && b.scene.length) || 2 } : null;
-        setBlockValue(source, "scene", next, !mode);
-    }
-
-    // Секция «Декор-слои»: список слоёв с контролами + добавление. Позиция правится драгом по холсту.
-    function layerRng(prop, i, min, max, step, cur, label) {
-        var n = parseFloat(cur); if (isNaN(n)) n = min;
-        return '<div class="lime-inspector__hint" style="margin:4px 0 0;">' + label + '</div>' +
-            '<div class="lime-range-row"><input type="range" class="lime-range" data-doc-layer-rng="' + prop + '" data-i="' + i + '" min="' + min + '" max="' + max + '" step="' + step + '" value="' + n + '"><span class="lime-range__val">' + (cur != null && cur !== "" ? cur : n) + '</span></div>';
-    }
-    function layersInspector(t) {
-        var ls = t.layers || [];
-        var list = ls.map(function (l, i) {
-            var isImg = l.kind === "image";
-            var head = '<div class="lime-flex" style="justify-content:space-between;align-items:center;margin-bottom:4px;">' +
-                '<b style="font-size:var(--text-xs);">Слой ' + (i + 1) + ' · ' + (isImg ? "картинка" : "фигура") + '</b>' +
-                '<button type="button" class="lime-block-toolbar__btn lime-block-toolbar__btn--danger" data-doc-layer-del="' + i + '" title="Удалить">✕</button></div>';
-            var body = isImg
-                ? '<button type="button" class="lime-btn lime-btn--soft lime-btn--sm" data-doc-layer-pick="' + i + '" style="width:100%;">' + (l.src ? "Заменить картинку" : "Выбрать картинку") + '</button>'
-                : '<div class="lime-segmented">' + ["circle", "blob", "square"].map(function (sh) {
-                    return '<button type="button" class="' + ((l.shape || "circle") === sh ? "is-active" : "") + '" data-doc-layer-shape="' + i + '" data-shape="' + sh + '">' + (sh === "circle" ? "●" : sh === "blob" ? "⬭" : "■") + '</button>';
-                }).join("") + '</div><div class="lime-color-row" style="margin-top:4px;"><input type="color" class="lime-color-input" data-doc-layer-color="' + i + '" value="' + toHex(l.color || "#a78bfa") + '"></div>';
-            body += layerRng("w", i, 20, 600, 5, l.w, "Размер, px") +
-                layerRng("z", i, -1, 3, 1, (l.z != null ? l.z : 0), "Слой (z): −1 за контентом, 2 поверх") +
-                layerRng("depth", i, 0, 0.8, 0.05, l.depth, "Параллакс") +
-                layerRng("blur", i, 0, 40, 1, l.blur, "Блюр") +
-                layerRng("opacity", i, 0.1, 1, 0.05, (l.opacity != null ? l.opacity : 1), "Прозрачность");
-            return '<div class="lime-layer-card">' + head + body + '</div>';
-        }).join("");
-        var add = '<div class="lime-flex lime-gap-2" style="margin-top:6px;">' +
-            '<button type="button" class="lime-btn lime-btn--ghost lime-btn--sm" data-doc-layer-add="shape" style="flex:1;">＋ Фигура</button>' +
-            '<button type="button" class="lime-btn lime-btn--ghost lime-btn--sm" data-doc-layer-add="image" style="flex:1;">＋ Картинка</button></div>';
-        var hint = ls.length ? '<div class="lime-inspector__hint" style="margin:2px 0 6px;">Перетаскивай слои прямо на холсте.</div>' : "";
-        return sec("Декор-слои", hint + list + add);
-    }
-
     // CMS 2.0: на странице-шаблоне записи text/heading/image можно привязать к полю записи.
     // text/heading → content.bind (текстовые поля), image → content.bindSrc (image-поля).
     function bindingSection(t) {
@@ -2615,158 +2562,10 @@
         return sec("Источник — коллекция", html);
     }
 
-    // Секция «Эффекты и макет» (Фаза 6.2/6.3): fx-чипы + ширина контента + bento.
-    function fxInspector(t) {
-        var fx = t.fx || [];
-        var FX = [["glass", "Стекло"], ["glow", "Свечение"], ["neon-border", "Неон-рамка"], ["gradient-text", "Градиент-текст"], ["tilt", "Наклон"]];
-        var chips = '<div class="lime-segmented lime-segmented--wrap">' + FX.map(function (o) {
-            return '<button type="button" class="' + (fx.indexOf(o[0]) >= 0 ? "is-active" : "") + '" data-doc-fx="' + o[0] + '">' + o[1] + '</button>';
-        }).join("") + '</div>';
-        var width = (t.content && t.content.width) || "full";
-        var widthSeg = '<div class="lime-inspector__hint" style="margin:8px 0 2px;">Ширина контента</div>' +
-            '<div class="lime-segmented">' +
-            '<button type="button" class="' + (width !== "boxed" ? "is-active" : "") + '" data-doc-width="full">Во всю</button>' +
-            '<button type="button" class="' + (width === "boxed" ? "is-active" : "") + '" data-doc-width="boxed">В колонку</button></div>';
-        var bento = "";
-        if (L.isContainer(t.type)) {
-            var isBento = t.content && t.content.layout === "bento";
-            bento = '<div class="lime-inspector__hint" style="margin:8px 0 2px;">Сетка содержимого</div>' +
-                '<div class="lime-segmented">' +
-                '<button type="button" class="' + (!isBento ? "is-active" : "") + '" data-doc-bento="off">Обычная</button>' +
-                '<button type="button" class="' + (isBento ? "is-active" : "") + '" data-doc-bento="on">Bento</button></div>';
-        }
-        return sec("Эффекты и макет", chips + widthSeg + bento);
-    }
-    function toggleFx(key) {
-        var source = byId(selectedId);
-        var b = targetBlock(source);
-        if (!b) return;
-        var next = clone(b.fx || []);
-        var i = next.indexOf(key);
-        if (i >= 0) next.splice(i, 1); else next.push(key);
-        setBlockValue(source, "fx", next, !next.length);
-    }
     function setContentFlag(key, val) {
         var b = byId(selectedId);
         if (!b) return;
         setContentValue(b, key, val, val == null);
-    }
-
-    // ----- мутации слоёв -----
-    function curBlockWithLayers() {
-        var b = targetBlock(byId(selectedId));
-        if (!b) return null;
-        if (!b.layers) b.layers = [];
-        return b;
-    }
-    function addLayer(kind) {
-        var source = byId(selectedId);
-        var b = targetBlock(source); if (!b) return;
-        var layers = clone(b.layers || []);
-        var l = { id: rid("l"), kind: kind, x: 40, y: 28, w: kind === "image" ? 160 : 120, z: 0, depth: 0.2, opacity: 1 };
-        if (kind === "shape") { l.shape = "blob"; l.color = "#a78bfa"; }
-        layers.push(l);
-        setBlockValue(source, "layers", layers, false);
-        if (kind === "image") openMediaPicker(selectedId, "layers." + (layers.length - 1) + ".src", "blockpath");
-    }
-    function delLayer(i) {
-        var source = byId(selectedId); var b = targetBlock(source); if (!b) return;
-        var layers = clone(b.layers || []); layers.splice(i, 1);
-        setBlockValue(source, "layers", layers, !layers.length);
-    }
-    // Живой апдейт инлайн-стиля слоя без полного ре-рендера (для ползунков/цвета/драга).
-    function applyLayerStyle(i) {
-        var b = targetBlock(byId(selectedId));
-        if (!b || !b.layers || !b.layers[i]) return;
-        var l = b.layers[i];
-        var secEl = ws.querySelector('[data-block-id="' + selectedId + '"]');
-        if (!secEl) return;
-        var lyr = secEl.querySelector('[data-layer-id="' + l.id + '"]');
-        if (!lyr) { render(); return; }
-        lyr.style.left = (l.x || 0) + "%";
-        lyr.style.top = (l.y || 0) + "%";
-        lyr.style.width = (l.w || 120) + "px";
-        lyr.style.zIndex = (l.z != null ? l.z : 0);
-        lyr.style.opacity = (l.opacity != null ? l.opacity : 1);
-        lyr.style.filter = l.blur ? "blur(" + l.blur + "px)" : "";
-        if (l.depth) lyr.setAttribute("data-parallax", l.depth); else lyr.removeAttribute("data-parallax");
-        if (l.kind !== "image") lyr.style.background = l.color || "#a78bfa";
-    }
-    function setLayerRng(i, prop, val) {
-        var source = byId(selectedId); var b = targetBlock(source);
-        if (!b || !b.layers || !b.layers[i]) return;
-        var layers = clone(b.layers); layers[i][prop] = val;
-        if (commandBlockGesture(source, "layers", layers, false, "layers:" + i + ":" + prop)) {
-            applyLayerStyle(i);
-            return;
-        }
-        b.layers[i][prop] = val;
-        applyLayerStyle(i); markDirty();
-    }
-
-    // ----- drag слоёв по холсту (только в редакторе) -----
-    var dragLayer = null;
-    function onLayerDown(e) {
-        var lyr = e.currentTarget;
-        var secEl = lyr.closest(".lime-block");
-        if (!secEl) return;
-        var b = byId(secEl.getAttribute("data-block-id"));
-        if (!b) return;
-        var tb = targetBlock(b);
-        var lid = lyr.getAttribute("data-layer-id");
-        var idx = -1;
-        for (var i = 0; i < (tb.layers || []).length; i++) if (tb.layers[i].id === lid) { idx = i; break; }
-        if (idx < 0) return;
-        e.preventDefault(); e.stopPropagation();
-        var l = tb.layers[idx];
-        dragLayer = {
-            lyr: lyr, sec: secEl, source: b, target: tb, index: idx,
-            startCx: e.clientX, startCy: e.clientY,
-            startX: l.x || 0, startY: l.y || 0, x: l.x || 0, y: l.y || 0
-        };
-        try { lyr.setPointerCapture(e.pointerId); } catch (_) { /* no-op */ }
-        lyr.addEventListener("pointermove", onLayerMove);
-        lyr.addEventListener("pointerup", onLayerUp);
-    }
-    function onLayerMove(e) {
-        if (!dragLayer) return;
-        var r = dragLayer.sec.getBoundingClientRect();
-        var dx = ((e.clientX - dragLayer.startCx) / r.width) * 100;
-        var dy = ((e.clientY - dragLayer.startCy) / r.height) * 100;
-        dragLayer.x = Math.max(0, Math.min(100, Math.round(dragLayer.startX + dx)));
-        dragLayer.y = Math.max(0, Math.min(100, Math.round(dragLayer.startY + dy)));
-        dragLayer.lyr.style.left = dragLayer.x + "%";
-        dragLayer.lyr.style.top = dragLayer.y + "%";
-    }
-    function onLayerUp(e) {
-        if (!dragLayer) return;
-        var gesture = dragLayer;
-        var lyr = gesture.lyr;
-        lyr.removeEventListener("pointermove", onLayerMove);
-        lyr.removeEventListener("pointerup", onLayerUp);
-        try { lyr.releasePointerCapture(e.pointerId); } catch (_) { /* no-op */ }
-        dragLayer = null;
-        if (gesture.x === gesture.startX && gesture.y === gesture.startY) return;
-        var layers = clone(gesture.target.layers || []);
-        if (!layers[gesture.index]) return;
-        layers[gesture.index].x = gesture.x;
-        layers[gesture.index].y = gesture.y;
-        setBlockValue(gesture.source, "layers", layers, false);
-    }
-    function initLayerDrag() {
-        var layers = ws.querySelectorAll(".lime-block__layer[data-layer-id]");
-        Array.prototype.forEach.call(layers, function (lyr) {
-            lyr.addEventListener("pointerdown", onLayerDown);
-        });
-    }
-
-    function toHex(v) {
-        if (!v) return "#000000";
-        if (v[0] === "#") return v;
-        var m = String(v).match(/^rgba?\((\d+),\s*(\d+),\s*(\d+)/i);
-        if (!m) return "#000000";
-        var h = function (n) { var x = parseInt(n, 10).toString(16); return x.length < 2 ? "0" + x : x; };
-        return "#" + h(m[1]) + h(m[2]) + h(m[3]);
     }
 
     var styleDebounce;
@@ -3086,46 +2885,6 @@
         blockDebounce = setTimeout(commitBlockEdit, 400);
         return true;
     }
-    function animAttr(prop) {
-        return prop === "anim" ? "data-anim" : prop === "animDelay" ? "data-anim-delay" : "data-anim-duration";
-    }
-    function setAnim(prop, val, reflectInspector) {
-        var source = byId(selectedId);
-        var b = targetBlock(source);
-        if (!b) return;
-        var remove = val === "" || val == null;
-        var commanded;
-        if (cmdStore && b === source && prop === "anim" && remove) {
-            var cleared = runCommands([
-                { type: "setBlockProp", payload: { id: source.id, prop: "anim", remove: true } },
-                { type: "setBlockProp", payload: { id: source.id, prop: "animDelay", remove: true } },
-                { type: "setBlockProp", payload: { id: source.id, prop: "animDuration", remove: true } }
-            ], "clear-animation");
-            if (cleared) scheduleAutosave();
-            commanded = true;
-        } else commanded = commandBlockGesture(source, prop, val, remove, prop);
-        if (!commanded) {
-            if (remove) delete b[prop];
-            else b[prop] = val;
-        }
-        var el = ws.querySelector('[data-block-id="' + selectedId + '"]');
-        if (el) {
-            var attr = animAttr(prop);
-            if (val === "" || val == null) el.removeAttribute(attr);
-            else el.setAttribute(attr, val);
-            if (prop === "anim" && (val === "" || val == null)) {
-                el.removeAttribute("data-anim-delay"); el.removeAttribute("data-anim-duration");
-                if (!(cmdStore && b === source)) { delete b.animDelay; delete b.animDuration; }
-            }
-        }
-        if (reflectInspector) refreshInspector();
-        if (!commanded) markDirty();
-    }
-    function animRng(prop, min, max, step, cur) {
-        var n = parseFloat(cur); if (isNaN(n)) n = min;
-        return '<div class="lime-range-row"><input type="range" class="lime-range" data-doc-anim="' + prop + '" min="' + min + '" max="' + max + '" step="' + step + '" value="' + n + '"><span class="lime-range__val">' + (cur != null && cur !== "" ? cur : "—") + '</span></div>';
-    }
-
     // ===== ФОН СЕКЦИИ (градиент/картинка/затемнение/видео) — модуль lime-editor-section-bg.js =====
     // Изменяемое состояние (selectedId/currentBp/cmdStore) отдаём геттерами — нужно актуальное на
     // момент вызова. bgInspector рендерит панель, остальные методы дёргает обработчик инспектора ниже.
@@ -3345,17 +3104,8 @@
                 }
             } else if (t.hasAttribute("data-doc-motion") && t.type === "range") {
                 // Параллакс секции: пишем модель + DOM-атрибут (визуально едет только на публикации).
-                var motionSource = byId(selectedId);
-                var mb = targetBlock(motionSource);
-                if (mb) {
-                    var v = t.value;
-                    var motionCommanded = commandBlockGesture(motionSource, "parallax", v, parseFloat(v) === 0, "parallax");
-                    if (!motionCommanded) { if (parseFloat(v) === 0) delete mb.parallax; else mb.parallax = v; }
-                    var msec = ws.querySelector('[data-block-id="' + selectedId + '"]');
-                    if (msec) { if (parseFloat(v) === 0) msec.removeAttribute("data-parallax"); else msec.setAttribute("data-parallax", v); }
-                    var ml = t.parentNode.querySelector(".lime-range__val"); if (ml) ml.textContent = v;
-                    if (!motionCommanded) markDirty();
-                }
+                setMotionParallax(t.value);
+                var ml = t.parentNode.querySelector(".lime-range__val"); if (ml) ml.textContent = t.value;
             } else if (t.hasAttribute("data-doc-layer-rng")) {
                 var li = parseInt(t.dataset.i, 10);
                 setLayerRng(li, t.dataset.docLayerRng, parseFloat(t.value));
@@ -3364,16 +3114,9 @@
                 var ci = parseInt(t.dataset.docLayerColor, 10);
                 setLayerRng(ci, "color", t.value);
             } else if (t.hasAttribute("data-doc-scene-len") && t.type === "range") {
-                var sceneSource = byId(selectedId);
-                var sb = targetBlock(sceneSource);
-                if (sb && sb.scene) {
-                    var nextScene = clone(sb.scene); nextScene.length = parseInt(t.value, 10);
-                    var sceneCommanded = commandBlockGesture(sceneSource, "scene", nextScene, false, "scene:length");
-                    if (!sceneCommanded) sb.scene.length = nextScene.length;
-                    var sl = t.parentNode.querySelector(".lime-range__val");
-                    if (sl) sl.textContent = t.value;
-                    if (!sceneCommanded) markDirty();
-                }
+                setSceneLength(t.value);
+                var sl = t.parentNode.querySelector(".lime-range__val");
+                if (sl) sl.textContent = t.value;
             } else if (t.hasAttribute("data-doc-shadow")) {
                 composeShadow();
                 if (t.type === "range") {
@@ -3517,30 +3260,20 @@
             if ((el = e.target.closest("[data-doc-cl-layout]"))) { setContentFlag("layout", el.dataset.docClLayout === "cards" ? null : el.dataset.docClLayout); refreshInspector(); return; }
             // ----- движение -----
             if ((el = e.target.closest("[data-doc-sticky]"))) {
-                var stickySource = byId(selectedId);
-                if (stickySource) setBlockValue(stickySource, "sticky", true, el.dataset.docSticky !== "1");
+                setSticky(el.dataset.docSticky === "1");
                 return;
             }
             if ((el = e.target.closest("[data-doc-marquee]"))) {
-                var marqueeSource = byId(selectedId);
-                var qb = targetBlock(marqueeSource);
-                if (qb) {
-                    var m = el.dataset.docMarquee;
-                    setBlockValue(marqueeSource, "marquee", { speed: 40, reverse: m === "rtl" }, m === "off");
-                }
+                setMarquee(el.dataset.docMarquee);
                 return;
             }
             if ((el = e.target.closest("[data-doc-scene]"))) { setSceneMode(el.dataset.docScene); return; }
             // ----- декор-слои -----
             if ((el = e.target.closest("[data-doc-layer-add]"))) { addLayer(el.dataset.docLayerAdd); return; }
             if ((el = e.target.closest("[data-doc-layer-del]"))) { delLayer(parseInt(el.dataset.docLayerDel, 10)); return; }
-            if ((el = e.target.closest("[data-doc-layer-pick]"))) { openMediaPicker(selectedId, "layers." + el.dataset.docLayerPick + ".src", "blockpath"); return; }
+            if ((el = e.target.closest("[data-doc-layer-pick]"))) { pickLayerImage(parseInt(el.dataset.docLayerPick, 10)); return; }
             if ((el = e.target.closest("[data-doc-layer-shape]"))) {
-                var shapeSource = byId(selectedId); var hb = targetBlock(shapeSource); var hi = parseInt(el.dataset.docLayerShape, 10);
-                if (hb && hb.layers && hb.layers[hi]) {
-                    var shapeLayers = clone(hb.layers); shapeLayers[hi].shape = el.dataset.shape;
-                    setBlockValue(shapeSource, "layers", shapeLayers, false);
-                }
+                setLayerShape(parseInt(el.dataset.docLayerShape, 10), el.dataset.shape);
                 return;
             }
             if ((el = e.target.closest("[data-doc-cols]"))) {
