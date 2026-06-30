@@ -132,8 +132,7 @@ namespace Lime_Editor.Controllers
             var referer = SafeReturnUrl(Request.Headers["Referer"].ToString());
             if (!string.IsNullOrEmpty(referer))
             {
-                var sep = referer.Contains('?') ? "&" : "?";
-                return Redirect(sent ? $"{referer}{sep}lime_sent=1#lime-form" : referer);
+                return Redirect(sent ? AppendSentMarker(referer) : referer);
             }
             if (sent)
             {
@@ -176,7 +175,15 @@ namespace Lime_Editor.Controllers
                 return null;
             }
 
-            return referer;
+            return uri.PathAndQuery + uri.Fragment;
+        }
+
+        private static string AppendSentMarker(string returnUrl)
+        {
+            var fragmentStart = returnUrl.IndexOf('#');
+            var withoutFragment = fragmentStart >= 0 ? returnUrl.Substring(0, fragmentStart) : returnUrl;
+            var sep = withoutFragment.Contains('?') ? "&" : "?";
+            return withoutFragment + sep + "lime_sent=1#lime-form";
         }
 
         [Authorize]

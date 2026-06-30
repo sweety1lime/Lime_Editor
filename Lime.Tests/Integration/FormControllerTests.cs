@@ -73,6 +73,20 @@ namespace Lime.Tests.Integration
         }
 
         [Fact]
+        public async Task Submit_NormalizesSameHostAbsoluteRefererToLocalLocation()
+        {
+            var siteId = await SeedPublishedSiteAsync();
+            var client = _factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+            using var req = new HttpRequestMessage(HttpMethod.Post, "/Form/Submit") { Content = ValidForm(siteId) };
+            req.Headers.Referrer = new Uri("http://localhost/u/test/form-site?from=hero#lead");
+
+            var response = await client.SendAsync(req);
+
+            Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+            Assert.Equal("/u/test/form-site?from=hero&lime_sent=1#lime-form", response.Headers.Location?.ToString());
+        }
+
+        [Fact]
         public async Task Submit_IsRateLimitedByClientIp()
         {
             var siteId = await SeedPublishedSiteAsync();
