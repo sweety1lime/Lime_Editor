@@ -10,6 +10,7 @@ namespace Lime_Editor.Models
 
         [Required(ErrorMessage = "Не указан логин")]
         [StringLength(50, MinimumLength = 2, ErrorMessage = "Логин должен быть от 2 до 50 символов")]
+        [RegularExpression(UserNamePolicy.RegexPattern, ErrorMessage = UserNamePolicy.ErrorMessage)]
         public string Login { get; set; }
 
         [Required(ErrorMessage = "Не указан пароль")]

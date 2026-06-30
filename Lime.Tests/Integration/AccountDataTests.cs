@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
@@ -36,6 +37,15 @@ namespace Lime.Tests.Integration
             var match = Regex.Match(html, "name=\"__RequestVerificationToken\" type=\"hidden\" value=\"([^\"]+)\"");
             Assert.True(match.Success, "Antiforgery token not found.");
             return WebUtility.HtmlDecode(match.Groups[1].Value);
+        }
+
+        private static bool IsValidModel(object model)
+        {
+            return Validator.TryValidateObject(
+                model,
+                new ValidationContext(model),
+                new List<ValidationResult>(),
+                validateAllProperties: true);
         }
 
         private async Task<HttpClient> CreateSignedInClientAsync(string userName)
@@ -113,6 +123,59 @@ namespace Lime.Tests.Integration
 
             Assert.Contains("minlength=\"8\"", html);
             Assert.DoesNotContain("minlength=\"6\"", html);
+        }
+
+        [Fact]
+        public async Task SignUpPage_UsesSharedUserNamePolicy()
+        {
+            var client = _factory.CreateClient();
+
+            var response = await client.GetAsync("/Home/SignUp");
+            response.EnsureSuccessStatusCode();
+            var html = await response.Content.ReadAsStringAsync();
+
+            Assert.Contains($"pattern=\"{UserNamePolicy.HtmlPattern}\"", html);
+            Assert.DoesNotContain("[A-z0-9.]{2,50}", html);
+        }
+
+        [Theory]
+        [InlineData("alice")]
+        [InlineData("alice-1")]
+        [InlineData("alice_1.test")]
+        public void AccountModels_AcceptAllowedLoginCharacters(string login)
+        {
+            Assert.True(IsValidModel(new RegisterViewModel
+            {
+                Login = login,
+                Email = login + "@test.local",
+                Password = "TestPass1!",
+            }));
+            Assert.True(IsValidModel(new ProfileViewModel
+            {
+                Login = login,
+                Email = login + "@test.local",
+            }));
+        }
+
+        [Theory]
+        [InlineData("bad/user")]
+        [InlineData("bad\\user")]
+        [InlineData("bad user")]
+        [InlineData("bad@user")]
+        [InlineData("a")]
+        public void AccountModels_RejectUnsafeLoginCharacters(string login)
+        {
+            Assert.False(IsValidModel(new RegisterViewModel
+            {
+                Login = login,
+                Email = "safe@test.local",
+                Password = "TestPass1!",
+            }));
+            Assert.False(IsValidModel(new ProfileViewModel
+            {
+                Login = login,
+                Email = "safe@test.local",
+            }));
         }
 
         [Fact]

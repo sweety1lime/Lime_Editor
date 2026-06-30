@@ -50,6 +50,7 @@ namespace Lime.Tests.Integration
             Assert.True(options.Password.RequireDigit);
             Assert.False(options.Password.RequireUppercase);
             Assert.False(options.Password.RequireNonAlphanumeric);
+            Assert.Equal(UserNamePolicy.AllowedCharacters, options.User.AllowedUserNameCharacters);
             Assert.True(options.User.RequireUniqueEmail);
             Assert.True(options.Lockout.AllowedForNewUsers);
             Assert.Equal(5, options.Lockout.MaxFailedAccessAttempts);

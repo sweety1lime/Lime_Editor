@@ -51,7 +51,7 @@
                     </div>
                     <div class="lime-field">
                         <label class="lime-label" for="p-login">Логин</label>
-                        <input id="p-login" class="lime-input" asp-for="Login" required pattern="[A-z0-9.]{2,50}">
+                        <input id="p-login" class="lime-input" asp-for="Login" required pattern="@UserNamePolicy.HtmlPattern">
                         <span asp-validation-for="Login" class="lime-validation"></span>
                     </div>
                     <div class="lime-field">

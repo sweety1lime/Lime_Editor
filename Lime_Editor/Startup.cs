@@ -49,6 +49,7 @@ namespace Lime_Editor
                 options.Password.RequireNonAlphanumeric = false;
                 options.Password.RequireUppercase = false;
                 options.Password.RequireDigit = true;
+                options.User.AllowedUserNameCharacters = UserNamePolicy.AllowedCharacters;
                 options.User.RequireUniqueEmail = true;
                 // Подтверждение email: код готов (письмо шлётся при регистрации, есть ConfirmEmail).
                 // Enforcement включается флагом Identity:RequireConfirmedEmail — после подключения

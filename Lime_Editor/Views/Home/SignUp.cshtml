@@ -38,7 +38,7 @@
 
                 <div class="lime-field">
                     <label asp-for="Login" class="lime-label">Логин</label>
-                    <input asp-for="Login" class="lime-input" type="text" required pattern="[A-z0-9.]{2,50}" minlength="2" maxlength="50" placeholder="username">
+                    <input asp-for="Login" class="lime-input" type="text" required pattern="@UserNamePolicy.HtmlPattern" minlength="2" maxlength="50" placeholder="username">
                     <span class="lime-help">2-50 символов, латиница и цифры.</span>
                     <span asp-validation-for="Login" class="lime-validation"></span>
                 </div>
