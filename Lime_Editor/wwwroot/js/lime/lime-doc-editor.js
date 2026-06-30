@@ -29,6 +29,7 @@
     var EditorShadow = window.LimeEditorShadow || {};
     var EditorClasses = window.LimeEditorClasses || {};
     var EditorEffects = window.LimeEditorEffects || {};
+    var EditorV2Layout = window.LimeEditorV2Layout || {};
     if (!EditorUtils.escapeText) throw new Error("LimeEditorUtils is required before lime-doc-editor.js");
     if (!EditorComponents.create) throw new Error("LimeEditorComponents is required before lime-doc-editor.js");
     if (!EditorCommandPalette.create) throw new Error("LimeEditorCommandPalette is required before lime-doc-editor.js");
@@ -47,6 +48,7 @@
     if (!EditorShadow.create) throw new Error("LimeEditorShadow is required before lime-doc-editor.js");
     if (!EditorClasses.create) throw new Error("LimeEditorClasses is required before lime-doc-editor.js");
     if (!EditorEffects.create) throw new Error("LimeEditorEffects is required before lime-doc-editor.js");
+    if (!EditorV2Layout.create) throw new Error("LimeEditorV2Layout is required before lime-doc-editor.js");
 
     var ws = document.getElementById("lime-doc-workspace");
     if (!ws) return;
@@ -2007,273 +2009,47 @@
     var addShadow = shadowFx.addShadow;
     var delShadow = shadowFx.delShadow;
 
-    // Editor V2 layout inspector. Он виден только вместе с canvas flag и пишет исключительно
-    // design breakpoint buckets; legacy styles/инспектор при выключенном флаге не меняются.
-    function v2CanvasEnabled() { return /[?&]canvas=1\b/.test(location.search) && !!L.resolvedDesign; }
-    function ownDesignField(source, field) {
-        var target = designTarget(source, field);
-        return clone(target && target.design && target.design[currentBp] && target.design[currentBp][field]) || {};
-    }
-    function designFieldSource(source, field) {
-        var design = source && source.design || {};
-        if (design[currentBp] && Object.prototype.hasOwnProperty.call(design[currentBp], field)) return currentBp;
-        if (currentBp === "mobile" && design.tablet && Object.prototype.hasOwnProperty.call(design.tablet, field)) return "tablet";
-        if (currentBp !== "base" && design.base && Object.prototype.hasOwnProperty.call(design.base, field)) return "base";
-        return "default";
-    }
-    function inheritedDesignField(source, field) {
-        var design = source && source.design || {};
-        if (currentBp === "base") return null;
-        var inheritedBp = currentBp === "mobile" ? "tablet" : "base";
-        var value = L.resolvedDesign(design, inheritedBp);
-        return value && value[field] || null;
-    }
-    function v2SourceRow(source, fields, lockedReset) {
-        var unique = [];
-        fields.forEach(function (field) { if (unique.indexOf(field) === -1) unique.push(field); });
-        return '<div class="lime-v2-sources">' + unique.map(function (field) {
-            var origin = designFieldSource(source, field);
-            var own = origin === currentBp;
-            var resettable = own && currentBp !== "base" && !(lockedReset && lockedReset[field]);
-            return '<span><b>' + field + '</b>: ' + origin + (resettable
-                ? ' <button type="button" data-v2-design-reset="' + field + '">сбросить</button>' : '') + '</span>';
-        }).join("") + '</div>';
-    }
-    function isCssLengthValue(value) {
-        if (typeof value === "number") return isFinite(value);
-        return typeof value === "string" && /^-?(?:\d+|\d*\.\d+)(?:px|%|rem)$/.test(value.trim());
-    }
-    function clampCssLengthValue(value, min) {
-        var parsed = splitCssLength(value, "px");
-        var n = Math.max(min == null ? -Infinity : min, parsed.num);
-        return cssLengthValue(n, parsed.unit || "px");
-    }
-    function designInputValue(input) {
-        var n = parseFloat(input.value);
-        if (!isFinite(n)) return null;
-        var unit = input.getAttribute("data-v2-unit") || "";
-        return unit ? cssLengthValue(n, unit) : n;
-    }
-    function buildDesignObjectPatch(source, field, path, value) {
-        var next = ownDesignField(source, field);
-        // Inspector treats a missing layout as the default stack. Persist that mode with the
-        // first nested edit; otherwise the renderer sees a partial { direction/gap/... } object
-        // without layout.mode and correctly ignores it.
-        if (field === "layout" && !next.mode) {
-            var resolved = resolvedBlockDesign(source, currentBp);
-            next.mode = resolved && resolved.layout && resolved.layout.mode || "stack";
-        }
-        if (field === "size" && value !== undefined && /^(width|height)\./.test(path)) {
-            var sizeAxis = path.split(".")[0];
-            if (!next[sizeAxis]) next[sizeAxis] = {};
-            if (!next[sizeAxis].mode) {
-                var resolvedSize = resolvedBlockDesign(source, currentBp).size || {};
-                next[sizeAxis].mode = resolvedSize[sizeAxis] && resolvedSize[sizeAxis].mode || "hug";
-            }
-        }
-        if (value !== undefined) {
-            if (field === "layout" && path === "columns" && typeof value === "number") value = Math.max(1, Math.round(value));
-            if (field === "layout" && path === "columns.min") value = clampCssLengthValue(value, 40);
-            if (field === "layout" && (path === "gap" || path === "rowGap" || path === "columnGap" || path === "autoRows" || /^padding\./.test(path))) value = clampCssLengthValue(value, 0);
-            if (field === "frame" && (path === "width" || path === "height")) value = clampCssLengthValue(value, 8);
-            if (field === "size" && (/\.value$/.test(path) || /\.(min|max)$/.test(path))) value = clampCssLengthValue(value, 0);
-            setByPath(next, path, value);
-        } else deleteByPath(next, path);
-        if (field === "size" && /^(width|height)\.mode$/.test(path) && value === "fixed") {
-            var axis = path.split(".")[0];
-            if (!next[axis] || !isCssLengthValue(next[axis].value)) {
-                if (!next[axis]) next[axis] = {};
-                var blockEl = ws.querySelector('[data-block-id="' + source.id + '"]');
-                var scale = ws.offsetWidth ? ws.getBoundingClientRect().width / ws.offsetWidth : 1;
-                if (!isFinite(scale) || scale <= 0) scale = 1;
-                var rect = blockEl && blockEl.getBoundingClientRect();
-                next[axis].value = Math.max(0, Math.round((rect ? rect[axis] : 100) / scale));
-            }
-        }
-        return next;
-    }
-    function patchDesignObject(source, field, path, value) {
-        if (!source || designTarget(source, field) !== source) return;
-        var next = buildDesignObjectPatch(source, field, path, value);
-        setDesignValue(source, currentBp, field, next, false);
-        refreshInspector();
-    }
-    function v2Number(label, field, path, value, min, units) {
-        var parsed = units && units.length ? splitCssLength(value, "px") : { num: (typeof value === "number" && isFinite(value) ? value : 0), unit: "", empty: false };
-        var n = parsed.empty ? 0 : parsed.num;
-        return '<label class="lime-v2-field"><span class="lime-v2-scrub" data-scrub title="Тяни, чтобы менять (Shift ×10, Alt ×0.1)">' + label + '</span><input class="lime-input lime-input--sm" type="number" step="1"' +
-            (min == null ? "" : ' min="' + min + '"') + ' value="' + n + '"' + (units && units.length ? ' data-v2-unit="' + (parsed.unit || "px") + '"' : "") +
-            ' data-v2-design-field="' + field + '" data-v2-design-path="' + path + '">' + unitSelectHtml("data-v2-unit-for", path, parsed.unit || "px", units) + '</label>';
-    }
-    function v2OptionalNumber(label, field, path, value, min, units) {
-        var parsed = units && units.length ? splitCssLength(value, "px") : { num: (typeof value === "number" && isFinite(value) ? value : 0), unit: "", empty: value == null };
-        var shown = value == null || parsed.empty ? "" : String(parsed.num);
-        return '<label class="lime-v2-field"><span class="lime-v2-scrub" data-scrub title="Тяни, чтобы менять">' + label + '</span><input class="lime-input lime-input--sm" type="number" step="1"' +
-            (min == null ? "" : ' min="' + min + '"') + ' value="' + shown + '" placeholder="—"' + (units && units.length ? ' data-v2-unit="' + (parsed.unit || "px") + '"' : "") +
-            ' data-v2-design-optional data-v2-design-field="' + field + '" data-v2-design-path="' + path + '">' + unitSelectHtml("data-v2-unit-for", path, parsed.unit || "px", units) + '</label>';
-    }
-    function v2ChildNumber(label, field, value, min) {
-        var n = typeof value === "number" && isFinite(value) ? value : (field === "order" ? 0 : 1);
-        return '<label class="lime-v2-field"><span class="lime-v2-scrub" data-scrub title="Тяни, чтобы менять">' + label + '</span><input class="lime-input lime-input--sm" type="number" step="1" min="' + min + '" value="' + n + '" data-v2-child-field="' + field + '"></label>';
-    }
-    function v2Select(label, field, path, value, options) {
-        return '<label class="lime-v2-field"><span>' + label + '</span><select class="lime-select" data-v2-design-field="' + field + '" data-v2-design-path="' + path + '">' +
-            options.map(function (o) { return '<option value="' + o.v + '"' + (value === o.v ? " selected" : "") + '>' + o.l + '</option>'; }).join("") +
-            '</select></label>';
-    }
-    function v2SizeControls(design) {
-        var size = design.size || {};
-        var modes = [{ v: "hug", l: "Hug" }, { v: "fill", l: "Fill" }, { v: "fixed", l: "Fixed" }];
-        var width = size.width || { mode: "hug" }, height = size.height || { mode: "hug" };
-        var body = '<div class="lime-v2-fields">' +
-            v2Select("Ширина", "size", "width.mode", width.mode || "hug", modes) +
-            v2Select("Высота", "size", "height.mode", height.mode || "hug", modes) + '</div>';
-        if (width.mode === "fixed" || height.mode === "fixed") {
-            body += '<div class="lime-v2-fields">' +
-                (width.mode === "fixed" ? v2Number("W", "size", "width.value", width.value, 0, CSS_UNITS) : "") +
-                (height.mode === "fixed" ? v2Number("H", "size", "height.value", height.value, 0, CSS_UNITS) : "") + '</div>';
-        }
-        body += '<div class="lime-v2-subtitle">Min / Max</div><div class="lime-v2-fields">' +
-            v2OptionalNumber("Min W", "size", "width.min", width.min, 0, CSS_UNITS) + v2OptionalNumber("Max W", "size", "width.max", width.max, 0, CSS_UNITS) +
-            v2OptionalNumber("Min H", "size", "height.min", height.min, 0, CSS_UNITS) + v2OptionalNumber("Max H", "size", "height.max", height.max, 0, CSS_UNITS) + '</div>';
-        return body;
-    }
-    function v2LayoutInspector(source, found) {
-        if (!v2CanvasEnabled() || !source) return "";
-        var isInstance = source.type === "component";
-        if (!isInstance && targetBlock(source) !== source) return "";
-        var design = resolvedBlockDesign(source, currentBp);
-        var fields = ["size"];
-        var lockedReset = {};
-        var out = v2SizeControls(design);
-        if (!isInstance && L.isContainer(source.type)) {
-            fields.unshift("layout");
-            var layout = design.layout || {};
-            var mode = layout.mode || "stack";
-            out = '<div class="lime-segmented">' + ["stack", "grid", "free"].map(function (m) {
-                return '<button type="button" class="' + (mode === m ? "is-active" : "") + '" data-v2-layout-mode="' + m + '">' + m + '</button>';
-            }).join("") + '</div>';
-            if (mode === "stack") {
-                out += '<div class="lime-segmented"><button type="button" class="' + (layout.direction !== "horizontal" ? "is-active" : "") + '" data-v2-layout-direction="vertical">Вертикально</button>' +
-                    '<button type="button" class="' + (layout.direction === "horizontal" ? "is-active" : "") + '" data-v2-layout-direction="horizontal">Горизонтально</button></div>';
-                out += '<div class="lime-v2-fields">' +
-                    v2Select("Align", "layout", "align", layout.align || "stretch", [{ v: "start", l: "Start" }, { v: "center", l: "Center" }, { v: "end", l: "End" }, { v: "stretch", l: "Stretch" }, { v: "baseline", l: "Baseline" }]) +
-                    v2Select("Justify", "layout", "justify", layout.justify || "start", [{ v: "start", l: "Start" }, { v: "center", l: "Center" }, { v: "end", l: "End" }, { v: "space-between", l: "Between" }, { v: "space-around", l: "Around" }, { v: "space-evenly", l: "Evenly" }]) + '</div>' +
-                    '<div class="lime-segmented"><button type="button" class="' + (!layout.wrap ? "is-active" : "") + '" data-v2-layout-wrap="0">Без переноса</button>' +
-                    '<button type="button" class="' + (layout.wrap ? "is-active" : "") + '" data-v2-layout-wrap="1">Wrap</button></div>';
-            }
-            if (mode === "grid") {
-                var colsAuto = layout.columns && typeof layout.columns === "object" && layout.columns.mode === "auto";
-                out += '<div class="lime-segmented"><button type="button" class="' + (!colsAuto ? "is-active" : "") + '" data-v2-grid-auto="0">Фикс.</button>' +
-                    '<button type="button" class="' + (colsAuto ? "is-active" : "") + '" data-v2-grid-auto="1">Авто</button></div>';
-                if (colsAuto) {
-                    out += '<div class="lime-v2-fields">' + v2Number("Min", "layout", "columns.min", layout.columns.min || 240, 40, CSS_UNITS) + '</div>' +
-                        '<div class="lime-segmented"><button type="button" class="' + (!layout.columns.fill ? "is-active" : "") + '" data-v2-grid-fill="0">Auto-fit</button>' +
-                        '<button type="button" class="' + (layout.columns.fill ? "is-active" : "") + '" data-v2-grid-fill="1">Auto-fill</button></div>';
-                } else {
-                    out += '<div class="lime-v2-fields">' + v2Number("Колонки", "layout", "columns", (typeof layout.columns === "number" ? layout.columns : 2), 1) + '</div>';
-                }
-                out += '<div class="lime-v2-fields">' + v2OptionalNumber("Auto rows", "layout", "autoRows", layout.autoRows, 1, CSS_UNITS) + '</div>';
-            }
-            out += '<div class="lime-v2-fields">' +
-                (mode !== "free" ? v2Number("Gap", "layout", "gap", layout.gap || 0, 0, CSS_UNITS) : "") + '</div>' + v2SizeControls(design);
-            if (mode !== "free") {
-                var padding = layout.padding || {};
-                out += '<div class="lime-v2-subtitle">Padding</div><div class="lime-v2-fields">' +
-                    v2Number("Top", "layout", "padding.top", padding.top || 0, 0, CSS_UNITS) + v2Number("Right", "layout", "padding.right", padding.right || 0, 0, CSS_UNITS) +
-                    v2Number("Bottom", "layout", "padding.bottom", padding.bottom || 0, 0, CSS_UNITS) + v2Number("Left", "layout", "padding.left", padding.left || 0, 0, CSS_UNITS) + '</div>';
-            }
-            if (mode === "free") out += '<div class="lime-inspector__hint">Дети можно двигать и растягивать прямо на холсте. Стрелки: move, Shift: 10px, Ctrl/Cmd: resize.</div>';
-            if (mode === "free") lockedReset.size = true;
-        }
-        var parent = found && found.parentBlock && targetBlock(found.parentBlock);
-        var parentDesign = parent && L.resolvedDesign(parent.design, currentBp);
-        if (parentDesign && parentDesign.layout && parentDesign.layout.mode === "free") {
-            fields.push("frame", "constraints");
-            if (!inheritedDesignField(source, "frame")) lockedReset.frame = true;
-            var frame = design.frame || { x: 0, y: 0, width: 100, height: 100 };
-            var constraints = design.constraints || { horizontal: "left", vertical: "top" };
-            out += '<div class="lime-v2-subtitle">Frame</div><div class="lime-v2-fields">' +
-                v2Number("X", "frame", "x", frame.x) + v2Number("Y", "frame", "y", frame.y) +
-                v2Number("W", "frame", "width", frame.width, 8) + v2Number("H", "frame", "height", frame.height, 8) + '</div>' +
-                '<div class="lime-v2-subtitle">Constraints</div><div class="lime-v2-fields">' +
-                v2Select("По X", "constraints", "horizontal", constraints.horizontal || "left", [{ v: "left", l: "Left" }, { v: "right", l: "Right" }, { v: "center", l: "Center" }, { v: "stretch", l: "Stretch" }]) +
-                v2Select("По Y", "constraints", "vertical", constraints.vertical || "top", [{ v: "top", l: "Top" }, { v: "bottom", l: "Bottom" }, { v: "center", l: "Center" }, { v: "stretch", l: "Stretch" }]) + '</div>';
-        }
-        if (!isInstance && parentDesign && parentDesign.layout && parentDesign.layout.mode === "stack") {
-            fields.push("order");
-            out += '<div class="lime-v2-subtitle">Stack child</div><div class="lime-v2-fields">' +
-                v2ChildNumber("Order", "order", design.order, -1000) + '</div>';
-        }
-        // Ребёнок grid-родителя: span по колонкам/строкам. Только для обычного блока,
-        // не instance (instance остаётся geometry-only по RFC).
-        if (!isInstance && parentDesign && parentDesign.layout && parentDesign.layout.mode === "grid") {
-            fields.push("span", "rowSpan");
-            var spanVal = (typeof design.span === "number" && design.span > 0) ? Math.floor(design.span) : 1;
-            var rowSpanVal = (typeof design.rowSpan === "number" && design.rowSpan > 0) ? Math.floor(design.rowSpan) : 1;
-            out += '<div class="lime-v2-subtitle">Grid</div><div class="lime-v2-fields">' +
-                v2ChildNumber("Column span", "span", spanVal, 1) + v2ChildNumber("Row span", "rowSpan", rowSpanVal, 1) + '</div>';
-        }
-        // Overflow: показывать или обрезать содержимое за рамкой блока (не для instance — geometry-only).
-        if (!isInstance) {
-            fields.push("overflow");
-            var ovf = design.overflow === "hidden" ? "hidden" : "visible";
-            out += '<div class="lime-v2-subtitle">Overflow</div><div class="lime-segmented">' +
-                [["visible", "Видно"], ["hidden", "Обрезать"]].map(function (o) {
-                    return '<button type="button" class="' + (ovf === o[0] ? "is-active" : "") + '" data-v2-overflow="' + o[0] + '">' + o[1] + '</button>';
-                }).join("") + '</div>';
-        }
-        return sec("Layout · V2", out + v2SourceRow(source, fields, lockedReset));
-    }
-    function switchV2LayoutMode(mode) {
-        var source = selectedId && byId(selectedId);
-        if (!source || targetBlock(source) !== source || !L.isContainer(source.type)) return;
-        var effective = L.resolvedDesign(source.design, currentBp);
-        if (((effective.layout && effective.layout.mode) || "stack") === mode) return;
-        var layout = ownDesignField(source, "layout");
-        layout.mode = mode;
-        if (mode !== "free") { setDesignValue(source, currentBp, "layout", layout, false); refreshInspector(); return; }
-
-        var children = source.children || [];
-        var parentEl = ws.querySelector('[data-block-id="' + source.id + '"]');
-        var wrapper = parentEl && parentEl.querySelector(":scope > .lime-block__inner > .lime-block__children");
-        var scale = ws.offsetWidth ? ws.getBoundingClientRect().width / ws.offsetWidth : 1;
-        if (!isFinite(scale) || scale <= 0) scale = 1;
-        var wr = wrapper && wrapper.getBoundingClientRect();
-        var pr = parentEl && parentEl.getBoundingClientRect();
-        var size = ownDesignField(source, "size");
-        if (!size.height || size.height.mode !== "fixed") size.height = { mode: "fixed", value: Math.max(8, Math.round((pr ? pr.height : 320) / scale)) };
-        var commands = [
-            { type: "setDesign", payload: { id: source.id, breakpoint: currentBp, field: "layout", value: layout } },
-            { type: "setDesign", payload: { id: source.id, breakpoint: currentBp, field: "size", value: size } }
-        ];
-        var frames = [];
-        children.forEach(function (child) {
-            var childEl = ws.querySelector('[data-block-id="' + child.id + '"]');
-            if (!childEl || !wr) return;
-            var cr = childEl.getBoundingClientRect();
-            var frame = {
-                x: Math.round((cr.left - wr.left) / scale), y: Math.round((cr.top - wr.top) / scale),
-                width: Math.max(8, Math.round(cr.width / scale)), height: Math.max(8, Math.round(cr.height / scale)), rotation: 0
-            };
-            frames.push({ child: child, frame: frame });
-            commands.push({ type: "setDesign", payload: { id: child.id, breakpoint: currentBp, field: "frame", value: frame } });
-        });
-        if (cmdStore) {
-            var changed = runCommands(commands, "layout-to-free");
-            finishMutation(changed);
-        } else {
-            if (!source.design) source.design = {};
-            if (!source.design[currentBp]) source.design[currentBp] = {};
-            source.design[currentBp].layout = layout; source.design[currentBp].size = size;
-            frames.forEach(function (item) {
-                if (!item.child.design) item.child.design = {};
-                if (!item.child.design[currentBp]) item.child.design[currentBp] = {};
-                item.child.design[currentBp].frame = item.frame;
-            });
-            finishMutation(false);
-        }
-    }
+    // Editor V2 layout inspector/actions — модуль lime-editor-v2-layout.js.
+    var v2LayoutTools = EditorV2Layout.create({
+        window: window,
+        L: L,
+        ws: ws,
+        getDoc: function () { return doc; },
+        getPageBlocks: pageBlocks,
+        getSelectedId: function () { return selectedId; },
+        getCurrentBp: function () { return currentBp; },
+        getCmdStore: function () { return cmdStore; },
+        byId: byId,
+        targetBlock: targetBlock,
+        designTarget: designTarget,
+        resolvedBlockDesign: resolvedBlockDesign,
+        clone: clone,
+        setByPath: setByPath,
+        deleteByPath: deleteByPath,
+        setDesignValue: setDesignValue,
+        runCommands: runCommands,
+        finishMutation: finishMutation,
+        refreshInspector: refreshInspector,
+        sec: sec,
+        splitCssLength: splitCssLength,
+        cssLengthValue: cssLengthValue,
+        unitSelectHtml: unitSelectHtml,
+        CSS_UNITS: CSS_UNITS
+    });
+    var v2LayoutInspector = v2LayoutTools.v2LayoutInspector;
+    var switchV2LayoutMode = v2LayoutTools.switchV2LayoutMode;
+    var previewDesignInput = v2LayoutTools.previewDesignInput;
+    var previewChildDesignInput = v2LayoutTools.previewChildDesignInput;
+    var clearScrubPreview = v2LayoutTools.clearScrubPreview;
+    var applyV2UnitChange = v2LayoutTools.applyUnitChange;
+    var applyV2ChildDesignInput = v2LayoutTools.applyChildDesignInput;
+    var applyV2DesignInput = v2LayoutTools.applyDesignInput;
+    var resetV2DesignField = v2LayoutTools.resetDesignField;
+    var setV2LayoutDirection = v2LayoutTools.setLayoutDirection;
+    var setV2LayoutWrap = v2LayoutTools.setLayoutWrap;
+    var setV2GridAuto = v2LayoutTools.setGridAuto;
+    var setV2GridFill = v2LayoutTools.setGridFill;
+    var setV2Overflow = v2LayoutTools.setOverflow;
 
     function refreshInspector() {
         if (!inspectorEl) return;
@@ -2919,58 +2695,6 @@
     var promptBgVideo = sectionBg.promptBgVideo;
     var setBg = sectionBg.setBg;
 
-    function scrubPreviewStyle() {
-        var style = ws.querySelector("style[data-lime-design-scrub-preview]");
-        if (!style) {
-            style = document.createElement("style");
-            style.setAttribute("data-lime-design-scrub-preview", "1");
-            ws.appendChild(style);
-        }
-        return style;
-    }
-    function clearScrubPreview() {
-        var style = ws.querySelector("style[data-lime-design-scrub-preview]");
-        if (style) style.remove();
-    }
-    function withTemporaryDesign(source, field, value, fn) {
-        var target = designTarget(source, field);
-        if (!target) return;
-        var before = target.design;
-        target.design = clone(before || {});
-        if (!target.design[currentBp]) target.design[currentBp] = {};
-        if (value === undefined) delete target.design[currentBp][field];
-        else target.design[currentBp][field] = value;
-        try { fn(); }
-        finally { if (before === undefined) delete target.design; else target.design = before; }
-    }
-    function previewDesignInput(input) {
-        var source = selectedId && byId(selectedId);
-        var field = input.getAttribute("data-v2-design-field");
-        var path = input.getAttribute("data-v2-design-path");
-        if (!source || !field || !path || designTarget(source, field) !== source) return;
-        if (input.hasAttribute("data-v2-design-optional") && input.value.trim() === "") {
-            clearScrubPreview();
-            return;
-        }
-        var value = designInputValue(input);
-        if (value == null) return;
-        var next = buildDesignObjectPatch(source, field, path, value);
-        withTemporaryDesign(source, field, next, function () {
-            scrubPreviewStyle().textContent = L.compilePreviewDesignCss(pageBlocks(), doc.components, currentBp);
-        });
-    }
-    function previewChildDesignInput(input) {
-        var source = selectedId && byId(selectedId);
-        var childField = input.getAttribute("data-v2-child-field");
-        if (!source || !childField) return;
-        var value = Math.round(parseFloat(input.value));
-        if (!isFinite(value)) return;
-        if (childField === "span" || childField === "rowSpan") value = Math.max(1, value);
-        withTemporaryDesign(source, childField, value, function () {
-            scrubPreviewStyle().textContent = L.compilePreviewDesignCss(pageBlocks(), doc.components, currentBp);
-        });
-    }
-
     if (inspectorEl) {
         // Stage 5 drag-to-adjust: тянешь подпись числового поля → значение скрабится (Shift ×10,
         // Alt ×0.1). На отпускании шлём один `change` → существующий commit-путь (один undo).
@@ -3034,35 +2758,9 @@
                 if (styleLabel) styleLabel.textContent = styleInput.value + e.target.value;
                 return;
             }
-            var v2Unit = e.target.getAttribute("data-v2-unit-for");
-            if (v2Unit) {
-                var v2Input = e.target.closest(".lime-v2-field").querySelector("[data-v2-design-field]");
-                if (!v2Input) return;
-                v2Input.setAttribute("data-v2-unit", e.target.value);
-                if (v2Input.value.trim() !== "") v2Input.dispatchEvent(new Event("change", { bubbles: true }));
-                return;
-            }
-            var childField = e.target.getAttribute("data-v2-child-field");
-            if (childField) {
-                var childSource = selectedId && byId(selectedId);
-                var childValue = Math.round(parseFloat(e.target.value));
-                if (!isFinite(childValue)) return;
-                if (childField === "span" || childField === "rowSpan") childValue = Math.max(1, childValue);
-                var removeChildField = currentBp === "base" && ((childField === "order" && childValue === 0) || (childField !== "order" && childValue <= 1));
-                if (childSource) setDesignValue(childSource, currentBp, childField, removeChildField ? null : childValue, removeChildField);
-                return;
-            }
-            var field = e.target.getAttribute("data-v2-design-field");
-            var path = e.target.getAttribute("data-v2-design-path");
-            if (!field || !path) return;
-            var source = selectedId && byId(selectedId);
-            if (e.target.hasAttribute("data-v2-design-optional") && e.target.value.trim() === "") {
-                patchDesignObject(source, field, path, undefined);
-                return;
-            }
-            var value = e.target.type === "number" ? designInputValue(e.target) : e.target.value;
-            if (e.target.type === "number" && value == null) return;
-            patchDesignObject(source, field, path, value);
+            if (applyV2UnitChange(e.target)) return;
+            if (applyV2ChildDesignInput(e.target)) return;
+            if (applyV2DesignInput(e.target)) return;
         });
         inspectorEl.addEventListener("input", function (e) {
             var t = e.target;
@@ -3154,8 +2852,7 @@
         inspectorEl.addEventListener("click", function (e) {
             var el;
             if ((el = e.target.closest("[data-v2-design-reset]"))) {
-                var resetSource = selectedId && byId(selectedId);
-                if (resetSource) { setDesignValue(resetSource, currentBp, el.dataset.v2DesignReset, null, true); refreshInspector(); }
+                resetV2DesignField(el.dataset.v2DesignReset);
                 return;
             }
             if ((el = e.target.closest("[data-doc-style-reset]"))) { // Stage 5: сброс override стиля
@@ -3169,27 +2866,24 @@
             }
             if ((el = e.target.closest("[data-v2-layout-mode]"))) { switchV2LayoutMode(el.dataset.v2LayoutMode); return; }
             if ((el = e.target.closest("[data-v2-layout-direction]"))) {
-                patchDesignObject(selectedId && byId(selectedId), "layout", "direction", el.dataset.v2LayoutDirection);
+                setV2LayoutDirection(el.dataset.v2LayoutDirection);
                 return;
             }
             if ((el = e.target.closest("[data-v2-layout-wrap]"))) {
-                patchDesignObject(selectedId && byId(selectedId), "layout", "wrap", el.dataset.v2LayoutWrap === "1");
+                setV2LayoutWrap(el.dataset.v2LayoutWrap === "1");
                 return;
             }
             if ((el = e.target.closest("[data-v2-grid-auto]"))) {
                 // Фикс./Авто колонки: число (repeat N) ↔ объект { mode:auto, min } (repeat auto-fit/fill).
-                patchDesignObject(selectedId && byId(selectedId), "layout", "columns",
-                    el.dataset.v2GridAuto === "1" ? { mode: "auto", min: 240 } : 2);
+                setV2GridAuto(el.dataset.v2GridAuto === "1");
                 return;
             }
             if ((el = e.target.closest("[data-v2-grid-fill]"))) {
-                patchDesignObject(selectedId && byId(selectedId), "layout", "columns.fill", el.dataset.v2GridFill === "1");
+                setV2GridFill(el.dataset.v2GridFill === "1");
                 return;
             }
             if ((el = e.target.closest("[data-v2-overflow]"))) { // hidden → set; visible (дефолт) → убрать
-                var ovfSource = selectedId && byId(selectedId);
-                var ovfHidden = el.dataset.v2Overflow === "hidden";
-                if (ovfSource) { setDesignValue(ovfSource, currentBp, "overflow", ovfHidden ? "hidden" : null, !ovfHidden); refreshInspector(); }
+                setV2Overflow(el.dataset.v2Overflow);
                 return;
             }
             if ((el = e.target.closest("[data-doc-insp-tab]"))) {
