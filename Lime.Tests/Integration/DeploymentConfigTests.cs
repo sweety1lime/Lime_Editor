@@ -49,6 +49,9 @@ namespace Lime.Tests.Integration
             Assert.Contains("POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?", compose);
             Assert.Contains("ConnectionStrings__connect:", compose);
             Assert.Contains("AllowedHosts: ${DOMAIN:?", compose);
+            Assert.Contains("ForwardedHeaders__TrustAll: ${FORWARDED_HEADERS_TRUST_ALL:-true}", compose);
+            Assert.Contains("ForwardedHeaders__KnownProxies: ${FORWARDED_HEADERS_KNOWN_PROXIES:-}", compose);
+            Assert.Contains("ForwardedHeaders__KnownNetworks: ${FORWARDED_HEADERS_KNOWN_NETWORKS:-}", compose);
             Assert.Contains("Identity__RequireConfirmedEmail: ${IDENTITY_REQUIRE_CONFIRMED_EMAIL:-false}", compose);
             Assert.Contains("AI_BASE_URL: ${AI_BASE_URL:-}", compose);
             Assert.Contains("AI_API_KEY: ${AI_API_KEY:-}", compose);
@@ -64,6 +67,8 @@ namespace Lime.Tests.Integration
 
             Assert.Contains("AllowedHosts", security);
             Assert.Contains("POSTGRES_PASSWORD", security);
+            Assert.Contains("FORWARDED_HEADERS_TRUST_ALL", security);
+            Assert.Contains("FORWARDED_HEADERS_KNOWN_PROXIES", security);
             Assert.Contains("Identity__RequireConfirmedEmail=true", security);
             Assert.Contains("SMTP_HOST", security);
             Assert.Contains("SMTP_FROM", security);

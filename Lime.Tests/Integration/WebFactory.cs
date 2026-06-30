@@ -2,8 +2,10 @@ using Lime_Editor.Models;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 
 namespace Lime.Tests.Integration
@@ -17,6 +19,13 @@ namespace Lime.Tests.Integration
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
             builder.UseEnvironment("Test");
+            builder.ConfigureAppConfiguration((context, config) =>
+            {
+                config.AddInMemoryCollection(new Dictionary<string, string>
+                {
+                    ["ForwardedHeaders:TrustAll"] = "true",
+                });
+            });
             builder.ConfigureServices(services =>
             {
                 var descriptor = services.SingleOrDefault(

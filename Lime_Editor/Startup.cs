@@ -16,6 +16,7 @@ using Microsoft.Extensions.Hosting;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using System.Threading.RateLimiting;
 using System.Threading.Tasks;
 
@@ -79,17 +80,9 @@ namespace Lime_Editor
                 options.SlidingExpiration = true;
             });
 
-            // За reverse-proxy (Caddy/Nginx) приложение слушает plain HTTP — без этого оно не
-            // знало бы исходную https-схему и реальный IP клиента (Secure-cookie, редиректы,
-            // HSTS, логи). KnownProxies/Networks очищаем: прокси в compose-сети имеет нестабильный
-            // нелокальный IP. Безопасно при условии, что снаружи доступен ТОЛЬКО прокси.
-            services.Configure<ForwardedHeadersOptions>(options =>
-            {
-                options.ForwardedHeaders =
-                    ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
-                options.KnownNetworks.Clear();
-                options.KnownProxies.Clear();
-            });
+            // Reverse-proxy headers are accepted only from explicitly configured trusted proxies.
+            // The bundled Docker compose opts into TrustAll because the app service is not published.
+            services.Configure<ForwardedHeadersOptions>(ConfigureForwardedHeaders);
 
             services.Configure<FormOptions>(options =>
             {
@@ -185,6 +178,72 @@ namespace Lime_Editor
         // Ключ партиции лимитера: IP клиента (после ForwardedHeaders — реальный, не прокси).
         private static string ClientKey(HttpContext ctx) =>
             ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+
+        private void ConfigureForwardedHeaders(ForwardedHeadersOptions options)
+        {
+            options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+            var forwardLimit = Configuration.GetValue<int?>("ForwardedHeaders:ForwardLimit");
+            options.ForwardLimit = forwardLimit.HasValue && forwardLimit.Value > 0 ? forwardLimit.Value : 1;
+
+            // TrustAll is for closed Docker-network deployments where only the reverse proxy is public.
+            // Other deployments should set KnownProxies or KnownNetworks instead.
+            if (Configuration.GetValue<bool>("ForwardedHeaders:TrustAll"))
+            {
+                options.KnownNetworks.Clear();
+                options.KnownProxies.Clear();
+                return;
+            }
+
+            foreach (var proxy in SplitConfigList(Configuration["ForwardedHeaders:KnownProxies"]))
+            {
+                options.KnownProxies.Add(ParseIpAddress(proxy, "ForwardedHeaders:KnownProxies"));
+            }
+
+            foreach (var network in SplitConfigList(Configuration["ForwardedHeaders:KnownNetworks"]))
+            {
+                options.KnownNetworks.Add(ParseIpNetwork(network, "ForwardedHeaders:KnownNetworks"));
+            }
+        }
+
+        private static IEnumerable<string> SplitConfigList(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                yield break;
+            }
+
+            foreach (var item in value.Split(new[] { ';', ',' }, StringSplitOptions.RemoveEmptyEntries))
+            {
+                var trimmed = item.Trim();
+                if (trimmed.Length > 0)
+                {
+                    yield return trimmed;
+                }
+            }
+        }
+
+        private static IPAddress ParseIpAddress(string value, string key)
+        {
+            if (IPAddress.TryParse(value, out var address))
+            {
+                return address;
+            }
+
+            throw new InvalidOperationException($"{key} contains invalid IP address '{value}'.");
+        }
+
+        private static Microsoft.AspNetCore.HttpOverrides.IPNetwork ParseIpNetwork(string value, string key)
+        {
+            var parts = value.Split('/');
+            if (parts.Length == 2 &&
+                IPAddress.TryParse(parts[0], out var prefix) &&
+                int.TryParse(parts[1], out var prefixLength))
+            {
+                return new Microsoft.AspNetCore.HttpOverrides.IPNetwork(prefix, prefixLength);
+            }
+
+            throw new InvalidOperationException($"{key} contains invalid CIDR network '{value}'.");
+        }
 
         // Для AI: по пользователю, если аутентифицирован (иначе IP) — лимит на аккаунт, не на NAT.
         private static string UserOrClientKey(HttpContext ctx) =>

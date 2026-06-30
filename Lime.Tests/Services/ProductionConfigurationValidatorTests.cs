@@ -29,6 +29,7 @@ namespace Lime.Tests.Services
                 ["Identity:RequireConfirmedEmail"] = "true",
                 ["AI_BASE_URL"] = "https://api.example.com/v1",
                 ["AI_API_KEY"] = "secret",
+                ["ForwardedHeaders:TrustAll"] = "true",
             });
 
             ProductionConfigurationValidator.Validate(Environments.Production, config);
@@ -106,12 +107,35 @@ namespace Lime.Tests.Services
             Assert.Contains("AI_BASE_URL and AI_API_KEY", ex.Message);
         }
 
+        [Fact]
+        public void Validate_RejectsMissingForwardedHeadersTrust()
+        {
+            var config = ValidConfig();
+            config["ForwardedHeaders:TrustAll"] = "";
+
+            var ex = Assert.Throws<InvalidOperationException>(() =>
+                ProductionConfigurationValidator.Validate(Environments.Production, config));
+
+            Assert.Contains("ForwardedHeaders", ex.Message);
+        }
+
+        [Fact]
+        public void Validate_AllowsExplicitForwardedHeadersKnownProxy()
+        {
+            var config = ValidConfig();
+            config["ForwardedHeaders:TrustAll"] = "false";
+            config["ForwardedHeaders:KnownProxies"] = "10.0.0.10";
+
+            ProductionConfigurationValidator.Validate(Environments.Production, config);
+        }
+
         private static IConfigurationRoot ValidConfig()
         {
             return Config(new Dictionary<string, string>
             {
                 ["ConnectionStrings:connect"] = "Host=db;Database=lime;Username=lime;Password=secret",
                 ["AllowedHosts"] = "lime.example.com",
+                ["ForwardedHeaders:TrustAll"] = "true",
             });
         }
 

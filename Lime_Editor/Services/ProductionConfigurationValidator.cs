@@ -38,6 +38,16 @@ namespace Lime_Editor.Services
                 errors.Add("AllowedHosts must contain the public production host, not '*', empty, or localhost-only.");
             }
 
+            var trustsAllForwardedHeaders = IsTrue(config["ForwardedHeaders:TrustAll"]);
+            var knownForwardedProxies = SplitList(config["ForwardedHeaders:KnownProxies"]).ToArray();
+            var knownForwardedNetworks = SplitList(config["ForwardedHeaders:KnownNetworks"]).ToArray();
+            if (!trustsAllForwardedHeaders &&
+                knownForwardedProxies.Length == 0 &&
+                knownForwardedNetworks.Length == 0)
+            {
+                errors.Add("ForwardedHeaders must explicitly trust the reverse proxy: set ForwardedHeaders:TrustAll=true for a closed proxy-only Docker network, or configure ForwardedHeaders:KnownProxies/KnownNetworks.");
+            }
+
             var smtpHost = config["SMTP_HOST"];
             var smtpFrom = config["SMTP_FROM"];
             var smtpEnabled = !string.IsNullOrWhiteSpace(smtpHost) || !string.IsNullOrWhiteSpace(smtpFrom);
@@ -92,6 +102,11 @@ namespace Lime_Editor.Services
         private static bool HasExactlyOne(string left, string right)
         {
             return string.IsNullOrWhiteSpace(left) != string.IsNullOrWhiteSpace(right);
+        }
+
+        private static bool IsTrue(string value)
+        {
+            return bool.TryParse(value, out var parsed) && parsed;
         }
     }
 }

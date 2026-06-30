@@ -17,6 +17,7 @@ This file records the current security baseline for Lime and the remaining launc
 - Media upload validation checks extension, MIME type, magic bytes, server-side image decoding, file size, request size, and plan storage limits.
 - Local media storage rejects path segments in stored file names.
 - Production startup validation fails fast for unsafe `AllowedHosts`, partial SMTP config, email-confirmation without SMTP, missing database config, and partial AI config.
+- Forwarded proxy headers are not trusted implicitly. Production must explicitly set `ForwardedHeaders:TrustAll=true` for a closed proxy-only Docker network, or configure known proxy IPs/networks.
 - Dependency audit checks have been run for NuGet and npm during the hardening sprint.
 
 ## Production Required Settings
@@ -24,6 +25,7 @@ This file records the current security baseline for Lime and the remaining launc
 Before exposing Lime to real users, production must set:
 
 - `AllowedHosts` to the real public host, not `*`, empty, or localhost-only.
+- `FORWARDED_HEADERS_TRUST_ALL=true` only when the app port is not public and only the reverse proxy can reach it. Otherwise set `FORWARDED_HEADERS_KNOWN_PROXIES` or `FORWARDED_HEADERS_KNOWN_NETWORKS`.
 - `POSTGRES_PASSWORD` to a non-default secret.
 - `DOMAIN` in `compose.prod.yml` / `.env`.
 - `SMTP_HOST` and `SMTP_FROM` together if email delivery is enabled.

@@ -30,6 +30,11 @@ services:
       # Host-header allow-list: только наш домен (Caddy сохраняет исходный Host при проксировании).
       # Переопределяет fail-closed дефолт "localhost" из appsettings.json.
       AllowedHosts: ${DOMAIN:?DOMAIN не задан (пример: lime.example.com)}
+      # App is exposed only inside the Docker network; Caddy is the only public entry point.
+      # For non-compose deployments prefer FORWARDED_HEADERS_KNOWN_PROXIES / _KNOWN_NETWORKS.
+      ForwardedHeaders__TrustAll: ${FORWARDED_HEADERS_TRUST_ALL:-true}
+      ForwardedHeaders__KnownProxies: ${FORWARDED_HEADERS_KNOWN_PROXIES:-}
+      ForwardedHeaders__KnownNetworks: ${FORWARDED_HEADERS_KNOWN_NETWORKS:-}
       Identity__RequireConfirmedEmail: ${IDENTITY_REQUIRE_CONFIRMED_EMAIL:-false}
       AI_BASE_URL: ${AI_BASE_URL:-}
       AI_API_KEY: ${AI_API_KEY:-}

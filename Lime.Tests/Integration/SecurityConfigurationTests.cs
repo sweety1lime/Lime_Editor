@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
@@ -82,6 +83,18 @@ namespace Lime.Tests.Integration
             var options = scope.ServiceProvider.GetRequiredService<IOptions<FormOptions>>().Value;
 
             Assert.Equal(MediaUploadSecurity.MaxUploadRequestBytes, options.MultipartBodyLengthLimit);
+        }
+
+        [Fact]
+        public void ForwardedHeaders_RequireExplicitTrustConfiguration()
+        {
+            using var scope = _factory.Services.CreateScope();
+            var options = scope.ServiceProvider.GetRequiredService<IOptions<ForwardedHeadersOptions>>().Value;
+
+            Assert.Equal(ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto, options.ForwardedHeaders);
+            Assert.Equal(1, options.ForwardLimit);
+            Assert.Empty(options.KnownNetworks);
+            Assert.Empty(options.KnownProxies);
         }
 
         [Fact]
