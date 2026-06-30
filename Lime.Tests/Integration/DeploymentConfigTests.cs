@@ -56,5 +56,25 @@ namespace Lime.Tests.Integration
             Assert.Contains("SMTP_HOST: ${SMTP_HOST:-}", compose);
             Assert.Contains("SMTP_PASSWORD: ${SMTP_PASSWORD:-}", compose);
         }
+
+        [Fact]
+        public void SecurityDoc_CoversProductionChecklistAndExternalBlockers()
+        {
+            var security = ReadRootFile("SECURITY.md");
+
+            Assert.Contains("AllowedHosts", security);
+            Assert.Contains("POSTGRES_PASSWORD", security);
+            Assert.Contains("Identity__RequireConfirmedEmail=true", security);
+            Assert.Contains("SMTP_HOST", security);
+            Assert.Contains("SMTP_FROM", security);
+            Assert.Contains("AI_API_KEY", security);
+            Assert.Contains("STOCK_PEXELS_KEY", security);
+            Assert.Contains("Redis", security);
+            Assert.Contains("S3/R2", security);
+            Assert.Contains("Error tracking", security);
+            Assert.Contains("dotnet test Lime_Editor.sln", security);
+            Assert.Contains("dotnet list Lime_Editor.sln package --vulnerable --include-transitive", security);
+            Assert.Contains("npm audit --audit-level=moderate", security);
+        }
     }
 }
