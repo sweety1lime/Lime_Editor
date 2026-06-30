@@ -27,6 +27,7 @@
     var EditorSectionBg = window.LimeEditorSectionBg || {};
     var EditorAiPipeline = window.LimeEditorAiPipeline || {};
     var EditorShadow = window.LimeEditorShadow || {};
+    var EditorClasses = window.LimeEditorClasses || {};
     if (!EditorUtils.escapeText) throw new Error("LimeEditorUtils is required before lime-doc-editor.js");
     if (!EditorComponents.create) throw new Error("LimeEditorComponents is required before lime-doc-editor.js");
     if (!EditorCommandPalette.create) throw new Error("LimeEditorCommandPalette is required before lime-doc-editor.js");
@@ -43,6 +44,7 @@
     if (!EditorSectionBg.create) throw new Error("LimeEditorSectionBg is required before lime-doc-editor.js");
     if (!EditorAiPipeline.create) throw new Error("LimeEditorAiPipeline is required before lime-doc-editor.js");
     if (!EditorShadow.create) throw new Error("LimeEditorShadow is required before lime-doc-editor.js");
+    if (!EditorClasses.create) throw new Error("LimeEditorClasses is required before lime-doc-editor.js");
 
     var ws = document.getElementById("lime-doc-workspace");
     if (!ws) return;
@@ -136,24 +138,6 @@
         var l = classDefs();
         for (var i = 0; i < l.length; i++) if (l[i].cls === cls) return l[i];
         return null;
-    }
-    function newClassId() {
-        var cls;
-        do { cls = "c" + Math.random().toString(36).slice(2, 8); } while (findClassDef(cls));
-        return cls;
-    }
-    // Список классов целевого блока (у компонента-инстанса — в определении).
-    function blockClassList(b) {
-        var t = targetBlock(b);
-        if (!t) return [];
-        if (!t.classes) t.classes = [];
-        return t.classes;
-    }
-    function toggleBlockClass(b, cls) {
-        var list = blockClassList(b);
-        var i = list.indexOf(cls);
-        if (i === -1) list.push(cls); else list.splice(i, 1);
-        if (!list.length) delete targetBlock(b).classes; // не плодим пустые массивы
     }
     // Эффективные стили всех классов блока на текущем брейкпоинте (для живого превью —
     // движок на публикации эмитит их через media-queries, а в холсте ширина не меняется).
@@ -1938,117 +1922,34 @@
         return out;
     }
 
-    // ----- Панель «Классы» (этап 0.1): назначение/снятие/создание/правка классов блока -----
-    function classesSection(b) {
-        var t = targetBlock(b);
-        var assigned = (t && t.classes) || [];
-        var defs = classDefs();
-        var chips = assigned.map(function (cls) {
-            var def = findClassDef(cls);
-            var nm = def ? (def.name || def.cls) : cls;
-            return '<span class="lime-doc-class-chip">' +
-                '<button type="button" class="lime-doc-class-chip__edit" data-doc-class-edit="' + escapeText(cls) + '" title="Редактировать класс">' + escapeText(nm) + '</button>' +
-                '<button type="button" class="lime-doc-class-chip__x" data-doc-class-remove="' + escapeText(cls) + '" title="Снять с блока">✕</button>' +
-                '</span>';
-        }).join("");
-        var avail = defs.filter(function (d) { return assigned.indexOf(d.cls) === -1; });
-        var sel = avail.length
-            ? '<select class="lime-select" data-doc-class-add style="flex:1;">' +
-                '<option value="">+ применить класс…</option>' +
-                avail.map(function (d) { return '<option value="' + escapeText(d.cls) + '">' + escapeText(d.name || d.cls) + '</option>'; }).join("") +
-                '</select>'
-            : '';
-        var body =
-            (chips
-                ? '<div class="lime-doc-class-chips">' + chips + '</div>'
-                : '<div class="lime-inspector__hint">Класс — набор стилей для многих блоков. Меняешь класс — меняются все блоки с ним.</div>') +
-            '<div class="lime-flex lime-gap-2" style="margin-top:6px;align-items:center;">' + sel +
-                '<button type="button" class="lime-btn lime-btn--ghost lime-btn--sm" data-doc-class-new title="Создать класс из текущих стилей блока">＋ Из стилей</button>' +
-            '</div>';
-        return sec("Классы", body);
-    }
-    function classEditBanner() {
-        var def = findClassDef(currentClass);
-        var nm = def ? (def.name || def.cls) : currentClass;
-        return sec("Класс «" + escapeText(nm) + "»",
-            '<div class="lime-doc-comp-banner">✎ Правишь класс — изменения применяются ко всем блокам с ним.</div>' +
-            '<div class="lime-flex lime-gap-2" style="margin-top:6px;align-items:center;">' +
-                '<button type="button" class="lime-btn lime-btn--ghost lime-btn--sm" data-doc-class-rename title="Переименовать">✎ Имя</button>' +
-                '<button type="button" class="lime-block-toolbar__btn lime-block-toolbar__btn--danger" data-doc-class-delete title="Удалить класс">🗑</button>' +
-                '<button type="button" class="lime-btn lime-btn--sm" data-doc-class-done style="margin-left:auto;">Готово</button>' +
-            '</div>');
-    }
-
-    // Обход всех блоков документа (страницы + определения компонентов, рекурсивно по children).
-    function walkAllBlocks(fn) {
-        function rec(arr) {
-            for (var i = 0; i < arr.length; i++) {
-                fn(arr[i]);
-                var t = targetBlock(arr[i]);
-                if (t && t.children) rec(t.children);
-            }
-        }
-        doc.pages.forEach(function (p) { rec(p.blocks || []); });
-        Object.keys(doc.components).forEach(function (k) {
-            var cb = doc.components[k] && doc.components[k].block;
-            if (cb) { fn(cb); if (cb.children) rec(cb.children); }
-        });
-    }
-    function stripClassEverywhere(cls) {
-        walkAllBlocks(function (b) {
-            if (b.classes) {
-                var i = b.classes.indexOf(cls);
-                if (i !== -1) b.classes.splice(i, 1);
-                if (!b.classes.length) delete b.classes;
-            }
-        });
-    }
-    function applyClassToBlock(cls) {
-        var b = byId(selectedId); if (!b || !cls) return;
-        beginCheckpointMutation();
-        if (blockClassList(b).indexOf(cls) === -1) toggleBlockClass(b, cls);
-        render(); markDirty();
-    }
-    function removeClassFromBlock(cls) {
-        var b = byId(selectedId); if (!b) return;
-        beginCheckpointMutation();
-        var list = blockClassList(b);
-        var i = list.indexOf(cls); if (i !== -1) list.splice(i, 1);
-        if (!list.length) delete targetBlock(b).classes;
-        render(); markDirty();
-    }
-    function createClassFromBlock() {
-        var b = byId(selectedId); if (!b) return;
-        var t = targetBlock(b);
-        var name = (window.prompt("Название класса:", "Мой класс") || "").trim();
-        if (!name) return;
-        beginCheckpointMutation();
-        var cls = newClassId();
-        // Снимок текущих стилей блока становится стилями класса (Webflow «extract to class»):
-        // свои стили блока убираем — теперь вид задаёт класс, и его можно менять для всех.
-        var styles = t.styles ? JSON.parse(JSON.stringify(t.styles)) : {};
-        classDefs().push({ cls: cls, name: name, styles: styles });
-        if (!t.classes) t.classes = [];
-        t.classes.push(cls);
-        delete t.styles;
-        currentClass = cls; currentState = "normal"; // сразу правим созданный класс
-        render(); markDirty();
-    }
-    function editClass(cls) { currentClass = cls; currentState = "normal"; render(); }
-    function exitClassEdit() { currentClass = null; render(); }
-    function deleteClass(cls) {
-        if (!window.confirm("Удалить класс? Он снимется со всех блоков.")) return;
-        beginCheckpointMutation();
-        var l = classDefs();
-        for (var i = 0; i < l.length; i++) if (l[i].cls === cls) { l.splice(i, 1); break; }
-        stripClassEverywhere(cls);
-        currentClass = null; render(); markDirty();
-    }
-    function renameClass(cls) {
-        var def = findClassDef(cls); if (!def) return;
-        var name = (window.prompt("Новое имя класса:", def.name || "") || "").trim();
-        if (name) { beginCheckpointMutation(); def.name = name; refreshInspector(); markDirty(); }
-    }
+    // ----- Панель «Классы» (этап 0.1) — модуль lime-editor-classes.js. -----
+    var classTools = EditorClasses.create({
+        window: window,
+        getDoc: function () { return doc; },
+        targetBlock: targetBlock,
+        byId: byId,
+        getSelectedId: function () { return selectedId; },
+        getCurrentClass: function () { return currentClass; },
+        setCurrentClass: function (cls) { currentClass = cls; },
+        setCurrentState: function (state) { currentState = state; },
+        classDefs: classDefs,
+        findClassDef: findClassDef,
+        beginCheckpointMutation: beginCheckpointMutation,
+        render: render,
+        markDirty: markDirty,
+        refreshInspector: refreshInspector,
+        sec: sec,
+        escapeText: escapeText
+    });
+    var classesSection = classTools.classesSection;
+    var classEditBanner = classTools.classEditBanner;
+    var applyClassToBlock = classTools.applyClassToBlock;
+    var removeClassFromBlock = classTools.removeClassFromBlock;
+    var createClassFromBlock = classTools.createClassFromBlock;
+    var editClass = classTools.editClass;
+    var exitClassEdit = classTools.exitClassEdit;
+    var deleteClass = classTools.deleteClass;
+    var renameClass = classTools.renameClass;
 
     // ----- Многослойные тени (1.2) — модуль lime-editor-shadow.js. shadowBuilder отдаётся в
     // inspector-controls через thunk выше (он зовётся на рендере, когда shadowFx уже создан). -----
