@@ -18,14 +18,26 @@
 
     function create(options) {
         options = options || {};
+        var dom = options.document || (typeof document !== "undefined" ? document : null);
+        var win = options.window || (typeof window !== "undefined" ? window : {});
         var escapeText = options.escapeText || function (s) { return String(s == null ? "" : s); };
+        var byId = options.byId || function () { return null; };
         var getComponents = options.getComponents || function () { return {}; };
         var getCurrentBp = options.getCurrentBp || function () { return "base"; };
+        var getCmdStore = options.getCmdStore || function () { return null; };
+        var getPageBlocks = options.getPageBlocks || function () { return []; };
         var getSelectedId = options.getSelectedId || function () { return null; };
         var isCanvasOn = options.isCanvasOn || function () { return false; };
         var isContainer = options.isContainer || function () { return false; };
+        var markDirty = options.markDirty || function () {};
+        var render = options.render || function () {};
         var resolvedBlockDesign = options.resolvedBlockDesign || function () { return {}; };
+        var runCommand = options.runCommand || function () { return false; };
+        var scheduleAutosave = options.scheduleAutosave || function () {};
+        var selectById = options.selectById || function () {};
         var targetBlock = options.targetBlock || function (b) { return b; };
+        var layerRowsCache = [];
+        var layerScrollQueued = false;
 
         function blockLabel(b) {
             if (!b) return "";
@@ -115,10 +127,126 @@
             box.innerHTML = html;
         }
 
+        function applyNodeCommand(type, payload, fallback) {
+            if (getCmdStore()) {
+                var changed = runCommand(type, payload);
+                if (changed) {
+                    render();
+                    scheduleAutosave();
+                }
+                return changed;
+            }
+            fallback();
+            render();
+            markDirty();
+            return true;
+        }
+
+        function runLayerControl(id, control) {
+            var b = byId(id);
+            if (!b || !control) return;
+            if (control.hasAttribute("data-node-toggle-hidden")) {
+                var hidden = !b.hidden;
+                applyNodeCommand("setNodeHidden", { id: id, value: hidden }, function () {
+                    if (hidden) b.hidden = true; else delete b.hidden;
+                });
+                return;
+            }
+            if (control.hasAttribute("data-node-toggle-locked")) {
+                var locked = !b.locked;
+                applyNodeCommand("setNodeLocked", { id: id, value: locked }, function () {
+                    if (locked) b.locked = true; else delete b.locked;
+                });
+                return;
+            }
+            if (control.hasAttribute("data-node-rename")) {
+                var promptFn = win.prompt || function () { return null; };
+                var name = promptFn("Имя слоя:", b.name || blockLabel(b));
+                if (name == null || name.trim().length > 120) return;
+                applyNodeCommand("renameNode", { id: id, name: name }, function () {
+                    name = name.trim();
+                    if (name) b.name = name; else delete b.name;
+                });
+                return;
+            }
+            if (control.hasAttribute("data-node-z")) {
+                var delta = parseInt(control.getAttribute("data-node-z"), 10) || 0;
+                var bp = getCurrentBp();
+                var current = resolvedBlockDesign(b, bp).zIndex;
+                current = typeof current === "number" && isFinite(current) ? Math.round(current) : 0;
+                var next = Math.max(-1000, Math.min(1000, current + delta));
+                applyNodeCommand("setNodeZIndex", { id: id, breakpoint: bp, value: next }, function () {
+                    if (!b.design) b.design = {};
+                    if (!b.design[bp]) b.design[bp] = {};
+                    b.design[bp].zIndex = next;
+                });
+            }
+        }
+
+        function refreshLayers() {
+            var box = dom && dom.getElementById ? dom.getElementById("lime-doc-layers") : null;
+            if (!box) return;
+            layerRowsCache = flattenRows(getPageBlocks());
+            renderViewport(box, layerRowsCache, true);
+        }
+
+        function bind(box) {
+            box = box || (dom && dom.getElementById ? dom.getElementById("lime-doc-layers") : null);
+            if (!box || box.__limeLayersBound) return;
+            box.__limeLayersBound = true;
+            box.addEventListener("click", function (e) {
+                var row = e.target.closest("[data-doc-layer]");
+                if (!row) return;
+                var control = e.target.closest("[data-node-toggle-hidden],[data-node-toggle-locked],[data-node-rename],[data-node-z]");
+                if (control) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    runLayerControl(row.getAttribute("data-doc-layer"), control);
+                    return;
+                }
+                selectById(row.getAttribute("data-doc-layer"));
+            });
+            box.addEventListener("keydown", function (e) {
+                if (e.key !== "ArrowDown" && e.key !== "ArrowUp" && e.key !== "Home" && e.key !== "End") return;
+                var rows = layerRowsCache || [];
+                if (!rows.length) return;
+                e.preventDefault();
+                var selectedId = getSelectedId();
+                var idx = -1;
+                for (var i = 0; i < rows.length; i++) {
+                    if (rows[i].block.id === selectedId) {
+                        idx = i;
+                        break;
+                    }
+                }
+                var next;
+                if (e.key === "Home") next = 0;
+                else if (e.key === "End") next = rows.length - 1;
+                else if (e.key === "ArrowDown") next = idx < 0 ? 0 : Math.min(rows.length - 1, idx + 1);
+                else next = idx < 0 ? rows.length - 1 : Math.max(0, idx - 1);
+                selectById(rows[next].block.id);
+            });
+            box.addEventListener("scroll", function () {
+                if (layerScrollQueued) return;
+                layerScrollQueued = true;
+                var run = function () {
+                    layerScrollQueued = false;
+                    renderViewport(box, layerRowsCache, false);
+                };
+                if (win.requestAnimationFrame) win.requestAnimationFrame(run);
+                else if (win.setTimeout) win.setTimeout(run, 0);
+                else run();
+            }, { passive: true });
+        }
+
         return {
+            bind: bind,
             blockLabel: blockLabel,
             flattenRows: flattenRows,
+            refreshLayers: refreshLayers,
+            renderLayersViewport: renderViewport,
             renderViewport: renderViewport,
+            runLayerControl: runLayerControl,
             rowHtml: rowHtml
         };
     }

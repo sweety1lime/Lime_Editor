@@ -21,12 +21,18 @@
     var EditorContextMenu = window.LimeEditorContextMenu || {};
     var EditorMediaPicker = window.LimeEditorMediaPicker || {};
     var EditorMediaActions = window.LimeEditorMediaActions || {};
+    var EditorAddBlock = window.LimeEditorAddBlock || {};
+    var EditorPresets = window.LimeEditorPresets || {};
     var EditorSidebar = window.LimeEditorSidebar || {};
     var EditorPages = window.LimeEditorPages || {};
+    var EditorBreakpoints = window.LimeEditorBreakpoints || {};
     var EditorPersistence = window.LimeEditorPersistence || {};
     var EditorOnboarding = window.LimeEditorOnboarding || {};
     var EditorTopbar = window.LimeEditorTopbar || {};
     var EditorIntro = window.LimeEditorIntro || {};
+    var EditorCommandRegistry = window.LimeEditorCommandRegistry || {};
+    var EditorPerf = window.LimeEditorPerf || {};
+    var EditorInlineEdit = window.LimeEditorInlineEdit || {};
     var EditorTheme = window.LimeEditorTheme || {};
     var EditorSiteCode = window.LimeEditorSiteCode || {};
     var EditorSectionBg = window.LimeEditorSectionBg || {};
@@ -47,12 +53,18 @@
     if (!EditorContextMenu.create) throw new Error("LimeEditorContextMenu is required before lime-doc-editor.js");
     if (!EditorMediaPicker.create) throw new Error("LimeEditorMediaPicker is required before lime-doc-editor.js");
     if (!EditorMediaActions.create) throw new Error("LimeEditorMediaActions is required before lime-doc-editor.js");
+    if (!EditorAddBlock.create) throw new Error("LimeEditorAddBlock is required before lime-doc-editor.js");
+    if (!EditorPresets.create) throw new Error("LimeEditorPresets is required before lime-doc-editor.js");
     if (!EditorSidebar.create) throw new Error("LimeEditorSidebar is required before lime-doc-editor.js");
     if (!EditorPages.create) throw new Error("LimeEditorPages is required before lime-doc-editor.js");
+    if (!EditorBreakpoints.create) throw new Error("LimeEditorBreakpoints is required before lime-doc-editor.js");
     if (!EditorPersistence.create) throw new Error("LimeEditorPersistence is required before lime-doc-editor.js");
     if (!EditorOnboarding.create) throw new Error("LimeEditorOnboarding is required before lime-doc-editor.js");
     if (!EditorTopbar.init) throw new Error("LimeEditorTopbar is required before lime-doc-editor.js");
     if (!EditorIntro.create) throw new Error("LimeEditorIntro is required before lime-doc-editor.js");
+    if (!EditorCommandRegistry.create) throw new Error("LimeEditorCommandRegistry is required before lime-doc-editor.js");
+    if (!EditorPerf.create) throw new Error("LimeEditorPerf is required before lime-doc-editor.js");
+    if (!EditorInlineEdit.create) throw new Error("LimeEditorInlineEdit is required before lime-doc-editor.js");
     if (!EditorTheme.create) throw new Error("LimeEditorTheme is required before lime-doc-editor.js");
     if (!EditorSiteCode.create) throw new Error("LimeEditorSiteCode is required before lime-doc-editor.js");
     if (!EditorSectionBg.create) throw new Error("LimeEditorSectionBg is required before lime-doc-editor.js");
@@ -96,11 +108,6 @@
 
     function pageBlocks() { return doc.pages[active].blocks; }
 
-    // Старт с шаблона (Фаза 3.2): ?template=key на пустом новом документе.
-    // applyTemplateByKey/blockFromSpec — function declarations (подняты), doc/active готовы.
-    if (window.__LIME_TEMPLATE__ && pageBlocks().length === 0) {
-        applyTemplateByKey(window.__LIME_TEMPLATE__);
-    }
     function totalBlocks() {
         return doc.pages.reduce(function (n, p) { return n + p.blocks.length; }, 0);
     }
@@ -210,6 +217,29 @@
     // Единый icon-set: инлайн-SVG по id из спрайта в EditDoc.cshtml (полировка/редизайн редактора).
     function ico(name) { return '<svg class="lime-ico"><use href="#i-' + name + '"/></svg>'; }
 
+    // ===== PRESET SECTIONS / STARTUP TEMPLATES — module lime-editor-presets.js =====
+    var presetTools = EditorPresets.create({
+        document: document,
+        window: window,
+        L: L,
+        ws: ws,
+        getDoc: function () { return doc; },
+        pageBlocks: pageBlocks,
+        getSelectedId: function () { return selectedId; },
+        setSelectedId: function (value) { selectedId = value; },
+        findBlock: findBlock,
+        targetBlock: targetBlock,
+        rid: rid,
+        render: render,
+        markDirty: markDirty
+    });
+    var blockFromSpec = presetTools.blockFromSpec;
+    // Старт с шаблона (Фаза 3.2): ?template=key на пустом новом документе.
+    // Применяется до cmdStore/cmdPrev, чтобы история стартовала уже от шаблонного документа.
+    if (window.__LIME_TEMPLATE__ && pageBlocks().length === 0) {
+        presetTools.applyTemplateByKey(window.__LIME_TEMPLATE__);
+    }
+
     // ===== HISTORY (этап 0.4: undo/redo на снапшотах JSON-документа) =====
     var HIST_MAX = 50;
     var hist = [];
@@ -231,62 +261,26 @@
         if (inspectorEl) inspectorEl.setAttribute("aria-hidden", hidden ? "true" : "false");
     }
 
-    // ===== Stage 7 perf-инструмент (за ?perf=1, иначе ноль стоимости) =====
-    // Считает вызовы полного render() против точечных patch/insert/remove/move и время в каждом.
-    // window.__LIME_PERF__.report() — таблица; .load(n) — залить n синтетических узлов и замерить open.
-    var perfOn = /[?&]perf=1\b/.test(location.search) || !!window.__LIME_PERF_ON__;
-    var perfStat = { full: { n: 0, ms: 0 }, inc: { n: 0, ms: 0 } };
-    function perfNow() { return (window.performance && performance.now) ? performance.now() : Date.now(); }
-    function perfRec(kind, t0) { if (perfOn) { perfStat[kind].n++; perfStat[kind].ms += perfNow() - t0; } }
-    if (perfOn) {
-        window.__LIME_PERF__ = {
-            stat: perfStat,
-            report: function () {
-                var row = function (b) { return { calls: b.n, totalMs: +b.ms.toFixed(1), avgMs: b.n ? +(b.ms / b.n).toFixed(2) : 0 }; };
-                var out = { "full render": row(perfStat.full), "incremental": row(perfStat.inc) };
-                if (window.console && console.table) console.table(out); else console.log(JSON.stringify(out));
-                return out;
-            },
-            reset: function () { perfStat.full = { n: 0, ms: 0 }; perfStat.inc = { n: 0, ms: 0 }; },
-            // Прямое сравнение на ТЕКУЩЕМ документе: полный render() против точечного patch одного
-            // leaf-узла. Усредняем по reps. Возвращает {fullMs, incMs, speedup}.
-            bench: function (reps) {
-                reps = reps || 5;
-                var leaf = null, top = pageBlocks();
-                for (var i = 0; i < top.length && !leaf; i++) { if (top[i].children && top[i].children.length) leaf = top[i].children[0]; }
-                if (!leaf) leaf = top[0];
-                var full = 0, inc = 0, k;
-                for (k = 0; k < reps; k++) { var a = perfNow(); render(); full += perfNow() - a; }
-                for (k = 0; k < reps; k++) { var b = perfNow(); patchBlockDom(leaf.id); inc += perfNow() - b; }
-                var fm = full / reps, im = inc / reps;
-                this.reset();
-                console.log("[LIME PERF] bench(" + reps + "): full render " + fm.toFixed(1) + "ms vs incremental patch " + im.toFixed(2) + "ms → ×" + (fm / im).toFixed(1) + " быстрее");
-                return { fullMs: +fm.toFixed(1), incMs: +im.toFixed(2), speedup: +(fm / im).toFixed(1) };
-            },
-            // Залить n синтетических узлов (контейнеры по ~6 текстов) и замерить open-render.
-            load: function (n) {
-                n = n || 500;
-                var blocks = [], made = 0;
-                while (made < n) {
-                    var kids = [], kc = Math.min(6, n - made);
-                    for (var i = 0; i < kc; i++) { made++; kids.push({ id: rid("b"), type: "text", content: { text: "Node " + made }, styles: { base: { color: "#222", fontSize: "16px" } } }); }
-                    made++;
-                    blocks.push({ id: rid("b"), type: "container", content: {}, children: kids });
-                }
-                doc.pages[active].blocks = blocks;
-                selectedId = null;
-                if (cmdStore && window.LimeCommands) { cmdStore = window.LimeCommands.createStore(doc); cmdPrev = JSON.stringify(doc); }
-                this.reset();
-                var t0 = perfNow();
-                render();
-                var dt = perfNow() - t0;
-                var total = blocks.length + blocks.reduce(function (a, b) { return a + b.children.length; }, 0);
-                this.reset(); // сам load не засчитываем в статистику правок
-                console.log("[LIME PERF] load(" + n + "): open render " + dt.toFixed(1) + "ms, ~" + total + " nodes. Делай правки и зови __LIME_PERF__.report()");
-                return { nodes: total, openMs: +dt.toFixed(1) };
+    // ===== Stage 7 perf-инструмент — module lime-editor-perf.js =====
+    var perfTools = EditorPerf.create({
+        window: window,
+        location: location,
+        getDoc: function () { return doc; },
+        getActive: function () { return active; },
+        setSelectedId: function (value) { selectedId = value; },
+        pageBlocks: pageBlocks,
+        rid: rid,
+        render: render,
+        patchBlockDom: patchBlockDom,
+        resetCommandStore: function () {
+            if (cmdStore && window.LimeCommands) {
+                cmdStore = window.LimeCommands.createStore(doc);
+                cmdPrev = JSON.stringify(doc);
             }
-        };
-    }
+        }
+    });
+    function perfNow() { return perfTools.now(); }
+    function perfRec(kind, t0) { perfTools.record(kind, t0); }
     var cmdPrev = cmdStore ? JSON.stringify(doc) : null; // doc-снапшот предыдущей точки истории
 
     function snapshot() { return JSON.stringify({ doc: doc, active: active }); }
@@ -420,7 +414,7 @@
         else markDirty();
     }
     function restoreSnapshot(snap) {
-        clearTimeout(editDebounce);
+        clearInlineEditPending();
         var s = JSON.parse(snap);
         doc = s.doc;
         active = Math.min(s.active, doc.pages.length - 1);
@@ -431,7 +425,7 @@
     }
     // Постпроцесс восстановления документа из command-store (D2): rebind doc + перерисовка.
     function afterCmdRestore() {
-        clearTimeout(editDebounce);
+        clearInlineEditPending();
         doc = cmdStore.getDoc();
         active = Math.min(active, doc.pages.length - 1);
         selectedId = null;
@@ -840,58 +834,27 @@
         Object.keys(seen).forEach(function (st) { window.LimeFonts.ensureFromStack(st); });
     }
 
-    // ===== INLINE CONTENT EDIT (без ре-рендера) =====
-    var editDebounce;
-    var editTxn = false;
-    var editTxnKey = null;
-    function commitInlineEdit() {
-        clearTimeout(editDebounce);
-        if (!editTxn || !cmdStore) return;
-        cmdStore.commit("inline-content");
-        editTxn = false;
-        editTxnKey = null;
-        doc = cmdStore.getDoc();
-        cmdPrev = JSON.stringify(doc);
-        updateHistButtons();
-        scheduleAutosave();
-    }
-    ws.addEventListener("input", function (e) {
-        var f = e.target.closest("[data-field]");
-        if (!f) return;
-        var sec = f.closest(".lime-block");
-        if (!sec) return;
-        var b = byId(sec.getAttribute("data-block-id"));
-        if (!b) return;
-        var field = f.getAttribute("data-field");
-        var value = f.textContent;
-        var directBlock = targetBlock(b) === b; // component definition пока остаётся checkpoint
-        var componentInstance = b.type === "component" && doc.components[b.ref];
-        if (cmdStore && (directBlock || componentInstance)) {
-            commitStyleEdit();
-            commitBlockEdit();
-            var key = b.id + ":" + field;
-            if (editTxn && editTxnKey !== key) commitInlineEdit();
-            if (!editTxn) {
-                cmdStore.begin("inline-content");
-                editTxn = true;
-                editTxnKey = key;
-            }
-            var commandType = componentInstance ? "setComponentContentOverride" : "setContent";
-            if (cmdStore.dispatch(commandType, { id: b.id, field: field, value: value })) {
-                doc = cmdStore.getDoc();
-                clearTimeout(editDebounce);
-                editDebounce = setTimeout(commitInlineEdit, 600);
-                return;
-            }
-            cmdStore.cancel();
-            editTxn = false;
-            editTxnKey = null;
-        } else beginCheckpointMutation();
-        if (componentInstance) setComponentContentOverrideLocal(b, field, value, false);
-        else setByPath(targetBlock(b).content, field, value);
-        clearTimeout(editDebounce);
-        editDebounce = setTimeout(markDirty, 600);
+    // ===== INLINE CONTENT EDIT (без ре-рендера) — module lime-editor-inline-edit.js =====
+    var inlineEdit = EditorInlineEdit.create({
+        window: window,
+        ws: ws,
+        getDoc: function () { return doc; },
+        setDoc: function (value) { doc = value; },
+        getCmdStore: function () { return cmdStore; },
+        setCmdPrev: function (value) { cmdPrev = value; },
+        byId: byId,
+        targetBlock: targetBlock,
+        setByPath: setByPath,
+        setComponentContentOverrideLocal: setComponentContentOverrideLocal,
+        beginCheckpointMutation: beginCheckpointMutation,
+        commitStyleEdit: commitStyleEdit,
+        commitBlockEdit: commitBlockEdit,
+        updateHistButtons: updateHistButtons,
+        scheduleAutosave: scheduleAutosave,
+        markDirty: markDirty
     });
+    function commitInlineEdit() { inlineEdit.commitInlineEdit(); }
+    function clearInlineEditPending() { inlineEdit.clearPending(); }
 
     // ===== SELECTION =====
     ws.addEventListener("click", function (e) {
@@ -907,46 +870,6 @@
         refreshInspector();
         refreshLayers(); // подсветить выбранный блок в дереве слоёв (0.4)
     });
-
-    // Дерево слоёв: клик по строке — выбрать соответствующий блок в холсте (0.4).
-    var layersBox = document.getElementById("lime-doc-layers");
-    if (layersBox) {
-        layersBox.addEventListener("click", function (e) {
-            var row = e.target.closest("[data-doc-layer]");
-            if (!row) return;
-            var control = e.target.closest("[data-node-toggle-hidden],[data-node-toggle-locked],[data-node-rename],[data-node-z]");
-            if (control) {
-                e.preventDefault(); e.stopPropagation();
-                runLayerControl(row.getAttribute("data-doc-layer"), control);
-                return;
-            }
-            selectById(row.getAttribute("data-doc-layer"));
-        });
-        // Клавиатурная навигация по дереву слоёв (этап 9.6): ↑/↓ — соседний узел, Home/End — края.
-        layersBox.addEventListener("keydown", function (e) {
-            if (e.key !== "ArrowDown" && e.key !== "ArrowUp" && e.key !== "Home" && e.key !== "End") return;
-            var rows = layerRowsCache || [];
-            if (!rows.length) return;
-            e.preventDefault();
-            var idx = -1;
-            for (var i = 0; i < rows.length; i++) { if (rows[i].block.id === selectedId) { idx = i; break; } }
-            var next;
-            if (e.key === "Home") next = 0;
-            else if (e.key === "End") next = rows.length - 1;
-            else if (e.key === "ArrowDown") next = idx < 0 ? 0 : Math.min(rows.length - 1, idx + 1);
-            else next = idx < 0 ? rows.length - 1 : Math.max(0, idx - 1);
-            selectById(rows[next].block.id);
-        });
-        layersBox.addEventListener("scroll", function () {
-            if (layerScrollQueued) return;
-            layerScrollQueued = true;
-            var run = function () {
-                layerScrollQueued = false;
-                renderLayersViewport(layersBox, layerRowsCache, false);
-            };
-            if (window.requestAnimationFrame) window.requestAnimationFrame(run); else setTimeout(run, 0);
-        }, { passive: true });
-    }
 
     // Контекстное меню блока (ПКМ, этап 0.4)
     ws.addEventListener("contextmenu", function (e) {
@@ -980,106 +903,26 @@
     function promptVideo(blockId) { mediaActions.promptVideo(blockId); }
     function promptEmbed(blockId) { mediaActions.promptEmbed(blockId); }
 
-    // ===== ADD BLOCK =====
-    // Этап 1: если выбран контейнер/колонки — новый блок добавляется ВНУТРЬ него.
-    var addBtns = document.querySelectorAll("[data-doc-add]");
-    for (var a = 0; a < addBtns.length; a++) {
-        addBtns[a].addEventListener("click", function (e) {
-            e.stopPropagation();
-            // Если только что был drag-and-drop из палитры — click не дублирует вставку (DnD A).
-            if (paletteJustDragged) { paletteJustDragged = false; return; }
-            var b = L.createBlock(this.dataset.docAdd);
-            var sel = selectedId ? findBlock(selectedId) : null;
-            var t = sel ? targetBlock(sel.block) : null;
-            var intoContainer = t && L.isContainer(t.type);
-            var commandApplied = runCommand("insertBlock", {
-                block: b,
-                parentId: intoContainer ? sel.block.id : null,
-                pageIndex: active,
-                index: intoContainer ? ((t.children && t.children.length) || 0) : pageBlocks().length
-            });
-            if (!commandApplied) {
-                if (intoContainer) {
-                    if (!t.children) t.children = [];
-                    t.children.push(b);
-                } else {
-                    pageBlocks().push(b);
-                }
-            }
-            selectedId = b.id;
-            finishInsert(b, intoContainer ? sel.block.id : null, null, commandApplied); // Stage 7: append
-            // V2 (canvas): держим selection-store в синхроне с legacy. Иначе add-block двигает
-            // только legacy selectedId, V2-стор застревает на прежнем блоке, и повторный выбор
-            // того же узла через стор становится no-op (replace при равенстве не эмитит) →
-            // инспектор/overlay не обновляются. Guard: в legacy-режиме (без canvas) ничего не меняется.
-            if (window.__LIME_SELECTION__) window.__LIME_SELECTION__.replace([b.id]);
-        });
-    }
-
-    // Этап 9.4: быстрые действия из пустого состояния холста (делегировано на ws — переживает render).
-    ws.addEventListener("click", function (e) {
-        var addBtn = e.target.closest("[data-doc-empty-add]");
-        if (addBtn) {
-            e.stopPropagation();
-            var tile = document.querySelector('[data-doc-add="' + addBtn.getAttribute("data-doc-empty-add") + '"]');
-            if (tile) tile.click();
-            return;
-        }
-        if (e.target.closest("[data-doc-empty-ai]")) {
-            // Гасим всплытие: иначе клик дойдёт до stage/др. обработчиков канваса.
-            e.stopPropagation();
-            aiOpen();
-        }
+    // ===== ADD BLOCK — module lime-editor-add-block.js =====
+    EditorAddBlock.create({
+        document: document,
+        window: window,
+        L: L,
+        ws: ws,
+        getPaletteJustDragged: function () { return paletteJustDragged; },
+        setPaletteJustDragged: function (value) { paletteJustDragged = value; },
+        getSelectedId: function () { return selectedId; },
+        setSelectedId: function (value) { selectedId = value; },
+        getActive: function () { return active; },
+        pageBlocks: pageBlocks,
+        findBlock: findBlock,
+        targetBlock: targetBlock,
+        runCommand: runCommand,
+        finishInsert: finishInsert,
+        aiOpen: aiOpen
     });
 
     EditorSidebar.create({ document: document, window: window });
-
-    // ===== PRESET SECTIONS (Фаза 3.1): готовая красивая секция в один клик =====
-    function insertPreset(key) {
-        var lib = window.LimePresets && window.LimePresets.PRESETS;
-        var specs = lib && lib[key];
-        if (!specs || !specs.length) return;
-        var sel = selectedId ? findBlock(selectedId) : null;
-        var t = sel ? targetBlock(sel.block) : null;
-        var target = (t && L.isContainer(t.type)) ? (t.children || (t.children = [])) : pageBlocks();
-        var firstId = null;
-        specs.forEach(function (spec) {
-            var b = blockFromSpec(spec);
-            if (!firstId) firstId = b.id;
-            target.push(b);
-        });
-        selectedId = null;
-        render(); markDirty();
-        var el = firstId && ws.querySelector('[data-block-id="' + firstId + '"]');
-        if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
-    // Старт с готового шаблона (Фаза 3.2): тема + набор готовых секций.
-    function applyTemplateByKey(key) {
-        var list = window.LimeTemplates || [];
-        var tpl = null;
-        for (var i = 0; i < list.length; i++) if (list[i].key === key) { tpl = list[i]; break; }
-        if (!tpl) return false;
-        if (tpl.theme) Object.keys(tpl.theme).forEach(function (k) { doc.theme[k] = tpl.theme[k]; });
-        var lib = window.LimePresets && window.LimePresets.PRESETS;
-        (tpl.sections || []).forEach(function (secKey) {
-            var specs = lib && lib[secKey];
-            if (specs) specs.forEach(function (spec) { pageBlocks().push(blockFromSpec(spec)); });
-        });
-        return true;
-    }
-
-    // Плитки готовых секций — из LimePresets.META (DRY), клики через делегирование.
-    var presetsBox = document.getElementById("lime-doc-presets");
-    if (presetsBox && window.LimePresets && window.LimePresets.META) {
-        presetsBox.innerHTML = window.LimePresets.META.map(function (m) {
-            return '<button type="button" class="lime-block-tile" data-doc-preset="' + m.key + '">' +
-                '<span class="lime-block-tile__icon">' + m.icon + '</span><span>' + m.label + '</span></button>';
-        }).join("");
-        presetsBox.addEventListener("click", function (e) {
-            var btn = e.target.closest("[data-doc-preset]");
-            if (btn) { e.stopPropagation(); insertPreset(btn.dataset.docPreset); }
-        });
-    }
 
     // ===== BLOCK ACTIONS / CLIPBOARD / SELECTION — module lime-editor-block-actions.js =====
     var blockActions = EditorBlockActions.create({
@@ -1129,75 +972,29 @@
     function selectById(id) { blockActions.selectById(id); }
     function deselect() { blockActions.deselect(); }
     // ===== ДЕРЕВО СЛОЁВ (outline-навигатор, этап 0.4) =====
-    var layerRowsCache = [];
-    var layerScrollQueued = false;
     var layerHelpers = EditorLayers.create({
+        document: document,
+        window: window,
         escapeText: escapeText,
+        byId: byId,
         getComponents: function () { return doc.components || {}; },
         getCurrentBp: function () { return currentBp; },
+        getCmdStore: function () { return cmdStore; },
+        getPageBlocks: pageBlocks,
         getSelectedId: function () { return selectedId; },
         isCanvasOn: function () { return canvasOn; },
         isContainer: function (type) { return L.isContainer(type); },
+        markDirty: markDirty,
+        render: render,
         resolvedBlockDesign: resolvedBlockDesign,
+        runCommand: runCommand,
+        scheduleAutosave: scheduleAutosave,
+        selectById: selectById,
         targetBlock: targetBlock
     });
+    layerHelpers.bind(document.getElementById("lime-doc-layers"));
     var blockLabel = layerHelpers.blockLabel;
-    function applyNodeCommand(type, payload, fallback) {
-        if (cmdStore) {
-            var changed = runCommand(type, payload);
-            if (changed) { render(); scheduleAutosave(); }
-            return changed;
-        }
-        fallback();
-        render(); markDirty();
-        return true;
-    }
-    function runLayerControl(id, control) {
-        var b = byId(id);
-        if (!b) return;
-        if (control.hasAttribute("data-node-toggle-hidden")) {
-            var hidden = !b.hidden;
-            applyNodeCommand("setNodeHidden", { id: id, value: hidden }, function () {
-                if (hidden) b.hidden = true; else delete b.hidden;
-            });
-            return;
-        }
-        if (control.hasAttribute("data-node-toggle-locked")) {
-            var locked = !b.locked;
-            applyNodeCommand("setNodeLocked", { id: id, value: locked }, function () {
-                if (locked) b.locked = true; else delete b.locked;
-            });
-            return;
-        }
-        if (control.hasAttribute("data-node-rename")) {
-            var name = window.prompt("Имя слоя:", b.name || blockLabel(b));
-            if (name == null || name.trim().length > 120) return;
-            applyNodeCommand("renameNode", { id: id, name: name }, function () {
-                name = name.trim(); if (name) b.name = name; else delete b.name;
-            });
-            return;
-        }
-        if (control.hasAttribute("data-node-z")) {
-            var delta = parseInt(control.getAttribute("data-node-z"), 10) || 0;
-            var current = resolvedBlockDesign(b, currentBp).zIndex;
-            current = typeof current === "number" && isFinite(current) ? Math.round(current) : 0;
-            var next = Math.max(-1000, Math.min(1000, current + delta));
-            applyNodeCommand("setNodeZIndex", { id: id, breakpoint: currentBp, value: next }, function () {
-                if (!b.design) b.design = {};
-                if (!b.design[currentBp]) b.design[currentBp] = {};
-                b.design[currentBp].zIndex = next;
-            });
-        }
-    }
-    function refreshLayers() {
-        var box = document.getElementById("lime-doc-layers");
-        if (!box) return;
-        layerRowsCache = layerHelpers.flattenRows(pageBlocks());
-        renderLayersViewport(box, layerRowsCache, true);
-    }
-    function renderLayersViewport(box, rows, keepSelectionVisible) {
-        layerHelpers.renderViewport(box, rows, keepSelectionVisible);
-    }
+    function refreshLayers() { layerHelpers.refreshLayers(); }
 
     // ===== КОНТЕКСТНОЕ МЕНЮ блока (ПКМ, этап 0.4) =====
     var contextMenu = EditorContextMenu.create({
@@ -1293,24 +1090,16 @@
     function setPageTitle(index, value) { pagesApi.setPageTitle(index, value); }
     function setPageSlug(index, value) { pagesApi.setPageSlug(index, value); }
     function renderPagesList() { pagesApi.renderPagesList(); }
-    // ===== BREAKPOINTS =====
-    var bpBtns = document.querySelectorAll("[data-doc-bp]");
-    function switchBreakpoint(bp) {
-        currentBp = bp;
-        for (var k = 0; k < bpBtns.length; k++) bpBtns[k].classList.toggle("is-active", bpBtns[k].dataset.docBp === bp);
-        ws.setAttribute("data-device", bp === "base" ? "desktop" : bp);
-        applyPreviewStyles();
-        refreshInspector();
-    }
-    for (var bp = 0; bp < bpBtns.length; bp++) {
-        bpBtns[bp].addEventListener("click", function () { switchBreakpoint(this.dataset.docBp); });
-    }
-
-    // «▶ Превью» — одноразово проигрывает анимации появления в холсте (LimeAnim.play).
-    var animPreviewBtn = document.querySelector("[data-doc-anim-preview]");
-    if (animPreviewBtn) animPreviewBtn.addEventListener("click", function () {
-        if (window.LimeAnim) window.LimeAnim.play(ws);
+    // ===== BREAKPOINTS — module lime-editor-breakpoints.js =====
+    var breakpointTools = EditorBreakpoints.create({
+        document: document,
+        window: window,
+        ws: ws,
+        setCurrentBp: function (value) { currentBp = value; },
+        applyPreviewStyles: applyPreviewStyles,
+        refreshInspector: refreshInspector
     });
+    function switchBreakpoint(bp) { breakpointTools.switchBreakpoint(bp); }
 
     // ===== INSPECTOR (breakpoint-aware) =====
     var PADS = { "0": "NONE", "8px": "XS", "16px": "SM", "24px": "MD", "48px": "LG", "80px": "XL" };
@@ -2388,21 +2177,6 @@
     function scheduleAutosave() { persistence.scheduleAutosave(); }
     function markDirty() { persistence.markDirty(); }
     function maybeOfferRecovery() { persistence.maybeOfferRecovery(); }
-    // Блок из спека (общее для AI-materialize и готовых пресетов/шаблонов): копирует
-    // content + стили/css/анимацию/движение/слои и рекурсивно собирает children.
-    // Все id (блока, детей, слоёв) — свежие, чтобы быть уникальными в документе.
-    function blockFromSpec(spec) {
-        var b = L.createBlock(spec.type);
-        if (spec.content) Object.keys(spec.content).forEach(function (k) { b.content[k] = clone(spec.content[k]); });
-        if (spec.styles) b.styles = clone(spec.styles);
-        if (spec.css) b.css = spec.css;
-        ["anim", "animDelay", "animDuration", "parallax", "sticky", "stickyOffset", "marquee", "scene", "layers", "fx"].forEach(function (k) {
-            if (spec[k] != null) b[k] = clone(spec[k]);
-        });
-        if (b.layers) b.layers.forEach(function (l) { l.id = rid("l"); });
-        if (spec.children && spec.children.length) b.children = spec.children.map(blockFromSpec);
-        return b;
-    }
     function clone(v) { return v == null ? v : JSON.parse(JSON.stringify(v)); }
 
     // ===== AI GENERATE / REWRITE — module lime-editor-ai-generate.js =====
@@ -2498,50 +2272,27 @@
         markDirty: markDirty
     });
 
-    // ===== COMMAND PALETTE (Ctrl+K): discoverability without permanent chrome =====
-    (function () {
-        var launcher = document.querySelector("[data-doc-cmdk]");
-        function triggerClick(selector) {
-            var el = document.querySelector(selector);
-            if (el) el.click();
-        }
-        function openSidebarPanel(name) {
-            if (window.__LIME_SIDEBAR__ && window.__LIME_SIDEBAR__.open) window.__LIME_SIDEBAR__.open(name);
-        }
-        function canRunSelected() { return !!selectedId && !!byId(selectedId); }
-        var COMMANDS = [
-            { id: "insert-cover", title: "Вставить обложку", keywords: "hero cover блок секция", shortcut: "", when: function () { return true; }, run: function () { openSidebarPanel("insert"); triggerClick('[data-doc-add="cover"]'); } },
-            { id: "insert-heading", title: "Вставить заголовок", keywords: "heading title текст блок", shortcut: "", when: function () { return true; }, run: function () { openSidebarPanel("insert"); triggerClick('[data-doc-add="heading"]'); } },
-            { id: "insert-text", title: "Вставить текст", keywords: "paragraph copy block", shortcut: "", when: function () { return true; }, run: function () { openSidebarPanel("insert"); triggerClick('[data-doc-add="text"]'); } },
-            { id: "insert-columns", title: "Вставить колонки", keywords: "columns grid layout", shortcut: "", when: function () { return true; }, run: function () { openSidebarPanel("insert"); triggerClick('[data-doc-add="columns"]'); } },
-            { id: "show-insert", title: "Открыть вставку", keywords: "blocks блоки add sidebar", shortcut: "", when: function () { return true; }, run: function () { openSidebarPanel("insert"); } },
-            { id: "show-layers", title: "Открыть слои", keywords: "layers outline порядок дерево", shortcut: "", when: function () { return true; }, run: function () { openSidebarPanel("layers"); } },
-            { id: "show-components", title: "Открыть компоненты", keywords: "components reusable reuse", shortcut: "", when: function () { return true; }, run: function () { openSidebarPanel("components"); } },
-            { id: "device-desktop", title: "Переключить на desktop", keywords: "breakpoint desktop экран", shortcut: "", when: function () { return true; }, run: function () { triggerClick('[data-doc-bp="base"]'); } },
-            { id: "device-tablet", title: "Переключить на tablet", keywords: "breakpoint tablet планшет", shortcut: "", when: function () { return true; }, run: function () { triggerClick('[data-doc-bp="tablet"]'); } },
-            { id: "device-mobile", title: "Переключить на mobile", keywords: "breakpoint mobile телефон адаптив", shortcut: "", when: function () { return true; }, run: function () { triggerClick('[data-doc-bp="mobile"]'); } },
-            { id: "open-theme", title: "Открыть тему сайта", keywords: "theme palette colors шрифт", shortcut: "", when: function () { return !!themeModal; }, run: function () { if (themeModal) themeModal.classList.add("is-open"); } },
-            { id: "open-code", title: "Открыть код сайта", keywords: "css head custom code", shortcut: "", when: function () { return !!codeModal; }, run: function () { triggerClick("[data-doc-code-open]"); } },
-            { id: "open-ai", title: "AI: сгенерировать страницу", keywords: "ai generate prompt создать", shortcut: "", when: function () { return true; }, run: aiOpen },
-            { id: "ai-edit", title: "AI: поправить выбранный блок", keywords: "rewrite suggest ai selected", shortcut: "", when: canRunSelected, run: function () { aiSuggest(selectedId); } },
-            { id: "undo", title: "Отменить", keywords: "history назад", shortcut: "Ctrl+Z", when: function () { return true; }, run: undo },
-            { id: "redo", title: "Вернуть", keywords: "history вперед", shortcut: "Ctrl+Shift+Z", when: function () { return true; }, run: redo },
-            { id: "duplicate", title: "Дублировать выбранный блок", keywords: "copy clone duplicate", shortcut: "Ctrl+D", when: canRunSelected, run: function () { runBlockOp("dup"); } },
-            { id: "group", title: "Сгруппировать выделение", keywords: "group multi selection", shortcut: "", when: function () { return v2SelectionIds().length >= 2; }, run: groupSelection },
-            { id: "ungroup", title: "Разгруппировать блок", keywords: "ungroup group", shortcut: "", when: function () { var b = selectedId && byId(selectedId); return b && b.type === "group"; }, run: ungroupBlock },
-            { id: "component", title: "Сделать компонентом", keywords: "component reusable", shortcut: "", when: function () { var b = selectedId && byId(selectedId); return b && b.type !== "component"; }, run: makeComponent },
-            { id: "delete", title: "Удалить выбранный блок", keywords: "remove delete", shortcut: "Del", when: canRunSelected, run: function () { runBlockOp("del"); } },
-            { id: "save", title: "Опубликовать / обновить сайт", keywords: "publish save сохранить", shortcut: "", when: function () { return !!saveBtn; }, run: function () { if (saveBtn) saveBtn.click(); } }
-        ];
-        window.__LIME_COMMANDS__ = COMMANDS;
-        EditorCommandPalette.create({
-            commands: COMMANDS,
-            launcher: launcher,
-            escapeText: escapeText,
-            document: document,
-            window: window
-        });
-    })();
+    // ===== COMMAND PALETTE (Ctrl+K): registry/wiring lives in lime-editor-command-registry.js =====
+    EditorCommandRegistry.create({
+        document: document,
+        window: window,
+        commandPalette: EditorCommandPalette,
+        saveBtn: saveBtn,
+        themeModal: themeModal,
+        codeModal: codeModal,
+        escapeText: escapeText,
+        getSelectedId: function () { return selectedId; },
+        byId: byId,
+        v2SelectionIds: v2SelectionIds,
+        aiOpen: aiOpen,
+        aiSuggest: aiSuggest,
+        undo: undo,
+        redo: redo,
+        runBlockOp: runBlockOp,
+        groupSelection: groupSelection,
+        ungroupBlock: ungroupBlock,
+        makeComponent: makeComponent
+    });
 
     // ===== COMPONENTS UI =====
     var compBox = document.getElementById("lime-doc-components");

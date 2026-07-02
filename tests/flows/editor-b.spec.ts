@@ -119,6 +119,14 @@ test("editor-v2 D2: command flag keeps structural and checkpoint history coheren
   await expect(page.locator(topBlocks)).toHaveCount(5);
 });
 
+test("editor-b: startup template materializes preset sections (@flow)", async ({ page }) => {
+  await page.goto("/Home/EditDoc?template=startup&canvas=0&cmd=1");
+  await expect(page.locator("#lime-doc-workspace")).toBeVisible();
+  await expect(page.locator(topBlocks)).toHaveCount(13);
+  await expect(page.locator("#lime-doc-workspace")).toContainText("Запусти продукт");
+  await expect(page.locator("#lime-doc-workspace")).toContainText("Начать бесплатно");
+});
+
 test("editor-v2 Stage 2: canvas flag enables zoom and Space-pan without document mutation (@flow)", async ({ page }) => {
   // Канвас не клипается и тянется выше 900px — берём высокий вьюпорт, чтобы блоки/оверлей были на экране.
   await page.setViewportSize({ width: 1440, height: 1400 });
