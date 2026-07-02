@@ -33,6 +33,8 @@
     var EditorCommandRegistry = window.LimeEditorCommandRegistry || {};
     var EditorPerf = window.LimeEditorPerf || {};
     var EditorInlineEdit = window.LimeEditorInlineEdit || {};
+    var EditorStyleEngine = window.LimeEditorStyleEngine || {};
+    var EditorContentBinding = window.LimeEditorContentBinding || {};
     var EditorTheme = window.LimeEditorTheme || {};
     var EditorSiteCode = window.LimeEditorSiteCode || {};
     var EditorSectionBg = window.LimeEditorSectionBg || {};
@@ -65,6 +67,8 @@
     if (!EditorCommandRegistry.create) throw new Error("LimeEditorCommandRegistry is required before lime-doc-editor.js");
     if (!EditorPerf.create) throw new Error("LimeEditorPerf is required before lime-doc-editor.js");
     if (!EditorInlineEdit.create) throw new Error("LimeEditorInlineEdit is required before lime-doc-editor.js");
+    if (!EditorStyleEngine.create) throw new Error("LimeEditorStyleEngine is required before lime-doc-editor.js");
+    if (!EditorContentBinding.create) throw new Error("LimeEditorContentBinding is required before lime-doc-editor.js");
     if (!EditorTheme.create) throw new Error("LimeEditorTheme is required before lime-doc-editor.js");
     if (!EditorSiteCode.create) throw new Error("LimeEditorSiteCode is required before lime-doc-editor.js");
     if (!EditorSectionBg.create) throw new Error("LimeEditorSectionBg is required before lime-doc-editor.js");
@@ -1464,7 +1468,7 @@
     // Наполняет select коллекций из /Data/ApiList (только для сохранённого сайта). Общий кэш
     // читают также render()/INIT — потому остаётся здесь и проброшен в модуль get/set-инъекцией.
     var collectionsCache = null;
-    var contentBinding = LimeEditorContentBinding.create({
+    var contentBinding = EditorContentBinding.create({
         document: document,
         inspectorEl: inspectorEl,
         siteId: siteId,
@@ -1485,323 +1489,40 @@
     var contentExtras = contentBinding.contentExtras;
     var setContentFlag = contentBinding.setContentFlag;
 
-    var styleDebounce;
-    var styleTxn = false;
-    var styleTxnKey = null;
-    function commitStyleEdit() {
-        clearTimeout(styleDebounce);
-        if (!styleTxn || !cmdStore) return;
-        cmdStore.commit("style-gesture");
-        styleTxn = false;
-        styleTxnKey = null;
-        doc = cmdStore.getDoc();
-        cmdPrev = JSON.stringify(doc);
-        updateHistButtons();
-        scheduleAutosave();
-    }
-    // Оседание стиль-жеста (debounce-конец): коммитим и на НЕ-base брейкпоинте (single-select,
-    // обычное состояние) перерисовываем инспектор — чтобы появилась/исчезла кнопка «сбросить»
-    // override. На base/мульти/hover — без лишнего ре-рендера (не теряем фокус контролов).
-    function settleStyleGesture() {
-        commitStyleEdit();
-        // На не-base брейкпоинте перерисовываем инспектор после оседания правки, чтобы появились/исчезли
-        // индикаторы источника и кнопка «сбросить» (в т.ч. multi-reset, когда все выбранные переопределены).
-        // Для одиночного инстанса — рефрешим и на base: ось override «к компоненту» работает на любом бакете.
-        var sb = selectedId ? byId(selectedId) : null;
-        var singleInst = sb && sb.type === "component" && componentRecord(sb.ref) && v2SelectionIds().length < 2;
-        if (!currentClass && currentState === "normal" && (currentBp !== "base" || singleInst)) refreshInspector();
-    }
-    function commandStyle(b, bucket, prop, val) {
-        if (!cmdStore || targetBlock(b) !== b) return false;
-        commitInlineEdit();
-        commitBlockEdit();
-        var key = b.id + ":" + bucket + ":" + prop;
-        if (styleTxn && styleTxnKey !== key) commitStyleEdit();
-        if (!styleTxn) {
-            cmdStore.begin("style-gesture");
-            styleTxn = true;
-            styleTxnKey = key;
-        }
-        if (!cmdStore.dispatch("setStyle", {
-            id: b.id,
-            breakpoint: bucket,
-            prop: prop,
-            value: val,
-            remove: val === "" || val == null
-        })) {
-            cmdStore.cancel();
-            styleTxn = false;
-            styleTxnKey = null;
-            return true; // поддержанная no-op-команда: не проваливаемся в snapshot fallback
-        }
-        doc = cmdStore.getDoc();
-        clearTimeout(styleDebounce);
-        styleDebounce = setTimeout(settleStyleGesture, 400);
-        return true;
-    }
-    // Локальный style-override инстанса компонента: тот же gesture-txn, что commandStyle, но цель —
-    // overrides.styles[bucket][prop] (не definition). Один undo на жест; debounce → settle/refresh.
-    function commandStyleOverride(inst, bucket, prop, val) {
-        if (!cmdStore) return false;
-        commitInlineEdit();
-        commitBlockEdit();
-        var key = inst.id + ":ovr:" + bucket + ":" + prop;
-        if (styleTxn && styleTxnKey !== key) commitStyleEdit();
-        if (!styleTxn) {
-            cmdStore.begin("style-gesture");
-            styleTxn = true;
-            styleTxnKey = key;
-        }
-        if (!cmdStore.dispatch("setComponentStyleOverride", {
-            id: inst.id, breakpoint: bucket, prop: prop, value: val, remove: val === "" || val == null
-        })) {
-            cmdStore.cancel();
-            styleTxn = false;
-            styleTxnKey = null;
-            return true; // поддержанная no-op-команда: не проваливаемся в snapshot fallback
-        }
-        doc = cmdStore.getDoc();
-        clearTimeout(styleDebounce);
-        styleDebounce = setTimeout(settleStyleGesture, 400);
-        return true;
-    }
-    // Stage 5 multi-select: id'шники V2-выбора (≥1). Один блок — обычный путь, несколько —
-    // fan-out стилевых правок на все как одна undo-транзакция.
-    function v2SelectionIds() {
-        if (window.__LIME_SELECTION__) {
-            var ids = window.__LIME_SELECTION__.get().ids;
-            if (ids.length) return ids;
-        }
-        return selectedId ? [selectedId] : [];
-    }
-    // Модель стилевых значений мульти-выбора различает три состояния свойства:
-    // common (одно явное значение), mixed (значения/наличие расходятся), unset (нет у всех).
-    function multiStyleModel(ids, bucketName) {
-        var buckets = ids.map(function (id) {
-            return readStyles(byId(id))[bucketName] || {}; // у инстанса — эффективные стили
-        });
-        var props = {}, values = {}, mixed = {};
-        buckets.forEach(function (bk) { Object.keys(bk).forEach(function (p) { props[p] = 1; }); });
-        Object.keys(props).forEach(function (prop) {
-            var has0 = Object.prototype.hasOwnProperty.call(buckets[0], prop);
-            var v0 = buckets[0][prop];
-            var common = buckets.every(function (bk) {
-                return Object.prototype.hasOwnProperty.call(bk, prop) === has0 && (!has0 || bk[prop] === v0);
-            });
-            if (common && has0) values[prop] = v0;
-            else if (!common) mixed[prop] = true;
-        });
-        return { values: values, mixed: mixed };
-    }
-    // Стилевая gesture-команда на НЕСКОЛЬКО узлов: одна транзакция, по dispatch на каждый target.
-    function commandStyleMulti(ids, bucket, prop, val) {
-        if (!cmdStore) return false;
-        var seen = {}, targets = [];
-        for (var i = 0; i < ids.length; i++) {
-            var source = byId(ids[i]);
-            if (!source) return false;
-            var isInst = source.type === "component" && componentRecord(source.ref);
-            // Обычный блок адресуем напрямую; компонент-инстанс — через локальный style-override.
-            // Определение компонента (target !== source и не инстанс) command engine пока не трогает.
-            if (!isInst && targetBlock(source) !== source) return false;
-            if (!seen[source.id]) { seen[source.id] = true; targets.push({ id: source.id, inst: !!isInst }); }
-        }
-        if (!targets.length) return false;
-        commitInlineEdit(); commitBlockEdit();
-        var key = "multi:" + targets.map(function (t) { return t.id; }).join(",") + ":" + bucket + ":" + prop;
-        if (styleTxn && styleTxnKey !== key) commitStyleEdit();
-        if (!styleTxn) { cmdStore.begin("style-gesture"); styleTxn = true; styleTxnKey = key; }
-        var rm = val === "" || val == null;
-        targets.forEach(function (t) {
-            if (t.inst) cmdStore.dispatch("setComponentStyleOverride", { id: t.id, breakpoint: bucket, prop: prop, value: val, remove: rm });
-            else cmdStore.dispatch("setStyle", { id: t.id, breakpoint: bucket, prop: prop, value: val, remove: rm });
-        });
-        doc = cmdStore.getDoc();
-        clearTimeout(styleDebounce);
-        styleDebounce = setTimeout(settleStyleGesture, 400);
-        return true;
-    }
-    function setStyle(prop, val) {
-        if (currentClass) { setClassStyle(prop, val); return; } // правим класс, не блок (0.1)
-        var ids = v2SelectionIds();
-        var bucket = currentState === "hover" ? "hover" : currentBp;
-        if (ids.length >= 2) { // multi-select fan-out (Stage 5)
-            if (cmdStore && commandStyleMulti(ids, bucket, prop, val)) { applyPreviewStyles(); return; }
-            commitStyleEdit();
-            beginCheckpointMutation();
-            var changedTargets = [];
-            ids.forEach(function (id) {
-                var src = byId(id);
-                if (!src) return;
-                // Компонент-инстанс — локальный style-override (не трогаем определение/копии).
-                if (src.type === "component" && componentRecord(src.ref)) {
-                    if (changedTargets.indexOf(src) !== -1) return;
-                    changedTargets.push(src);
-                    setComponentStyleOverrideLocal(src, bucket, prop, val, val === "" || val == null);
-                    return;
-                }
-                var mb = targetBlock(src);
-                if (!mb || changedTargets.indexOf(mb) !== -1) return;
-                changedTargets.push(mb);
-                if (!mb.styles) mb.styles = {};
-                if (!mb.styles[bucket]) mb.styles[bucket] = {};
-                if (val === "" || val == null) delete mb.styles[bucket][prop]; else mb.styles[bucket][prop] = val;
-                if (!Object.keys(mb.styles[bucket]).length) delete mb.styles[bucket];
-            });
-            applyPreviewStyles();
-            markDirty();
-            return;
-        }
-        var source = byId(selectedId);
-        if (!source) return;
-        // Компонент-инстанс (single-select): стиль-правка локальна (overrides.styles), как текст/медиа.
-        if (source.type === "component" && componentRecord(source.ref)) {
-            if (cmdStore && commandStyleOverride(source, bucket, prop, val)) { applyPreviewStyles(); return; }
-            commitStyleEdit();
-            beginCheckpointMutation();
-            setComponentStyleOverrideLocal(source, bucket, prop, val, val === "" || val == null);
-            applyPreviewStyles();
-            markDirty();
-            return;
-        }
-        var b = targetBlock(source);
-        if (!b) return;
-        if (commandStyle(source, bucket, prop, val)) {
-            applyPreviewStyles();
-            return;
-        }
-        commitStyleEdit();
-        if (!b.styles) b.styles = {};
-        if (!b.styles[bucket]) b.styles[bucket] = {};
-        if (val === "" || val == null) delete b.styles[bucket][prop];
-        else b.styles[bucket][prop] = val;
-        if (!Object.keys(b.styles[bucket]).length) delete b.styles[bucket]; // не плодим пустые бакеты
-        applyPreviewStyles();
-        markDirty();
-    }
-    // Stage 5 reset override: снять переопределения секции на текущем бакете → значение наследуется
-    // с base/tablet. Одна транзакция на все пропы секции (и все выбранные узлы), затем re-render.
-    function resetStyleProps(props) {
-        if (!props || !props.length || currentClass) return;
-        commitStyleEdit();
-        var ids = v2SelectionIds();
-        var bucket = currentState === "hover" ? "hover" : currentBp;
-        var isInst = function (src) { return src && src.type === "component" && componentRecord(src.ref); };
-        if (cmdStore) {
-            cmdStore.begin("style-reset");
-            ids.forEach(function (id) {
-                var src = byId(id);
-                if (!src) return;
-                // Инстанс — снимаем локальный override (к компоненту); обычный блок — свой стиль.
-                if (isInst(src)) {
-                    props.forEach(function (p) { cmdStore.dispatch("setComponentStyleOverride", { id: src.id, breakpoint: bucket, prop: p, remove: true }); });
-                } else {
-                    var t = targetBlock(src);
-                    if (t) props.forEach(function (p) { cmdStore.dispatch("setStyle", { id: t.id, breakpoint: bucket, prop: p, value: "", remove: true }); });
-                }
-            });
-            cmdStore.commit("style-reset");
-            doc = cmdStore.getDoc(); cmdPrev = JSON.stringify(doc); updateHistButtons(); scheduleAutosave();
-        } else {
-            ids.forEach(function (id) {
-                var src = byId(id);
-                if (!src) return;
-                if (isInst(src)) {
-                    props.forEach(function (p) { setComponentStyleOverrideLocal(src, bucket, p, "", true); });
-                    return;
-                }
-                var t = targetBlock(src);
-                if (!t || !t.styles || !t.styles[bucket]) return;
-                props.forEach(function (p) { delete t.styles[bucket][p]; });
-                if (!Object.keys(t.styles[bucket]).length) delete t.styles[bucket];
-            });
-            markDirty();
-        }
-        applyPreviewStyles();
-        refreshInspector();
-    }
-    // Запись стиля в определение класса (0.1): живое превью через applyPreviewStyles
-    // обновит ВСЕ блоки с этим классом без полного ре-рендера (ползунок не теряет фокус).
-    function setClassStyle(prop, val) {
-        var def = findClassDef(currentClass);
-        if (!def) return;
-        beginCheckpointMutation();
-        if (!def.styles) def.styles = {};
-        var bucket = currentState === "hover" ? "hover" : currentBp;
-        if (!def.styles[bucket]) def.styles[bucket] = {};
-        if (val === "" || val == null) delete def.styles[bucket][prop];
-        else def.styles[bucket][prop] = val;
-        if (!Object.keys(def.styles[bucket]).length) delete def.styles[bucket];
-        applyPreviewStyles();
-        markDirty();
-    }
-
-    // Анимация появления — НЕ привязана к брейкпоинту, живёт прямо на блоке
-    // (block.anim/animDelay/animDuration). Пишем в DOM-атрибут напрямую, чтобы
-    // «▶ Превью» (LimeAnim.play читает data-* с .lime-block) брал свежие значения
-    // без полного ре-рендера и потери фокуса ползунка.
-    var blockDebounce;
-    var blockTxn = false;
-    var blockTxnKey = null;
-    function commitBlockEdit() {
-        clearTimeout(blockDebounce);
-        if (!blockTxn || !cmdStore) return;
-        cmdStore.commit("block-gesture");
-        blockTxn = false;
-        blockTxnKey = null;
-        doc = cmdStore.getDoc();
-        cmdPrev = JSON.stringify(doc);
-        updateHistButtons();
-        scheduleAutosave();
-    }
-    function commandBlockGesture(source, prop, value, remove, gestureKey) {
-        if (!cmdStore || targetBlock(source) !== source) return false;
-        commitInlineEdit();
-        commitStyleEdit();
-        var key = source.id + ":" + (gestureKey || prop);
-        if (blockTxn && blockTxnKey !== key) commitBlockEdit();
-        if (!blockTxn) {
-            cmdStore.begin("block-gesture");
-            blockTxn = true;
-            blockTxnKey = key;
-        }
-        if (!cmdStore.dispatch("setBlockProp", {
-            id: source.id, prop: prop, value: value, remove: !!remove
-        })) {
-            cmdStore.cancel();
-            blockTxn = false;
-            blockTxnKey = null;
-            return true;
-        }
-        doc = cmdStore.getDoc();
-        clearTimeout(blockDebounce);
-        blockDebounce = setTimeout(commitBlockEdit, 400);
-        return true;
-    }
-    function commandContentGesture(source, field, value, remove, gestureKey) {
-        if (!cmdStore || targetBlock(source) !== source) return false;
-        commitInlineEdit();
-        commitStyleEdit();
-        var key = source.id + ":content:" + (gestureKey || field);
-        if (blockTxn && blockTxnKey !== key) commitBlockEdit();
-        if (!blockTxn) {
-            cmdStore.begin("content-gesture");
-            blockTxn = true;
-            blockTxnKey = key;
-        }
-        if (!cmdStore.dispatch("setContent", {
-            id: source.id, field: field, value: value, remove: !!remove
-        })) {
-            cmdStore.cancel();
-            blockTxn = false;
-            blockTxnKey = null;
-            return true;
-        }
-        doc = cmdStore.getDoc();
-        clearTimeout(blockDebounce);
-        blockDebounce = setTimeout(commitBlockEdit, 400);
-        return true;
-    }
+    // ===== STYLE/BLOCK GESTURE ENGINE — module lime-editor-style-engine.js =====
+    // Обёртки ниже — function declarations (hoisted): их получают ПО ЗНАЧЕНИЮ модули,
+    // создающиеся выше этой точки (inline-edit, effects, shadow), и обработчики инспектора.
+    var styleEngine = EditorStyleEngine.create({
+        window: window,
+        getCmdStore: function () { return cmdStore; },
+        setDoc: function (value) { doc = value; },
+        setCmdPrev: function (value) { cmdPrev = value; },
+        getSelectedId: function () { return selectedId; },
+        getCurrentClass: function () { return currentClass; },
+        getCurrentState: function () { return currentState; },
+        getCurrentBp: function () { return currentBp; },
+        byId: byId,
+        targetBlock: targetBlock,
+        readStyles: readStyles,
+        findClassDef: findClassDef,
+        componentRecord: componentRecord,
+        setComponentStyleOverrideLocal: setComponentStyleOverrideLocal,
+        beginCheckpointMutation: beginCheckpointMutation,
+        updateHistButtons: updateHistButtons,
+        scheduleAutosave: scheduleAutosave,
+        markDirty: markDirty,
+        refreshInspector: refreshInspector,
+        applyPreviewStyles: applyPreviewStyles,
+        commitInlineEdit: commitInlineEdit
+    });
+    function commitStyleEdit() { styleEngine.commitStyleEdit(); }
+    function commitBlockEdit() { styleEngine.commitBlockEdit(); }
+    function v2SelectionIds() { return styleEngine.v2SelectionIds(); }
+    function multiStyleModel(ids, bucketName) { return styleEngine.multiStyleModel(ids, bucketName); }
+    function setStyle(prop, val) { styleEngine.setStyle(prop, val); }
+    function resetStyleProps(props) { styleEngine.resetStyleProps(props); }
+    function commandBlockGesture(source, prop, value, remove, gestureKey) { return styleEngine.commandBlockGesture(source, prop, value, remove, gestureKey); }
+    function commandContentGesture(source, field, value, remove, gestureKey) { return styleEngine.commandContentGesture(source, field, value, remove, gestureKey); }
     // ===== ФОН СЕКЦИИ (градиент/картинка/затемнение/видео) — модуль lime-editor-section-bg.js =====
     // Изменяемое состояние (selectedId/currentBp/cmdStore) отдаём геттерами — нужно актуальное на
     // момент вызова. bgInspector рендерит панель, остальные методы дёргает обработчик инспектора ниже.
