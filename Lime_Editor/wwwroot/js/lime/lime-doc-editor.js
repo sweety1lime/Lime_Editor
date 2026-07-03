@@ -38,6 +38,7 @@
     var EditorDnd = window.LimeEditorDnd || {};
     var EditorRender = window.LimeEditorRender || {};
     var EditorInspector = window.LimeEditorInspector || {};
+    var EditorInspectorEvents = window.LimeEditorInspectorEvents || {};
     var EditorTheme = window.LimeEditorTheme || {};
     var EditorSiteCode = window.LimeEditorSiteCode || {};
     var EditorSectionBg = window.LimeEditorSectionBg || {};
@@ -75,6 +76,7 @@
     if (!EditorDnd.create) throw new Error("LimeEditorDnd is required before lime-doc-editor.js");
     if (!EditorRender.create) throw new Error("LimeEditorRender is required before lime-doc-editor.js");
     if (!EditorInspector.create) throw new Error("LimeEditorInspector is required before lime-doc-editor.js");
+    if (!EditorInspectorEvents.create) throw new Error("LimeEditorInspectorEvents is required before lime-doc-editor.js");
     if (!EditorTheme.create) throw new Error("LimeEditorTheme is required before lime-doc-editor.js");
     if (!EditorSiteCode.create) throw new Error("LimeEditorSiteCode is required before lime-doc-editor.js");
     if (!EditorSectionBg.create) throw new Error("LimeEditorSectionBg is required before lime-doc-editor.js");
@@ -1144,316 +1146,86 @@
     var promptBgVideo = sectionBg.promptBgVideo;
     var setBg = sectionBg.setBg;
 
-    if (inspectorEl) {
-        // Stage 5 drag-to-adjust: тянешь подпись числового поля → значение скрабится (Shift ×10,
-        // Alt ×0.1). На отпускании шлём один `change` → существующий commit-путь (один undo).
-        // Превью блока обновляется на отпускании (live-превью design-полей — отдельный инкремент).
-        var scrub = null;
-        inspectorEl.addEventListener("pointerdown", function (e) {
-            var label = e.target.closest("[data-scrub]");
-            if (!label) return;
-            var field = label.closest(".lime-v2-field");
-            var input = field && field.querySelector('input[type="number"]');
-            if (!input) return;
-            var startVal = parseFloat(input.value); if (!isFinite(startVal)) startVal = 0;
-            scrub = {
-                input: input, label: label, pointerId: e.pointerId, startX: e.clientX, startVal: startVal,
-                step: parseFloat(input.step) || 1, min: input.min !== "" ? parseFloat(input.min) : -Infinity, changed: false
-            };
-            try { label.setPointerCapture(e.pointerId); } catch (_) { /* no-op */ }
-            e.preventDefault();
-        });
-        inspectorEl.addEventListener("pointermove", function (e) {
-            if (!scrub || scrub.pointerId !== e.pointerId) return;
-            var mod = e.shiftKey ? 10 : (e.altKey ? 0.1 : 1);
-            var delta = Math.round((e.clientX - scrub.startX) / 3) * scrub.step * mod;
-            if (!delta) return;
-            var dec = scrub.step < 1 ? 2 : 0;
-            var val = Math.max(scrub.min, parseFloat((scrub.startVal + delta).toFixed(dec)));
-            if (String(val) !== scrub.input.value) {
-                scrub.input.value = String(val);
-                scrub.changed = true;
-                if (scrub.input.hasAttribute("data-v2-design-field")) previewDesignInput(scrub.input);
-                else if (scrub.input.hasAttribute("data-v2-child-field")) previewChildDesignInput(scrub.input);
-            }
-        });
-        function endScrub(e) {
-            if (!scrub || scrub.pointerId !== e.pointerId) return;
-            try { scrub.label.releasePointerCapture(e.pointerId); } catch (_) { /* no-op */ }
-            if (scrub.changed) scrub.input.dispatchEvent(new Event("change", { bubbles: true }));
-            clearScrubPreview();
-            scrub = null;
-        }
-        inspectorEl.addEventListener("pointerup", endScrub);
-        inspectorEl.addEventListener("pointercancel", endScrub);
-        inspectorEl.addEventListener("change", function (e) {
-            if (e.target.hasAttribute("data-doc-component-variant")) {
-                setComponentVariant(e.target.value);
-                return;
-            }
-            // Component property (минимальный вид): коммит на blur/Enter → локальный content-override.
-            if (e.target.hasAttribute("data-doc-prop")) {
-                var propSource = selectedId && byId(selectedId);
-                if (propSource) { setContentValue(propSource, e.target.getAttribute("data-doc-prop"), e.target.value, false); refreshInspector(); }
-                return;
-            }
-            var styleUnit = e.target.getAttribute("data-doc-style-unit");
-            if (styleUnit) {
-                var styleInput = e.target.closest(".lime-range-row").querySelector("[data-doc-style]");
-                if (!styleInput) return;
-                styleInput.dataset.unit = e.target.value;
-                setStyle(styleUnit, styleInput.value === "" ? "" : styleInput.value + e.target.value);
-                var styleLabel = styleInput.parentNode.querySelector(".lime-range__val");
-                if (styleLabel) styleLabel.textContent = styleInput.value + e.target.value;
-                return;
-            }
-            if (applyV2UnitChange(e.target)) return;
-            if (applyV2ChildDesignInput(e.target)) return;
-            if (applyV2DesignInput(e.target)) return;
-        });
-        inspectorEl.addEventListener("input", function (e) {
-            var t = e.target;
-            if (t.hasAttribute("data-doc-style")) {
-                if (t.hasAttribute("data-mixed")) {
-                    t.removeAttribute("data-mixed");
-                    t.removeAttribute("aria-label");
-                    t.classList.remove("is-mixed");
-                    var mixedHost = t.closest("[data-style-mixed]");
-                    if (mixedHost) {
-                        mixedHost.classList.remove("is-mixed");
-                        mixedHost.removeAttribute("data-style-mixed");
-                        var mixedLabel = mixedHost.querySelector(".lime-mixed-label");
-                        if (mixedLabel) mixedLabel.remove();
-                    }
-                }
-                var unit = t.dataset.unit || "";
-                setStyle(t.dataset.docStyle, t.value === "" ? "" : t.value + unit);
-                if (t.dataset.docStyle === "fontFamily") ensureDocFonts(); // подгрузить шрифт для превью
-                if (t.type === "range") {
-                    var lbl = t.parentNode.querySelector(".lime-range__val");
-                    if (lbl) lbl.textContent = t.value + unit;
-                }
-            } else if (t.hasAttribute("data-doc-anim") && t.type === "range") {
-                setAnim(t.dataset.docAnim, t.value, false);
-                var al = t.parentNode.querySelector(".lime-range__val");
-                if (al) al.textContent = t.value;
-            } else if (t.hasAttribute("data-doc-grad")) {
-                composeGradient();
-                if (t.type === "range") {
-                    var gl = t.parentNode.querySelector(".lime-range__val");
-                    if (gl) gl.textContent = t.value + "°";
-                }
-            } else if (t.hasAttribute("data-doc-overlay")) {
-                liveOverlay();
-                if (t.type === "range") {
-                    var ol = t.parentNode.querySelector(".lime-range__val");
-                    if (ol) ol.textContent = Math.round(parseFloat(t.value) * 100) + "%";
-                }
-            } else if (t.hasAttribute("data-doc-motion") && t.type === "range") {
-                // Параллакс секции: пишем модель + DOM-атрибут (визуально едет только на публикации).
-                setMotionParallax(t.value);
-                var ml = t.parentNode.querySelector(".lime-range__val"); if (ml) ml.textContent = t.value;
-            } else if (t.hasAttribute("data-doc-layer-rng")) {
-                var li = parseInt(t.dataset.i, 10);
-                setLayerRng(li, t.dataset.docLayerRng, parseFloat(t.value));
-                var ll = t.parentNode.querySelector(".lime-range__val"); if (ll) ll.textContent = t.value;
-            } else if (t.hasAttribute("data-doc-layer-color")) {
-                var ci = parseInt(t.dataset.docLayerColor, 10);
-                setLayerRng(ci, "color", t.value);
-            } else if (t.hasAttribute("data-doc-scene-len") && t.type === "range") {
-                setSceneLength(t.value);
-                var sl = t.parentNode.querySelector(".lime-range__val");
-                if (sl) sl.textContent = t.value;
-            } else if (t.hasAttribute("data-doc-shadow")) {
-                composeShadow();
-                if (t.type === "range") {
-                    var shl = t.parentNode.querySelector(".lime-range__val");
-                    if (shl) shl.textContent = t.value + (t.dataset.k === "alpha" ? "" : "px");
-                }
-            } else if (t.hasAttribute("data-doc-cd-target")) {
-                setContentFlag("target", t.value || null); // дата окончания отсчёта
-            } else if (t.hasAttribute("data-doc-bind")) {
-                setContentFlag(t.getAttribute("data-doc-bind"), t.value || null); // привязка блока к полю записи
-            } else if (t.hasAttribute("data-doc-collection")) {
-                setContentFlag("collection", t.value || null);
-                refreshInspector(); // перезаполнить поля карточки/сортировки под новую коллекцию
-            } else if (t.hasAttribute("data-doc-cl-limit")) {
-                var clLim = parseInt(t.value, 10);
-                setContentFlag("limit", clLim > 0 ? clLim : null);
-            } else if (t.hasAttribute("data-doc-cl-sortfield")) {
-                setContentFlag("sortField", t.value || null);
-            } else if (t.hasAttribute("data-doc-cl-sortdir")) {
-                setContentFlag("sortDir", t.value === "asc" ? "asc" : null);
-            } else if (t.hasAttribute("data-doc-cl-filterfield")) {
-                setContentFlag("filterField", t.value || null);
-            } else if (t.hasAttribute("data-doc-cl-filterval")) {
-                setContentFlag("filterValue", t.value || null);
-            } else if (t.hasAttribute("data-doc-cl-imagefield")) {
-                setContentFlag("imageField", t.value || null);
-            } else if (t.hasAttribute("data-doc-cl-titlefield")) {
-                setContentFlag("titleField", t.value || null);
-            } else if (t.hasAttribute("data-doc-cl-descfield")) {
-                setContentFlag("descField", t.value || null);
-            } else if (t.hasAttribute("data-doc-class-add")) {
-                if (t.value) applyClassToBlock(t.value); // <select> применить класс (0.1)
-            }
-        });
-        inspectorEl.addEventListener("click", function (e) {
-            var el;
-            if ((el = e.target.closest("[data-v2-design-reset]"))) {
-                resetV2DesignField(el.dataset.v2DesignReset);
-                return;
-            }
-            if ((el = e.target.closest("[data-doc-style-reset]"))) { // Stage 5: сброс override стиля
-                resetStyleProps(el.getAttribute("data-doc-style-reset").split(","));
-                return;
-            }
-            if ((el = e.target.closest("[data-doc-prop-reset]"))) { // 6.8: сброс свойства к значению компонента
-                var propResetSource = selectedId && byId(selectedId);
-                if (propResetSource) { setContentValue(propResetSource, el.getAttribute("data-doc-prop-reset"), "", true); refreshInspector(); }
-                return;
-            }
-            if ((el = e.target.closest("[data-v2-layout-mode]"))) { switchV2LayoutMode(el.dataset.v2LayoutMode); return; }
-            if ((el = e.target.closest("[data-v2-layout-direction]"))) {
-                setV2LayoutDirection(el.dataset.v2LayoutDirection);
-                return;
-            }
-            if ((el = e.target.closest("[data-v2-layout-wrap]"))) {
-                setV2LayoutWrap(el.dataset.v2LayoutWrap === "1");
-                return;
-            }
-            if ((el = e.target.closest("[data-v2-grid-auto]"))) {
-                // Фикс./Авто колонки: число (repeat N) ↔ объект { mode:auto, min } (repeat auto-fit/fill).
-                setV2GridAuto(el.dataset.v2GridAuto === "1");
-                return;
-            }
-            if ((el = e.target.closest("[data-v2-grid-fill]"))) {
-                setV2GridFill(el.dataset.v2GridFill === "1");
-                return;
-            }
-            if ((el = e.target.closest("[data-v2-overflow]"))) { // hidden → set; visible (дефолт) → убрать
-                setV2Overflow(el.dataset.v2Overflow);
-                return;
-            }
-            if ((el = e.target.closest("[data-doc-insp-tab]"))) {
-                currentInspectorTab = el.dataset.docInspTab;
-                var tb = inspectorEl.querySelectorAll("[data-doc-insp-tab]");
-                for (var ti = 0; ti < tb.length; ti++) tb[ti].classList.toggle("is-active", tb[ti] === el);
-                var pn = inspectorEl.querySelectorAll("[data-insp-tab]");
-                for (var pj = 0; pj < pn.length; pj++) pn[pj].hidden = (pn[pj].getAttribute("data-insp-tab") !== currentInspectorTab);
-                return;
-            }
-            if ((el = e.target.closest("[data-doc-state]"))) {
-                currentState = el.dataset.docState === "hover" ? "hover" : "normal";
-                refreshInspector();
-                applyPreviewStyles(); // показать/убрать вид наведения в холсте
-                return;
-            }
-            // Классы (0.1)
-            if ((el = e.target.closest("[data-doc-class-edit]"))) { editClass(el.dataset.docClassEdit); return; }
-            if ((el = e.target.closest("[data-doc-class-remove]"))) { removeClassFromBlock(el.dataset.docClassRemove); return; }
-            if (e.target.closest("[data-doc-class-new]")) { createClassFromBlock(); return; }
-            if (e.target.closest("[data-doc-class-done]")) { exitClassEdit(); return; }
-            if (e.target.closest("[data-doc-class-delete]")) { deleteClass(currentClass); return; }
-            if (e.target.closest("[data-doc-class-rename]")) { renameClass(currentClass); return; }
-            if (e.target.closest("[data-doc-shadow-add]")) { addShadow(); return; }
-            if ((el = e.target.closest("[data-doc-shadow-del]"))) { delShadow(parseInt(el.dataset.docShadowDel, 10)); return; }
-            if ((el = e.target.closest("[data-doc-style]")) && el.tagName === "BUTTON") {
-                setStyle(el.dataset.docStyle, el.dataset.val);
-                refreshInspector();
-                return;
-            }
-            if ((el = e.target.closest("[data-doc-anim]")) && el.tagName === "BUTTON") {
-                setAnim("anim", el.dataset.val, true);
-                return;
-            }
-            if ((el = e.target.closest("[data-doc-clear]"))) {
-                setStyle(el.dataset.docClear, "");
-                refreshInspector();
-                return;
-            }
-            if ((el = e.target.closest("[data-doc-bgmode]"))) { switchBgMode(el.dataset.docBgmode); return; }
-            if (e.target.closest("[data-doc-bg-pick]")) { openMediaPicker(selectedId, "backgroundImage", "bgimage"); return; }
-            if (e.target.closest("[data-doc-bg-video]")) { promptBgVideo(); return; }
-            if (e.target.closest("[data-doc-bg-clear-img]")) { setStyle("backgroundImage", ""); refreshInspector(); return; }
-            if ((el = e.target.closest("[data-doc-bg-clear-key]"))) { setBg(el.dataset.docBgClearKey, ""); return; }
-            if ((el = e.target.closest("[data-doc-bg-preset]"))) {
-                var bp = window.LimeAssets && window.LimeAssets.BG_PRESETS[parseInt(el.dataset.docBgPreset, 10)];
-                if (bp) {
-                    var presetSource = byId(selectedId);
-                    var bb = targetBlock(presetSource);
-                    if (cmdStore && bb === presetSource) {
-                        var presetChanged = runCommands([
-                            { type: "setContent", payload: { id: presetSource.id, field: "bgMode", value: "gradient" } },
-                            { type: "setStyle", payload: { id: presetSource.id, breakpoint: currentBp, prop: "backgroundImage", value: bp.css } }
-                        ], "background-preset");
-                        applyPreviewStyles(); if (presetChanged) scheduleAutosave();
-                    } else {
-                        if (bb) { if (!bb.content) bb.content = {}; bb.content.bgMode = "gradient"; }
-                        setStyle("backgroundImage", bp.css);
-                    }
-                    refreshInspector();
-                }
-                return;
-            }
-            // ----- эффекты и макет -----
-            if ((el = e.target.closest("[data-doc-fx]"))) { toggleFx(el.dataset.docFx); return; }
-            if ((el = e.target.closest("[data-doc-width]"))) { setContentFlag("width", el.dataset.docWidth === "boxed" ? "boxed" : null); return; }
-            if ((el = e.target.closest("[data-doc-bento]"))) { setContentFlag("layout", el.dataset.docBento === "on" ? "bento" : null); return; }
-            if ((el = e.target.closest("[data-doc-cl-layout]"))) { setContentFlag("layout", el.dataset.docClLayout === "cards" ? null : el.dataset.docClLayout); refreshInspector(); return; }
-            // ----- движение -----
-            if ((el = e.target.closest("[data-doc-sticky]"))) {
-                setSticky(el.dataset.docSticky === "1");
-                return;
-            }
-            if ((el = e.target.closest("[data-doc-marquee]"))) {
-                setMarquee(el.dataset.docMarquee);
-                return;
-            }
-            if ((el = e.target.closest("[data-doc-scene]"))) { setSceneMode(el.dataset.docScene); return; }
-            // ----- декор-слои -----
-            if ((el = e.target.closest("[data-doc-layer-add]"))) { addLayer(el.dataset.docLayerAdd); return; }
-            if ((el = e.target.closest("[data-doc-layer-del]"))) { delLayer(parseInt(el.dataset.docLayerDel, 10)); return; }
-            if ((el = e.target.closest("[data-doc-layer-pick]"))) { pickLayerImage(parseInt(el.dataset.docLayerPick, 10)); return; }
-            if ((el = e.target.closest("[data-doc-layer-shape]"))) {
-                setLayerShape(parseInt(el.dataset.docLayerShape, 10), el.dataset.shape);
-                return;
-            }
-            if ((el = e.target.closest("[data-doc-cols]"))) {
-                var cb = findBlock(selectedId);
-                if (cb) {
-                    setContentValue(cb.block, "cols", parseInt(el.dataset.docCols, 10), false);
-                    refreshInspector();
-                }
-                return;
-            }
-            if ((el = e.target.closest("[data-doc-component-variant-add]"))) {
-                addComponentVariantFromInstance();
-                return;
-            }
-            if ((el = e.target.closest("[data-doc-op]"))) {
-                var op = el.dataset.docOp;
-                if (op === "up") moveBlock(-1);
-                else if (op === "down") moveBlock(1);
-                else if (op === "unwrap") unwrapBlock();
-                else if (op === "group") groupSelection();
-                else if (op === "ungroup") ungroupBlock();
-                else if (op === "ai") aiRewrite();
-                else if (op === "dup") dupBlock();
-                else if (op === "comp") makeComponent();
-                else if (op === "detach") detachComponent();
-                else if (op === "reset-overrides") resetComponentOverrides();
-                else if (op === "free-toggle") { // DnD C: тумблер free ⇄ stack для контейнера
-                    var fb = selectedId && byId(selectedId), ft = fb && targetBlock(fb);
-                    if (ft && L.isContainer(ft.type)) {
-                        var fm = ((L.resolvedDesign(ft.design, currentBp).layout || {}).mode) || "stack";
-                        switchV2LayoutMode(fm === "free" ? "stack" : "free");
-                    }
-                }
-                else if (op === "del") { if (confirm("Удалить блок?")) delBlock(); }
-            }
-        });
-    }
+    // ===== INSPECTOR EVENTS — module lime-editor-inspector-events.js =====
+    // Делегированные обработчики панели: скраб/change/input/click-диспетчер. Все экшены —
+    // hoisted-обёртки или ранние алиасы, поэтому передаются по значению; состояние — get/set.
+    EditorInspectorEvents.create({
+        window: window,
+        inspectorEl: inspectorEl,
+        L: L,
+        getSelectedId: function () { return selectedId; },
+        getCurrentBp: function () { return currentBp; },
+        getCurrentClass: function () { return currentClass; },
+        setCurrentState: function (value) { currentState = value; },
+        getCurrentInspectorTab: function () { return currentInspectorTab; },
+        setCurrentInspectorTab: function (value) { currentInspectorTab = value; },
+        getCmdStore: function () { return cmdStore; },
+        byId: byId,
+        findBlock: findBlock,
+        targetBlock: targetBlock,
+        setStyle: setStyle,
+        resetStyleProps: resetStyleProps,
+        setContentValue: setContentValue,
+        setContentFlag: setContentFlag,
+        runCommands: runCommands,
+        applyPreviewStyles: applyPreviewStyles,
+        refreshInspector: refreshInspector,
+        scheduleAutosave: scheduleAutosave,
+        ensureDocFonts: ensureDocFonts,
+        previewDesignInput: previewDesignInput,
+        previewChildDesignInput: previewChildDesignInput,
+        clearScrubPreview: clearScrubPreview,
+        applyV2UnitChange: applyV2UnitChange,
+        applyV2ChildDesignInput: applyV2ChildDesignInput,
+        applyV2DesignInput: applyV2DesignInput,
+        resetV2DesignField: resetV2DesignField,
+        switchV2LayoutMode: switchV2LayoutMode,
+        setV2LayoutDirection: setV2LayoutDirection,
+        setV2LayoutWrap: setV2LayoutWrap,
+        setV2GridAuto: setV2GridAuto,
+        setV2GridFill: setV2GridFill,
+        setV2Overflow: setV2Overflow,
+        applyClassToBlock: applyClassToBlock,
+        editClass: editClass,
+        removeClassFromBlock: removeClassFromBlock,
+        createClassFromBlock: createClassFromBlock,
+        exitClassEdit: exitClassEdit,
+        deleteClass: deleteClass,
+        renameClass: renameClass,
+        setAnim: setAnim,
+        toggleFx: toggleFx,
+        setSticky: setSticky,
+        setMarquee: setMarquee,
+        setSceneMode: setSceneMode,
+        setSceneLength: setSceneLength,
+        setMotionParallax: setMotionParallax,
+        addLayer: addLayer,
+        delLayer: delLayer,
+        pickLayerImage: pickLayerImage,
+        setLayerShape: setLayerShape,
+        setLayerRng: setLayerRng,
+        composeShadow: composeShadow,
+        addShadow: addShadow,
+        delShadow: delShadow,
+        composeGradient: composeGradient,
+        liveOverlay: liveOverlay,
+        switchBgMode: switchBgMode,
+        promptBgVideo: promptBgVideo,
+        setBg: setBg,
+        openMediaPicker: openMediaPicker,
+        moveBlock: moveBlock,
+        unwrapBlock: unwrapBlock,
+        dupBlock: dupBlock,
+        delBlock: delBlock,
+        groupSelection: groupSelection,
+        ungroupBlock: ungroupBlock,
+        makeComponent: makeComponent,
+        detachComponent: detachComponent,
+        resetComponentOverrides: resetComponentOverrides,
+        setComponentVariant: setComponentVariant,
+        addComponentVariantFromInstance: addComponentVariantFromInstance,
+        aiRewrite: aiRewrite
+    }).bind();
 
     // ===== SAVE / AUTOSAVE / CRASH RECOVERY — module lime-editor-persistence.js =====
     var persistence = EditorPersistence.create({
