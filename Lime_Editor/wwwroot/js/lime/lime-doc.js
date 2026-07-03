@@ -148,6 +148,72 @@
     function escAttr(s) {
         return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/"/g, "&quot;");
     }
+    // Allowlist хостов для embed-блока: креативные площадки, чьи сцены встраиваем в sandbox-iframe.
+    // Совпадение — сам домен или его поддомен (my.spline.design). Произвольный https-iframe
+    // сознательно запрещён (сервер иначе не проверяет embed вообще); расширять список — здесь.
+    var EMBED_HOSTS = [
+        "spline.design", "rive.app", "lottie.host", "lottiefiles.com",
+        "youtube.com", "youtube-nocookie.com", "vimeo.com", "sketchfab.com", "figma.com"
+    ];
+    var EMBED_PROVIDERS = {
+        spline: { label: "Spline", aspect: "4/5" },
+        rive: { label: "Rive", aspect: "16/9" },
+        lottie: { label: "Lottie", aspect: "1/1" },
+        youtube: { label: "YouTube", aspect: "16/9" },
+        vimeo: { label: "Vimeo", aspect: "16/9" },
+        sketchfab: { label: "Sketchfab", aspect: "16/9" },
+        figma: { label: "Figma", aspect: "16/9" },
+        embed: { label: "Embed", aspect: "16/9" }
+    };
+    function isAllowedEmbedUrl(url) {
+        var m = /^https:\/\/([^\/?#]+)/i.exec(String(url == null ? "" : url).trim());
+        if (!m) return false;
+        var host = m[1].toLowerCase();
+        var colon = host.indexOf(":"); // отрезать порт
+        if (colon >= 0) host = host.slice(0, colon);
+        if (host.indexOf("@") >= 0) return false; // user@host-трюк не пропускаем
+        for (var i = 0; i < EMBED_HOSTS.length; i++) {
+            var d = EMBED_HOSTS[i];
+            if (host === d || host.slice(-(d.length + 1)) === "." + d) return true;
+        }
+        return false;
+    }
+    function embedHost(url) {
+        var m = /^https:\/\/([^\/?#]+)/i.exec(String(url == null ? "" : url).trim());
+        if (!m) return "";
+        var host = m[1].toLowerCase();
+        var colon = host.indexOf(":");
+        return colon >= 0 ? host.slice(0, colon) : host;
+    }
+    function detectEmbedProvider(url) {
+        var host = embedHost(url);
+        if (!host) return "embed";
+        if (host === "spline.design" || host.slice(-14) === ".spline.design") return "spline";
+        if (host === "rive.app" || host.slice(-9) === ".rive.app") return "rive";
+        if (host === "lottie.host" || host.slice(-12) === ".lottie.host" || host === "lottiefiles.com" || host.slice(-16) === ".lottiefiles.com") return "lottie";
+        if (host === "youtube.com" || host.slice(-12) === ".youtube.com" || host === "youtube-nocookie.com" || host.slice(-21) === ".youtube-nocookie.com") return "youtube";
+        if (host === "vimeo.com" || host.slice(-10) === ".vimeo.com") return "vimeo";
+        if (host === "sketchfab.com" || host.slice(-14) === ".sketchfab.com") return "sketchfab";
+        if (host === "figma.com" || host.slice(-10) === ".figma.com") return "figma";
+        return "embed";
+    }
+    function normalizeEmbedProvider(provider, url) {
+        var key = String(provider == null ? "" : provider).toLowerCase().replace(/[^a-z0-9-]/g, "");
+        return EMBED_PROVIDERS[key] ? key : detectEmbedProvider(url);
+    }
+    function safeEmbedAspect(value, provider) {
+        var raw = String(value == null ? "" : value).replace(/\s+/g, "");
+        if (/^(?:[1-9]\d?(?:\.\d+)?\/[1-9]\d?(?:\.\d+)?)$/.test(raw)) return raw;
+        var p = EMBED_PROVIDERS[provider] || EMBED_PROVIDERS.embed;
+        return p.aspect || "16/9";
+    }
+    function safeEmbedPoster(url) {
+        var v = String(url == null ? "" : url).trim();
+        if (!v) return "";
+        if (/^https:\/\//i.test(v)) return v;
+        if (v.charAt(0) === "/" && v.indexOf("//") !== 0) return v;
+        return "";
+    }
     function safeHref(s) {
         var v = String(s == null ? "" : s).trim();
         if (!v) return "#";
@@ -828,14 +894,27 @@
             return '<div class="lime-block__video">' + inner + "</div>";
         },
         // Embed/3D (Фаза 8.1): готовая сцена по https-ссылке в sandbox-iframe (Spline/Rive/Lottie/iframe).
-        // Принимаем ТОЛЬКО https — защита от javascript:/data: и подмешивания протокола.
+        // Принимаем ТОЛЬКО https И только доверенные хосты (allowlist) — защита от javascript:/data:,
+        // подмешивания протокола и произвольных iframe. Проверка живёт в общем рендере, поэтому
+        // действует одинаково в редакторе, node-тестах и на publish-пути (Jint).
         embed: function (b, o) {
             var c = b.content || {};
             var editable = o && o.editable;
-            var safe = /^https:\/\//i.test(c.embedUrl || "") ? c.embedUrl : "";
+            var safe = isAllowedEmbedUrl(c.embedUrl || "") ? c.embedUrl : "";
             if (safe) {
-                return '<div class="lime-block__embed">' +
-                    '<iframe src="' + escAttr(safe) + '" sandbox="allow-scripts allow-same-origin allow-popups" loading="lazy" allowfullscreen title="Встроенная сцена"></iframe>' +
+                var provider = normalizeEmbedProvider(c.provider, safe);
+                var preset = EMBED_PROVIDERS[provider] || EMBED_PROVIDERS.embed;
+                var aspect = safeEmbedAspect(c.aspect || c.aspectRatio, provider);
+                var poster = safeEmbedPoster(c.poster || c.posterUrl);
+                var title = c.fallbackTitle || (preset.label + " scene");
+                var text = c.fallbackText || "Loading interactive scene.";
+                var posterHtml = poster ? '<img class="lime-block__embed-poster" src="' + escAttr(poster) + '" alt="" loading="lazy" decoding="async">' : "";
+                var fallback = '<div class="lime-block__embed-fallback">' +
+                    '<b>' + escHtml(title) + '</b><span>' + escHtml(text) + "</span></div>";
+                var runtime = editable ? "" : ' data-lime-embed';
+                return '<div class="lime-block__embed" data-embed-provider="' + escAttr(provider) + '" style="aspect-ratio:' + escAttr(aspect) + '"' + runtime + ">" +
+                    posterHtml + fallback +
+                    '<iframe src="' + escAttr(safe) + '" sandbox="allow-scripts allow-same-origin allow-popups" loading="lazy" allowfullscreen title="' + escAttr(title) + '"></iframe>' +
                     (editable ? '<button type="button" class="lime-doc-media-swap" data-doc-embed>Заменить</button>' : "") +
                     "</div>";
             }
@@ -931,7 +1010,7 @@
         image: { src: "", alt: "", caption: "" },
         gallery: { items: [{ src: "", alt: "" }, { src: "", alt: "" }, { src: "", alt: "" }] },
         video: { youtubeId: "" },
-        embed: { embedUrl: "", provider: "" },
+        embed: { embedUrl: "", provider: "", aspect: "16/9", poster: "", fallbackTitle: "", fallbackText: "" },
         collectionList: { collection: "", layout: "cards", limit: 12, sortField: "", sortDir: "desc", filterField: "", filterValue: "", titleField: "", imageField: "", descField: "" },
         tabs: { items: [{ label: "Вкладка 1", text: "Контент первой вкладки." }, { label: "Вкладка 2", text: "Контент второй вкладки." }] },
         carousel: { items: [{ src: "", alt: "" }, { src: "", alt: "" }], autoplay: "" },
@@ -1312,6 +1391,13 @@
         classesCss: classesCss,
         safeCls: safeCls,
         safeStyleProp: safeStyleProp,
+        isAllowedEmbedUrl: isAllowedEmbedUrl,
+        EMBED_HOSTS: EMBED_HOSTS,
+        EMBED_PROVIDERS: EMBED_PROVIDERS,
+        detectEmbedProvider: detectEmbedProvider,
+        normalizeEmbedProvider: normalizeEmbedProvider,
+        safeEmbedAspect: safeEmbedAspect,
+        safeEmbedPoster: safeEmbedPoster,
         safeStyleValue: safeStyleValue,
         scopeCss: scopeCss,
         styleDecls: styleDecls

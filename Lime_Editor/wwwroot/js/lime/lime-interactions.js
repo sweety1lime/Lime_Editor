@@ -164,17 +164,34 @@
         });
     }
 
+    // ===== Embed poster/fallback =====
+    function initEmbeds(scope) {
+        all(scope, "[data-lime-embed]").forEach(function (root) {
+            if (root.getAttribute("data-lime-embed-init") === "1") return;
+            root.setAttribute("data-lime-embed-init", "1");
+            var frame = root.querySelector("iframe");
+            if (!frame) return;
+            function loaded() { root.classList.add("is-loaded"); }
+            frame.addEventListener("load", loaded);
+            try {
+                if (frame.contentDocument && frame.contentDocument.readyState === "complete") loaded();
+            } catch (e) {}
+        });
+    }
+
     function init(scope) {
         initTabs(scope);
         initCarousels(scope);
         initLightbox(scope);
         initCountdowns(scope);
         initModals(scope);
+        initEmbeds(scope);
     }
 
     window.LimeInteractions = {
         init: init, initTabs: initTabs, initCarousels: initCarousels,
-        initLightbox: initLightbox, initCountdowns: initCountdowns, initModals: initModals
+        initLightbox: initLightbox, initCountdowns: initCountdowns, initModals: initModals,
+        initEmbeds: initEmbeds
     };
 
     // Авто-старт только вне редактора (на публичной странице .lime-editor отсутствует).

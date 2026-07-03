@@ -41,7 +41,7 @@
             heading: "Заголовок", body: "Текст", name: "Имя"
         };
         var NON_TEXT_CONTENT = {
-            src: 1, url: 1, youtubeId: 1, embedUrl: 1, bgMode: 1, mode: 1, width: 1,
+            src: 1, url: 1, youtubeId: 1, embedUrl: 1, provider: 1, aspect: 1, bgMode: 1, mode: 1, width: 1,
             layout: 1, cols: 1, items: 1, collection: 1, href: 1, poster: 1, videoUrl: 1
         };
 

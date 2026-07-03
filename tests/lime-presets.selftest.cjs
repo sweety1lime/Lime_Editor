@@ -114,6 +114,35 @@ const swappedDoc = { pages: [{ blocks: page }] };
 doc = swappedDoc;
 check("applyTemplateByKey writes theme into live doc after doc swap", api.applyTemplateByKey("startup") === true && swappedDoc.theme && swappedDoc.theme.accent === "#123456");
 
+// --- Real showcase pack from docs/experience-builder-plan.md: neo-lore-drop ---
+{
+    const RealLimePresets = require(path.join(__dirname, "..", "Lime_Editor", "wwwroot", "js", "lime", "lime-presets.js"));
+    const RealLimeTemplates = require(path.join(__dirname, "..", "Lime_Editor", "wwwroot", "js", "lime", "lime-templates.js"));
+    const LimeDoc = require(path.join(__dirname, "..", "Lime_Editor", "wwwroot", "js", "lime", "lime-doc.js"));
+    const realPage = [];
+    const realDoc = { version: 2, theme: {}, pages: [{ id: "p1", slug: "", title: "Neo", blocks: realPage }] };
+    let realLayerId = 0;
+    const realApi = Presets.create({
+        window: { LimePresets: RealLimePresets, LimeTemplates: RealLimeTemplates },
+        L: LimeDoc,
+        getDoc: () => realDoc,
+        pageBlocks: () => realPage,
+        rid(prefix) { return prefix + "-neo-" + (++realLayerId); }
+    });
+    const tpl = RealLimeTemplates.find(t => t.key === "neo-lore-drop");
+    const allSectionsExist = tpl && tpl.sections.every(key => RealLimePresets.PRESETS[key] && RealLimePresets.PRESETS[key].length);
+    check("neo-lore-drop template registered with existing sections", !!allSectionsExist);
+    check("neo-lore-drop applies theme and full page", realApi.applyTemplateByKey("neo-lore-drop") === true && realDoc.theme.accent === "#42ffa3" && realPage.length >= 10);
+    const json = JSON.stringify(realPage);
+    check("neo-lore-drop has embed, scene and decorative layers", json.includes('"type":"embed"') && json.includes('"mode":"horizontal"') && json.includes('"layers"'));
+    const pub = LimeDoc.render({ version: 2, theme: realDoc.theme, blocks: realPage }, {});
+    const editorOnly = ["contenteditable", "data-field", "data-doc-embed", "data-layer-id", "lime-block-grip", "lime-doc-media-swap"];
+    check("neo-lore-drop publish renders allowlisted embed iframe", pub.html.includes("<iframe") && pub.html.includes("https://my.spline.design/neo-lore-drop-placeholder/"));
+    check("neo-lore-drop publish renders motion/layers markers", pub.html.includes('data-scene="horizontal"') && pub.html.includes("lime-block__layers") && pub.html.includes('data-parallax='));
+    check("neo-lore-drop publish stays clean of editor-only hooks", editorOnly.every(m => pub.html.indexOf(m) === -1));
+    check("neo-lore-drop scoped CSS compiled", pub.css.includes("grid-template-columns:repeat(auto-fit,minmax(min(320px,100%),1fr))") && pub.css.includes("lime-block__cover-title"));
+}
+
 if (failed) {
     console.error("\nPRESETS-SELFTEST FAILED: " + failed);
     process.exit(1);

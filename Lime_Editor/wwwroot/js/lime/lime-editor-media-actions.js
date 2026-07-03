@@ -92,17 +92,71 @@
             setContentValue(b, "youtubeId", m[1], false);
         }
 
+        function providerKeys(providers) {
+            var keys = [];
+            providers = providers || {};
+            for (var k in providers) if (Object.prototype.hasOwnProperty.call(providers, k) && k !== "embed") keys.push(k);
+            keys.sort();
+            return keys;
+        }
+        function providerExample(provider) {
+            var map = {
+                spline: "https://my.spline.design/scene/",
+                rive: "https://rive.app/s/scene/",
+                lottie: "https://lottie.host/animation.json",
+                youtube: "https://www.youtube.com/embed/VIDEO_ID",
+                vimeo: "https://vimeo.com/123456789",
+                sketchfab: "https://sketchfab.com/models/MODEL_ID/embed",
+                figma: "https://www.figma.com/embed?embed_host=share&url=https://www.figma.com/file/FILE_ID"
+            };
+            return map[provider] || "https://";
+        }
+
         function promptEmbed(blockId) {
-            var url = win.prompt("Ссылка на сцену (https — Spline / Rive / Lottie / iframe):", "https://");
+            var b = byId(blockId);
+            if (!b) return;
+            var current = (targetBlock(b).content || {});
+            var L = win.LimeDoc || {};
+            var providers = L.EMBED_PROVIDERS || {
+                spline: { label: "Spline", aspect: "4/5" },
+                rive: { label: "Rive", aspect: "16/9" },
+                lottie: { label: "Lottie", aspect: "1/1" },
+                youtube: { label: "YouTube", aspect: "16/9" },
+                vimeo: { label: "Vimeo", aspect: "16/9" },
+                sketchfab: { label: "Sketchfab", aspect: "16/9" },
+                figma: { label: "Figma", aspect: "16/9" },
+                embed: { label: "Embed", aspect: "16/9" }
+            };
+            var keys = providerKeys(providers);
+            var provider = win.prompt("Провайдер embed (" + keys.join(" / ") + "):", current.provider || "spline");
+            if (provider == null) return;
+            provider = String(provider).trim().toLowerCase();
+            if (!provider) provider = "embed";
+            if (provider !== "embed" && providers[provider] == null) {
+                win.alert("Неизвестный провайдер. Доступны: " + keys.join(", ") + ".");
+                return;
+            }
+            var preset = providers[provider] || providers.embed || { label: "Embed", aspect: "16/9" };
+            var url = win.prompt("Ссылка на " + (preset.label || "embed") + ":", current.embedUrl || providerExample(provider));
             if (url == null) return;
             url = url.trim();
             if (!/^https:\/\//i.test(url)) {
                 win.alert("Нужна ссылка, начинающаяся с https://");
                 return;
             }
-            var b = byId(blockId);
-            if (!b) return;
+            // Host-allowlist — та же проверка, что и в рендере/publish (LimeDoc.isAllowedEmbedUrl):
+            // валидируем на вводе, чтобы пользователь узнал сразу, а не по пустому блоку на публикации.
+            if (L.isAllowedEmbedUrl && !L.isAllowedEmbedUrl(url)) {
+                win.alert("Этот хост не поддерживается. Разрешены: " + ((L.EMBED_HOSTS || []).join(", ")) + ".");
+                return;
+            }
+            if (L.normalizeEmbedProvider) provider = L.normalizeEmbedProvider(provider, url);
+            preset = providers[provider] || preset;
             setContentValue(b, "embedUrl", url, false);
+            setContentValue(b, "provider", provider, false);
+            setContentValue(b, "aspect", preset.aspect || "16/9", false);
+            setContentValue(b, "fallbackTitle", (preset.label || "Embed") + " scene", false);
+            setContentValue(b, "fallbackText", "Loading interactive scene.", false);
         }
 
         function init() {

@@ -64,6 +64,11 @@
             key: "corporate", name: "Корпоративный", desc: "Строгий деловой стиль с цифрами и процессом.", style: "Деловой",
             theme: { accent: "#2563eb", accent2: "#0891b2", bg: "#0a0f1f", fg: "#eaf0ff", muted: "#8090b0", font: "'Onest', system-ui, sans-serif" },
             sections: ["navbar", "hero", "stats", "features", "steps", "testimonials", "contact", "footer"]
+        },
+        {
+            key: "neo-lore-drop", name: "Neo Lore Drop", desc: "Cinematic creator/Web3/game showcase with lore, factions, motion and an embed-ready scene slot.", style: "Showcase",
+            theme: { accent: "#42ffa3", accent2: "#ff4791", bg: "#080a0e", fg: "#f6fbff", muted: "#8f9aa8", font: "'Space Grotesk', 'Inter', system-ui, sans-serif" },
+            sections: ["neo-navbar", "neo-hero", "neo-lore-intro", "neo-factions", "neo-vision", "neo-customizer", "neo-team", "neo-faq", "neo-discord", "neo-footer"]
         }
     ];
 

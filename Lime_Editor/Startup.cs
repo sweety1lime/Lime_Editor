@@ -1,3 +1,4 @@
+using Lime_Editor.Controllers;
 using Lime_Editor.Middleware;
 using Lime_Editor.Models;
 using Lime_Editor.Services;
@@ -276,7 +277,19 @@ namespace Lime_Editor
                 app.UseExceptionHandler("/Home/Error");
                 app.UseHsts();
             }
-            app.UseStaticFiles();
+            app.UseStaticFiles(new StaticFileOptions
+            {
+                OnPrepareResponse = ctx =>
+                {
+                    // Загруженные медиа хранятся под GUID-именами (MediaController) — контент по URL
+                    // не меняется никогда, поэтому год + immutable: повторные визиты опубликованных
+                    // сайтов не перекачивают hero-картинки (LCP-бюджет showcase-страниц).
+                    if (ctx.Context.Request.Path.StartsWithSegments("/" + MediaController.MediaFolder))
+                    {
+                        ctx.Context.Response.Headers["Cache-Control"] = "public, max-age=31536000, immutable";
+                    }
+                }
+            });
 
             app.UseRouting();
 

@@ -483,8 +483,9 @@ function check(name, cond) {
     const doc = {
         version: 1,
         blocks: [
-            { id: "em1", type: "embed", content: { embedUrl: "https://my.spline.design/scene\"x" } },
+            { id: "em1", type: "embed", content: { embedUrl: "https://my.spline.design/scene\"x", provider: "spline", aspect: "4/5", poster: "/media/u1/embed.jpg", fallbackTitle: "Spline preview", fallbackText: "Scene loading." } },
             { id: "em2", type: "embed", content: { embedUrl: "javascript:alert(1)" } }, // не-https → не рендерим
+            { id: "em3", type: "embed", content: { embedUrl: "https://rive.app/s/1", aspect: "bad}css", poster: "javascript:alert(1)" } },
             { id: "sc1", type: "columns", content: { cols: 3 }, scene: { mode: "horizontal", length: 3 },
               children: [{ id: "k1", type: "text", content: { text: "A" } }, { id: "k2", type: "text", content: { text: "B" } }] }
         ]
@@ -492,12 +493,30 @@ function check(name, cond) {
     const pub = L.render(doc, {});
     check("embed: sandbox-iframe для https", pub.html.includes("lime-block__embed") && pub.html.includes("<iframe") && pub.html.includes('sandbox="allow-scripts'));
     check("embed: src экранирован", pub.html.includes("https://my.spline.design/scene&quot;x"));
-    check("embed: не-https не рендерит iframe", (pub.html.match(/<iframe/g) || []).length === 1);
+    check("embed: не-https не рендерит iframe", (pub.html.match(/<iframe/g) || []).length === 2);
+    check("embed: provider/aspect/poster/fallback", pub.html.includes('data-embed-provider="spline"') && pub.html.includes('style="aspect-ratio:4/5"') && pub.html.includes('class="lime-block__embed-poster"') && pub.html.includes("Spline preview") && pub.html.includes("Scene loading."));
+    check("embed: provider auto-detect + unsafe aspect/poster fallback", pub.html.includes('data-embed-provider="rive"') && pub.html.includes('style="aspect-ratio:16/9"') && !pub.html.includes("javascript:alert(1)"));
+    check("embed: runtime marker for fallback loader", pub.html.includes("data-lime-embed"));
     check("embed: publish без хука data-doc-embed", !pub.html.includes("data-doc-embed"));
     const ed = L.render(doc, { editable: true });
     check("embed: пустой/невалидный в редакторе — плейсхолдер", ed.html.includes("data-doc-embed"));
     check("scene: data-scene + length на секции", pub.html.includes('data-scene="horizontal"') && pub.html.includes('data-scene-length="3"'));
     check("scene: горизонтальный трек на обёртке", pub.html.includes("lime-block__children--scene"));
+}
+
+// --- Embed host-allowlist: только доверенные хосты, произвольный https-iframe запрещён ---
+{
+    check("allowlist: сам домен", L.isAllowedEmbedUrl("https://spline.design/x") === true);
+    check("allowlist: поддомен (my.spline.design)", L.isAllowedEmbedUrl("https://my.spline.design/scene") === true);
+    check("allowlist: rive/lottie/youtube", L.isAllowedEmbedUrl("https://rive.app/s/1") && L.isAllowedEmbedUrl("https://lottie.host/e/2") && L.isAllowedEmbedUrl("https://www.youtube.com/embed/x"));
+    check("embed helpers: provider/aspect/poster APIs", L.detectEmbedProvider("https://www.youtube.com/embed/x") === "youtube" && L.safeEmbedAspect("bad", "lottie") === "1/1" && L.safeEmbedPoster("/media/u/poster.jpg") === "/media/u/poster.jpg" && L.safeEmbedPoster("javascript:alert(1)") === "");
+    check("allowlist: произвольный https-хост отклонён", L.isAllowedEmbedUrl("https://evil.example.com/iframe") === false);
+    check("allowlist: суффикс-подделка (notspline.design) отклонена", L.isAllowedEmbedUrl("https://notspline.design/x") === false);
+    check("allowlist: http и javascript отклонены", !L.isAllowedEmbedUrl("http://spline.design/x") && !L.isAllowedEmbedUrl("javascript:alert(1)"));
+    check("allowlist: user@host-трюк отклонён", L.isAllowedEmbedUrl("https://spline.design@evil.com/x") === false);
+    const badDoc = { version: 1, blocks: [{ id: "e1", type: "embed", content: { embedUrl: "https://evil.example.com/x" } }] };
+    const badPub = L.render(badDoc, {});
+    check("рендер: хост вне allowlist не даёт iframe на publish", !badPub.html.includes("<iframe"));
 }
 
 // --- Фуллстак (B3): блок collectionList читает opts.data[slug] = { fields, records } ---

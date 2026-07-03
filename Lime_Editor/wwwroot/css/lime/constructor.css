@@ -2563,7 +2563,18 @@
    ============================================================ */
 /* Embed/3D */
 .lime-block__embed { position: relative; width: 100%; aspect-ratio: 16 / 9; border-radius: var(--radius-lg); overflow: hidden; background: rgba(127,127,127,0.08); }
-.lime-block__embed iframe { width: 100%; height: 100%; border: 0; display: block; }
+.lime-block__embed iframe { position: relative; z-index: 2; width: 100%; height: 100%; border: 0; display: block; background: transparent; }
+.lime-block__embed-poster { position: absolute; inset: 0; z-index: 0; width: 100%; height: 100%; object-fit: cover; opacity: 1; transition: opacity 0.25s ease; }
+.lime-block__embed-fallback {
+    position: absolute; inset: 0; z-index: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 8px; padding: 18px; text-align: center; color: #fff; pointer-events: none;
+    background: linear-gradient(180deg, rgba(8,10,14,.52), rgba(8,10,14,.78));
+    transition: opacity 0.25s ease, visibility 0.25s ease;
+}
+.lime-block__embed-fallback b { font-size: var(--text-base); line-height: 1.2; }
+.lime-block__embed-fallback span { max-width: 34rem; font-size: var(--text-sm); line-height: 1.45; opacity: .76; }
+.lime-block__embed.is-loaded .lime-block__embed-poster,
+.lime-block__embed.is-loaded .lime-block__embed-fallback { opacity: 0; visibility: hidden; }
 .lime-block__embed-placeholder {
     position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
     border: 2px dashed var(--line); border-radius: var(--radius-lg); color: var(--muted);
@@ -2576,6 +2587,16 @@
     display: flex; flex-wrap: nowrap; gap: var(--space-6); width: max-content;
 }
 .lime-block[data-scene="horizontal"] > .lime-block__inner > .lime-block__children--scene > .lime-block { flex: 0 0 70vw; }
+@media (max-width: 640px) {
+    .lime-block[data-scene="horizontal"] { overflow: visible; }
+    .lime-block[data-scene="horizontal"] > .lime-block__inner > .lime-block__children--scene,
+    .lime-block[data-cols][data-scene="horizontal"] > .lime-block__inner > .lime-block__children--scene {
+        display: flex; flex-direction: column; flex-wrap: nowrap; width: auto;
+    }
+    .lime-block[data-scene="horizontal"] > .lime-block__inner > .lime-block__children--scene > .lime-block {
+        flex: 1 1 auto; width: 100%; max-width: none;
+    }
+}
 
 /* ============================================================
    Итерация 3 — удобство редактора: вкладки инспектора + липкая шапка.

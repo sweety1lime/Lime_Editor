@@ -127,6 +127,7 @@
 - **Готово когда:** `<Nullable>enable</Nullable>` на уровне проекта, 0 warning.
 
 ### 4.3 🧹 Мелочи
+- ✅ **Embed host-allowlist + Cache-Control медиа** (2026-07-03, находки ревизии experience-builder-плана): (1) embed-URL раньше не проверялся сервером вообще (только js `^https://` + sandbox) — добавлен allowlist доверенных хостов `LimeDoc.isAllowedEmbedUrl`/`EMBED_HOSTS` в общем рендере (редактор + Jint-publish идентично) и валидация на вводе `promptEmbed`; 8 проверок в `lime-doc.selftest.cjs`. (2) `/media/**` отдавался без кэш-заголовков — добавлен `Cache-Control: public, max-age=31536000, immutable` (GUID-имена → безопасно). Проверено: node selftest зелёный, `dotnet test` **250/250** (Jint-паритет цел), editor-v2 **41/41**.
 - ✅ **Playwright auth-флоу** (2026-06-29) — прогнаны sign-up→sign-in→MySites, валидации (mismatch/invalid email/несуществующий логин) и новые forgot/reset-password (anti-enumeration на ForgotPassword + отклонение битого токена на ResetPassword). Починен устаревший селектор приветствия (`.lime-dashboard__welcome` → `.lime-dash-hi`). `tests/flows/sign-up.spec.ts` 9/9 зелёные на dev-Postgres.
 - **csproj cleanup** — убрать стэйл `<Folder Include="wwwroot\css\Template_1\">` (папки уже нет). *Когда:* при следующей правке csproj.
 - **Парольная политика** — при желании поднять до требования спецсимвола (сейчас 8+цифра). *Когда:* по продуктовому решению.

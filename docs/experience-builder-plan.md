@@ -1,6 +1,6 @@
 # Lime: план развития конструктора с низким входом и высоким потолком
 
-Дата: 2026-07-01
+Дата: 2026-07-01 · Ревизия: 2026-07-03 (сверка с кодом после разбивки god file; embed/asset-факты проверены разведкой backend'а)
 
 ## Summary
 
@@ -38,7 +38,8 @@
 - Для каждого asset slot показывать требования: формат, прозрачность, рекомендуемые размеры, mobile-safe crop.
 - AI-ассеты делать смешанно: Lime предлагает промпты, идеи или генерацию, но пользователь может загрузить свои медиа.
 - 3D в первом этапе делать embed-first: улучшить текущий `embed` как управляемый блок для Spline/Rive/Lottie/iframe-сцен.
-- Для embed добавить provider, aspect ratio, poster/fallback, lazy loading и sandbox.
+- Embed — точная делта (проверено 2026-07-03). УЖЕ сделано: sandbox (`allow-scripts allow-same-origin allow-popups`), `loading="lazy"`, https-only regex на вводе и рендере, host-allowlist, `provider`/`aspect`/`poster`/`fallbackTitle`/`fallbackText` в контенте, aspect ratio на wrapper, poster/fallback до загрузки iframe, provider-пресеты в `promptEmbed` (Spline/Rive/Lottie/YouTube/Vimeo/Sketchfab/Figma вместо голого URL-prompt). ОСТАЛОСЬ: подобрать реальный hero-embed/постер для эталона и замерить publish.
+- ✅ СДЕЛАНО 2026-07-03 (безопасность): host-allowlist для embed-URL — `LimeDoc.isAllowedEmbedUrl`/`EMBED_HOSTS` (spline.design, rive.app, lottie.host, lottiefiles, youtube, vimeo, sketchfab, figma; домен или поддомен, порт/user@-трюки отклоняются). Проверка в общем рендере → действует в редакторе, node-тестах и на publish (Jint) одинаково; плюс валидация на вводе в `promptEmbed` с человеческим сообщением. Произвольный https-iframe запрещён (пользователей ещё нет — ослабить можно позже). Тесты: 8 проверок в `tests/lime-doc.selftest.cjs`, dotnet 250/250 (паритет цел), editor-v2 41/41.
 - Native Three.js/GLB viewer не входит в первый этап.
 - Расширить AI из генератора базового лендинга в creative assistant — но фазами, а не одним прыжком. Каждый новый навык AI = новая командная поверхность со своей валидацией в allowlist `LimeCommands.validateAiCommands`; нельзя открывать всё сразу.
   - Фаза A: «заполнить секции пака текстом» (уже близко к текущему `setContent`/`aiSuggest`).
@@ -49,17 +50,23 @@
 
 ## Implementation Notes
 
-- Основной путь: расширять существующие `lime-presets.js`, `lime-templates.js`, `lime-doc-editor.js`, `lime-editor-effects.js`, `lime-editor-ai-pipeline.js`, `AiContentService`.
+- Основной путь (актуализировано 2026-07-03, после разбивки god file 2625→1456 / 38 модулей): паки и шаблоны → `lime-editor-presets.js` — runtime-применение пака это буквально готовое API `LimeEditorPresets.applyTemplateByKey`/`insertPreset` (spec `blockFromSpec` поддерживает styles/css/anim/layers/scene/fx; stale-doc фикс под runtime-вызов сделан, регрессия покрыта `tests/lime-presets.selftest.cjs`); данные секций → `lime-presets.js`/`lime-templates.js`; motion-рецепты → `lime-editor-effects.js`; embed UI → `lime-editor-media-actions.js` (`promptEmbed`); панель/инспектор → `lime-editor-inspector.js`/`lime-editor-inspector-events.js`; запись стилей → `lime-editor-style-engine.js`; AI → `lime-editor-ai-pipeline.js` + `AiContentService`. В `lime-doc-editor.js` (композиционный корень) — только инъекции.
+- Тесты новых модулей — по установленному паттерну node-селфтестов `tests/lime-*.selftest.cjs` (22 существующих как образец) + editor-v2 Playwright после каждого среза.
 - Не ломать текущий JSON-документ: новые поля должны быть additive и безопасно игнорироваться старым рендером.
 - Showcase pack должен использовать только свои, свободные или сгенерированные заглушки, не ChainZoku assets.
 - Публикация должна оставаться безопасной: sandbox для embed, sanitize custom head, без editor-only атрибутов в publish.
-- Asset-пайплайн (backend) — проверить ДО обещания «сильные ассеты». Текущий `lime-assets.js` мал; надо подтвердить/добавить: лимиты размера загрузки, поддержку webp/avif, ресайз/оптимизацию изображений, отдачу через CDN/кэш, обработку тяжёлых hero-персонажей и video/poster. Без этого «уровень ChainZoku» упрётся в вес медиа, а не в движок.
+- Asset-пайплайн (backend) — ПРОВЕРЕНО 2026-07-03. Что уже есть и достаточно: аплоад 5 MB с трёхслойной валидацией (расширение/MIME/magic-bytes: jpg/png/gif/webp), ImageSharp resize до 1920 по большей стороне, jpeg q82, decompression-bomb guard. Три именованные дыры до «уровня ChainZoku»:
+  - ✅ (а) СДЕЛАНО 2026-07-03: `/media/**` отдаётся с `Cache-Control: public, max-age=31536000, immutable` (`Startup.UseStaticFiles.OnPrepareResponse`; имена — GUID, контент по URL неизменен). dotnet build/tests зелёные.
+  - (б) видео загрузить НЕЛЬЗЯ вообще: видео-блок = только YouTube, фон-видео секции (`bg.videoSrc`/`poster`) рендерится, но принимает только внешний URL. Слот «video/poster» из asset slots требует либо видео-аплоада (mp4/webm, отдельный лимит и валидация), либо честной пометки «v1: видео только внешним URL».
+  - (в) avif не принимается (webp есть) — опционально, не блокер.
 
 ## Milestones и секвенсинг
 
 Порядок обязателен: сначала доказываем потолок одним ручным эталоном, только потом строим переиспользуемую инфраструктуру.
 
 - Milestone 0 — эталонный спайк (1–2 недели, приоритет №1). Собрать ОДИН `neo-lore-drop` ВРУЧНУЮ на текущем движке, выжав максимум: настоящая Spline-сцена в hero, реальные ассеты, все motion-рецепты, mobile-fallback, publish без ошибок. Цель — не код на переиспользование, а честный ответ «дотягивает ли embed-first до того, что я представлял». Definition of done: опубликованная страница, на которую не стыдно смотреть, с зафиксированным перф-замером. Это gate: если результат не убеждает — паузим инфраструктуру и пересматриваем подход.
+  - Статус 2026-07-03: НАЧАТ — кодовый эталон `neo-lore-drop` добавлен как стартовый template + curated `neo-*` секции; embed-slot поддерживает provider/aspect/poster/fallback, horizontal scene имеет mobile fallback. Не закрыто: реальные ассеты/Spline-сцена, опубликованная страница и перф-замер.
+  - Перф-замер спайка: cache-headers для медиа закрыты 2026-07-03 (дыра «а») — замер будет честным.
 - Milestone 1 — извлечь эталон в Experience Pack: вынести новые секции в `LimePresets`, оформить формат пака, canvas-first вход с панелью «Выбрать пак».
 - Milestone 2 — уровни UI (Basic/Design/Motion/Pro) как прогрессивное раскрытие, без новых paywall-гейтов.
 - Milestone 3 — motion/scene UX: готовые рецепты сцен + человеческие пресеты в инспекторе.
@@ -74,6 +81,7 @@
 - Целевой LCP showcase-страницы ≤ 2.5с на среднем мобильном; hero-poster виден мгновенно, тяжёлая сцена догружается после.
 - `prefers-reduced-motion` — поведение по умолчанию, а не галочка: pinned/horizontal/parallax при reduced-motion деградируют в статичный читаемый контент.
 - Mobile-деградация pinned/horizontal сцен — жёсткое правило: на узком экране они не должны ломать чтение или ловить jank; при сомнении — статичный fallback.
+- ✅ Cache-Control для `/media/**` (public, max-age=31536000, immutable) — сделано 2026-07-03, prerequisite бюджета закрыт.
 
 ## Критерии успеха (измеримые)
 
@@ -83,15 +91,15 @@
 
 ## Связь с запуском и Editor V2 roadmap
 
-- Это крупный scope-add. Он конкурирует с launch-очередью ship-блокеров и активным `EDITOR_V2_PLAN` (Stage 9 = UX-beta). Осознанное решение: Milestone 0 (спайк) можно делать параллельно как разведку, но Milestones 1–5 НЕ должны вытеснять ship-блокеры запуска.
-- Явно зафиксировать, что здесь «до запуска» (максимум — спайк), а что «после». Не заводить вторую параллельную дорожную карту: этот документ должен ссылаться на своё место в `EDITOR_V2_PLAN`, а не жить отдельно.
+- Это крупный scope-add рядом с launch-очередью `ROADMAP.md`. Обновление 2026-07-03: код-конкуренция снята — M4.1 (god-files) закрыт, оставшиеся ship-блокеры M1 (бэкапы off-site / Sentry / SMTP) ждут внешних сервисов, а не кода. Спайк (Milestone 0) можно делать сейчас, не вытесняя запуск; Milestones 1–5 — по-прежнему после закрытия M1.
+- Явно зафиксировать, что здесь «до запуска» (максимум — спайк), а что «после». Не заводить вторую параллельную дорожную карту: место этого плана — рядом с `ROADMAP.md` (M-вехи запуска там; файла `EDITOR_V2_PLAN.md` в репо нет — прежняя ссылка была битой).
 - Биллинг не трогаем (заморожен): никаких новых тарифных гейтов, ограничения custom code — как есть.
 
 ## Test Plan
 
 - Unit/selftests: проверить рендер нового showcase-документа: layers, scenes, embed, mobile CSS, отсутствие editor-only hooks.
 - Unit/selftests: расширить AI tests на новые разрешенные block/command типы и asset prompt output.
-- Unit/selftests: проверить sanitize для embed/fallback/provider URL.
+- Unit/selftests: ✅ embed покрыт в `lime-doc.selftest.cjs` и `lime-media-actions.selftest.cjs`: host-allowlist, provider autodetect/presets, aspect fallback, poster sanitize, fallback markup, publish без editor-only hooks, prompt validation.
 - Playwright: сценарий "пустой холст -> выбрать `neo-lore-drop` -> заменить hero media -> включить Motion mode -> publish".
 - Playwright: сценарий progressive UI: Basic не перегружен, Design/Motion/Pro открывают нужные панели.
 - Playwright: mobile viewport: showcase не разваливается, текст не перекрывается, horizontal/pinned scenes имеют fallback.
