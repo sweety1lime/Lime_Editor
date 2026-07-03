@@ -35,6 +35,9 @@
     var EditorInlineEdit = window.LimeEditorInlineEdit || {};
     var EditorStyleEngine = window.LimeEditorStyleEngine || {};
     var EditorContentBinding = window.LimeEditorContentBinding || {};
+    var EditorDnd = window.LimeEditorDnd || {};
+    var EditorRender = window.LimeEditorRender || {};
+    var EditorInspector = window.LimeEditorInspector || {};
     var EditorTheme = window.LimeEditorTheme || {};
     var EditorSiteCode = window.LimeEditorSiteCode || {};
     var EditorSectionBg = window.LimeEditorSectionBg || {};
@@ -69,6 +72,9 @@
     if (!EditorInlineEdit.create) throw new Error("LimeEditorInlineEdit is required before lime-doc-editor.js");
     if (!EditorStyleEngine.create) throw new Error("LimeEditorStyleEngine is required before lime-doc-editor.js");
     if (!EditorContentBinding.create) throw new Error("LimeEditorContentBinding is required before lime-doc-editor.js");
+    if (!EditorDnd.create) throw new Error("LimeEditorDnd is required before lime-doc-editor.js");
+    if (!EditorRender.create) throw new Error("LimeEditorRender is required before lime-doc-editor.js");
+    if (!EditorInspector.create) throw new Error("LimeEditorInspector is required before lime-doc-editor.js");
     if (!EditorTheme.create) throw new Error("LimeEditorTheme is required before lime-doc-editor.js");
     if (!EditorSiteCode.create) throw new Error("LimeEditorSiteCode is required before lime-doc-editor.js");
     if (!EditorSectionBg.create) throw new Error("LimeEditorSectionBg is required before lime-doc-editor.js");
@@ -103,7 +109,6 @@
     var currentState = "normal"; // normal | hover — редактируемое состояние блока (1.2)
     var currentClass = null;   // если задан cls — инспектор правит этот класс, а не блок (0.1)
     var currentInspectorTab = "style"; // style | fx | motion — активная вкладка инспектора
-    var inspectorAdvOpen = false; // развёрнута ли группа «Дополнительно» (редизайн редактора, фаза 2)
     var paletteJustDragged = false; // подавляет click палитры после drag-and-drop из палитры (DnD A)
 
     // Версия документа для optimistic concurrency (этап 0.4): Site.UpdatedAt.Ticks.
@@ -508,335 +513,79 @@
         else if (e.key === "Escape") { hideCtxMenu(); if (selectedId) deselect(); }
     });
 
-    // ===== RENDER =====
-    function render() {
-        var __pt = perfNow();
-        if (pageBlocks().length === 0) {
-            // Этап 9.4: «пустое состояние» с подсказкой и быстрыми действиями вместо голого текста.
-            ws.innerHTML = '<div class="lime-workspace__placeholder" data-doc-empty>' +
-                '<div class="lime-workspace__placeholder-icon">✨</div>' +
-                '<div class="lime-workspace__placeholder-title">Страница «' + escapeText(doc.pages[active].title) + '» пуста</div>' +
-                '<div class="lime-workspace__placeholder-hint">Добавь блок из панели слева, начни с обложки или сгенерируй страницу с AI.</div>' +
-                '<div class="lime-workspace__placeholder-actions">' +
-                    '<button type="button" class="lime-btn lime-btn--primary lime-btn--sm" data-doc-empty-add="cover">Добавить обложку</button>' +
-                    '<button type="button" class="lime-btn lime-btn--violet lime-btn--sm" data-doc-empty-ai>✨ Сгенерировать с AI</button>' +
-                '</div></div>';
-        } else {
-            // Рендерим только активную страницу (тема и компоненты — общие на сайт).
-            // data — превью схемы коллекций для блока collectionList (реальные записи — на публикации).
-            ws.innerHTML = L.render({ theme: doc.theme, components: doc.components, blocks: pageBlocks() }, { editable: true, data: editorCollectionData(), record: templateSampleRecord() }).body;
-        }
-        applyPreviewStyles();
-        ensureDocFonts(); // подгрузить шрифты документа (undo/redo, шаблоны, AI, смена страницы)
-        if (selectedId) {
-            var sel = ws.querySelector('[data-block-id="' + selectedId + '"]');
-            if (sel) sel.classList.add("is-selected");
-        }
-        refreshInspector();
-        refreshLayers(); // дерево слоёв синхронно с холстом (этап 0.4)
-        initDnD(); // DOM пересобран — пересоздаём sortable-зоны
-        initLayerDrag(); // и навешиваем drag на декор-слои
-        refreshV2SelectionOverlay();
-        perfRec("full", __pt);
-    }
+    // ===== RENDER / STAGE 7 PATCH PIPELINE — module lime-editor-render.js =====
+    // Обёртки — function declarations (hoisted): их получают по значению модули, создающиеся
+    // раньше и позже (perf/add-block/block-actions/dnd/ai-generate). editorCollectionData/
+    // templateSampleRecord/initLayerDrag — thunk'и: их var-алиасы присваиваются НИЖЕ этой точки.
+    var renderPipeline = EditorRender.create({
+        window: window,
+        document: document,
+        ws: ws,
+        L: L,
+        escapeText: escapeText,
+        getDoc: function () { return doc; },
+        getActive: function () { return active; },
+        pageBlocks: pageBlocks,
+        byId: byId,
+        findBlock: findBlock,
+        getSelectedId: function () { return selectedId; },
+        getCurrentBp: function () { return currentBp; },
+        getCurrentState: function () { return currentState; },
+        getCurrentClass: function () { return currentClass; },
+        readStyles: readStyles,
+        effectiveClassStyles: effectiveClassStyles,
+        effective: effective,
+        declsToCss: declsToCss,
+        findClassDef: findClassDef,
+        isCanvasOn: function () { return canvasOn; },
+        refreshInspector: refreshInspector,
+        refreshLayers: refreshLayers,
+        initDnD: initDnD,
+        initLayerDrag: function () { initLayerDrag(); },
+        refreshV2SelectionOverlay: function () { refreshV2SelectionOverlay(); },
+        editorCollectionData: function () { return editorCollectionData(); },
+        templateSampleRecord: function () { return templateSampleRecord(); },
+        scheduleAutosave: scheduleAutosave,
+        markDirty: markDirty,
+        perfNow: perfNow,
+        perfRec: perfRec
+    });
+    function render() { renderPipeline.render(); }
+    function scheduleLayersRefresh() { renderPipeline.scheduleLayersRefresh(); }
+    function patchBlockDom(id, opts) { return renderPipeline.patchBlockDom(id, opts); }
+    function insertBlockDom(block, parentId, index, opts) { return renderPipeline.insertBlockDom(block, parentId, index, opts); }
+    function removeBlockDom(id) { return renderPipeline.removeBlockDom(id); }
+    function removeBlocksDom(ids) { return renderPipeline.removeBlocksDom(ids); }
+    function finishInsert(block, parentId, index, commandApplied) { renderPipeline.finishInsert(block, parentId, index, commandApplied); }
+    function finishRemove(id, commandApplied) { renderPipeline.finishRemove(id, commandApplied); }
+    function finishMove(id, parentId, index, commandApplied) { renderPipeline.finishMove(id, parentId, index, commandApplied); }
+    function applyPreviewStyles() { renderPipeline.applyPreviewStyles(); }
+    function ensureDocFonts() { renderPipeline.ensureDocFonts(); }
 
-    // Отложенный refresh дерева слоёв (Stage 7): серия быстрых правок не перестраивает дерево
-    // на каждую — один rAF на пачку. Имя/тип/видимость в слоях не критичны мгновенно.
-    var layersRefreshPending = false;
-    function scheduleLayersRefresh() {
-        if (layersRefreshPending) return;
-        layersRefreshPending = true;
-        var run = function () { layersRefreshPending = false; refreshLayers(); };
-        if (window.requestAnimationFrame) window.requestAnimationFrame(run); else setTimeout(run, 0);
-    }
-
-    // Stage 7: точечное обновление DOM одного блока вместо полной пересборки workspace.innerHTML.
-    // Применяется к content-правкам (текст/медиа/props), которые НЕ меняют структуру детей.
-    // Безопасный gate: если у блока есть дочерняя drop-зона (контейнер), Sortable пришлось бы
-    // пересоздавать — тогда откатываемся на полный render(). Делегированные обработчики (на ws)
-    // переживают replace; Sortable родителя не трогаем (позиция узла та же).
-    function patchBlockDom(id, opts) {
-        opts = opts || {};
-        var __pt = perfNow();
-        var sec = id && ws.querySelector('[data-block-id="' + id + '"]');
-        var r = id && findBlock(id);
-        if (!sec || !r || !r.block) { render(); return false; }
-        var tmp = document.createElement("div");
-        tmp.innerHTML = L.renderOneBlock(r.block, doc.components, { editable: true, data: editorCollectionData(), record: templateSampleRecord() });
-        var fresh = tmp.firstElementChild;
-        // Нет элемента или есть дочерние drop-зоны → безопасный полный путь.
-        if (!fresh || (!opts.allowChildren && fresh.querySelector(".lime-block__children"))) { render(); return false; }
-        sec.replaceWith(fresh);
-        if (id === selectedId) fresh.classList.add("is-selected");
-        if (opts.refreshDesign) applyPreviewStyles(); else applyPreviewStylesScoped(fresh);
-        if (fresh.querySelector(".lime-block__children")) initDnD();
-        initLayerDrag();
-        ensureDocFonts();
-        if (canvasOn) refreshV2SelectionOverlay();
-        scheduleLayersRefresh();
-        perfRec("inc", __pt);
-        return true;
-    }
-
-    // Stage 7: точечная вставка DOM нового блока в список родителя (или страницы) по индексу.
-    // false → caller делает полный render() (страховка). Модель уже изменена к этому моменту.
-    function insertBlockDom(block, parentId, index, opts) {
-        opts = opts || {};
-        var __pt = perfNow();
-        // В компонент-инстанс (дети резолвятся из определения) точечно не вставляем — полный путь.
-        if (parentId) { var pb = byId(parentId); if (!pb || pb.type === "component") return false; }
-        // v2 design-блок (frame/layout): его CSS живёт в основном <style>/design-preview, которые
-        // точечная вставка не пересобирает → безопаснее полный render (редко: dup free-child и т.п.).
-        if (block && block.design && !opts.allowDesign) return false;
-        var listEl;
-        if (parentId) {
-            var ps = ws.querySelector('[data-block-id="' + parentId + '"]');
-            listEl = ps ? ps.querySelector(":scope > .lime-block__inner > .lime-block__children") : null;
-        } else {
-            listEl = ws.querySelector(".lime-doc-page");
-        }
-        if (!listEl) return false; // пустая страница (placeholder) / список не найден
-        var tmp = document.createElement("div");
-        tmp.innerHTML = L.renderOneBlock(block, doc.components, { editable: true, data: editorCollectionData(), record: templateSampleRecord() });
-        var fresh = tmp.firstElementChild;
-        if (!fresh) return false;
-        var items = listEl.querySelectorAll(":scope > .lime-block");
-        if (index == null || index >= items.length) listEl.appendChild(fresh);
-        else listEl.insertBefore(fresh, items[index]);
-        if (block.id === selectedId) fresh.classList.add("is-selected");
-        if (opts.refreshDesign) applyPreviewStyles(); else applyPreviewStylesScoped(fresh);
-        ensureDocFonts();
-        initDnD();        // idempotent: Sortable только для новых вложенных списков fresh
-        initLayerDrag();
-        if (canvasOn) refreshV2SelectionOverlay();
-        scheduleLayersRefresh();
-        perfRec("inc", __pt);
-        return true;
-    }
-    // Stage 7: точечное удаление DOM узла. false → caller делает полный render().
-    function removeBlockDom(id) {
-        var __pt = perfNow();
-        if (pageBlocks().length === 0) return false; // страница опустела → нужен placeholder
-        var el = ws.querySelector('[data-block-id="' + id + '"]');
-        if (!el) return false;
-        el.remove();
-        initDnD();        // idempotent: чистит Sortable выпавшего поддерева
-        if (canvasOn) refreshV2SelectionOverlay();
-        scheduleLayersRefresh();
-        perfRec("inc", __pt);
-        return true;
-    }
-    function removeBlocksDom(ids) {
-        var __pt = perfNow();
-        if (pageBlocks().length === 0) return false;
-        var removed = 0;
-        for (var i = 0; i < ids.length; i++) {
-            var el = ws.querySelector('[data-block-id="' + ids[i] + '"]');
-            if (!el) return false;
-            el.remove();
-            removed++;
-        }
-        if (!removed) return false;
-        initDnD();
-        if (canvasOn) refreshV2SelectionOverlay();
-        scheduleLayersRefresh();
-        perfRec("inc", __pt);
-        return true;
-    }
-    function finishInsert(block, parentId, index, commandApplied) {
-        if (insertBlockDom(block, parentId, index)) refreshInspector(); else render();
-        if (commandApplied) scheduleAutosave(); else markDirty();
-    }
-    function finishRemove(id, commandApplied) {
-        if (removeBlockDom(id)) refreshInspector(); else render();
-        if (commandApplied) scheduleAutosave(); else markDirty();
-    }
-    // Stage 7: точечное перемещение СУЩЕСТВУЮЩЕГО DOM-узла в список родителя по индексу (кнопочные
-    // move/unwrap; для DnD Sortable уже двигает DOM сам). Поддерево узла переезжает целиком — его
-    // вложенные Sortable переживают (списки не пересоздаём). false → caller делает полный render().
-    function moveBlockDom(id, parentId, index) {
-        var __pt = perfNow();
-        if (parentId) { var pb = byId(parentId); if (!pb || pb.type === "component") return false; }
-        // v2 design-блок (frame/size зависят от родителя) → его CSS в основном <style> мог измениться;
-        // точечный путь его не пересобирает, поэтому безопаснее полный render.
-        var blk = byId(id); if (blk && blk.design) return false;
-        var el = ws.querySelector('[data-block-id="' + id + '"]');
-        if (!el) return false;
-        var listEl;
-        if (parentId) {
-            var ps = ws.querySelector('[data-block-id="' + parentId + '"]');
-            listEl = ps ? ps.querySelector(":scope > .lime-block__inner > .lime-block__children") : null;
-        } else {
-            listEl = ws.querySelector(".lime-doc-page");
-        }
-        if (!listEl) return false;
-        var items = [].slice.call(listEl.querySelectorAll(":scope > .lime-block")).filter(function (x) { return x !== el; });
-        if (el.parentNode) el.parentNode.removeChild(el);
-        if (index == null || index >= items.length) listEl.appendChild(el);
-        else listEl.insertBefore(el, items[index]);
-        applyPreviewStyles(); // новый родитель может менять design-preview (free-frame edge)
-        if (canvasOn) refreshV2SelectionOverlay();
-        scheduleLayersRefresh();
-        perfRec("inc", __pt);
-        return true;
-    }
-    function finishMove(id, parentId, index, commandApplied) {
-        if (moveBlockDom(id, parentId, index)) refreshInspector(); else render();
-        if (commandApplied) scheduleAutosave(); else markDirty();
-    }
-
-    // ===== DRAG-AND-DROP (полировка: SortableJS на всех уровнях вложенности) =====
-    // Модель — источник правды: Sortable даёт from/to/oldIndex/newIndex, мы переносим
-    // блок между массивами документа и перерисовываем всё из модели.
-    var sortables = [];
-
-    // DOM-список → массив блоков в документе.
-    function arrayOfList(listEl) {
-        if (listEl.classList.contains("lime-doc-page")) return pageBlocks();
-        var sec = listEl.closest(".lime-block");
-        var b = sec && byId(sec.getAttribute("data-block-id"));
-        if (!b) return null;
-        var t = targetBlock(b);
-        if (!t.children) t.children = [];
-        return t.children;
-    }
-    function parentIdOfList(listEl) {
-        if (listEl.classList.contains("lime-doc-page")) return null;
-        var sec = listEl.closest(".lime-block");
-        return sec ? sec.getAttribute("data-block-id") : null;
-    }
-    // Защита от цикла: нельзя бросить контейнер внутрь его собственного поддерева.
-    function subtreeOwnsArray(block, arr) {
-        var t = targetBlock(block);
-        if (!t || !t.children) return false;
-        if (t.children === arr) return true;
-        for (var i = 0; i < t.children.length; i++) {
-            if (subtreeOwnsArray(t.children[i], arr)) return true;
-        }
-        return false;
-    }
-    function onDragEnd(evt) {
-        var fromArr = arrayOfList(evt.from);
-        var toArr = arrayOfList(evt.to);
-        if (!fromArr || !toArr) { render(); return; }
-        if (evt.from === evt.to && evt.oldIndex === evt.newIndex) return;
-        var moved = fromArr[evt.oldIndex];
-        if (!moved || subtreeOwnsArray(moved, toArr)) { render(); return; }
-        var commandApplied = fromArr === toArr
-            ? runCommand("reorderBlock", {
-                id: moved.id,
-                toIndex: Math.min(evt.newIndex, toArr.length - 1)
-            })
-            : runCommand("moveBlock", {
-                id: moved.id,
-                parentId: parentIdOfList(evt.to),
-                pageIndex: active,
-                toIndex: Math.min(evt.newIndex, toArr.length)
-            });
-        if (!commandApplied) {
-            fromArr.splice(evt.oldIndex, 1);
-            toArr.splice(Math.min(evt.newIndex, toArr.length), 0, moved);
-        }
-        selectedId = moved.id;
-        // v2 design-блок: CSS frame/size зависит от родителя и живёт в основном <style> → полный render.
-        if (moved.design) { finishMutation(commandApplied); return; }
-        // Stage 7: Sortable УЖЕ переместил DOM-узел в нужную позицию, модель синхронна → полная
-        // пересборка не нужна, только вспомогательный UI (design-preview зависит от нового родителя).
-        var __dt = perfNow();
-        applyPreviewStyles();
-        refreshInspector();
-        if (canvasOn) refreshV2SelectionOverlay();
-        scheduleLayersRefresh();
-        perfRec("inc", __dt);
-        if (commandApplied) scheduleAutosave(); else markDirty();
-    }
-    // Идемпотентно (Stage 7): создаёт Sortable только для НОВЫХ списков, выпавшие из DOM — чистит.
-    // Для полного render() поведение прежнее (innerHTML заменил всё → старые списки detached →
-    // destroy, новые → create). Для точечных insert/remove пересоздаётся только затронутый список,
-    // а не все 500. Метка `__limeDnd` на элементе-списке (не зависим от версии Sortable.get).
-    function initDnD() {
-        if (!window.Sortable) return;
-        var kept = [];
-        for (var i = 0; i < sortables.length; i++) {
-            var s = sortables[i];
-            if (s.el && ws.contains(s.el)) { kept.push(s); continue; }
-            try { if (s.el) delete s.el.__limeDnd; s.destroy(); } catch (e) { /* DOM уже выброшен */ }
-        }
-        sortables = kept;
-        var lists = [];
-        var page = ws.querySelector(".lime-doc-page");
-        if (page) lists.push(page);
-        var kids = ws.querySelectorAll(".lime-block__children");
-        for (var k = 0; k < kids.length; k++) lists.push(kids[k]);
-        for (var j = 0; j < lists.length; j++) {
-            if (lists[j].__limeDnd) continue; // уже есть Sortable — не трогаем
-            var inst = new window.Sortable(lists[j], {
-                group: "lime-doc",
-                handle: ".lime-block-grip",
-                draggable: ".lime-block",
-                animation: 160,
-                fallbackOnBody: true,
-                invertSwap: true,
-                ghostClass: "sortable-ghost",
-                onEnd: onDragEnd
-            });
-            lists[j].__limeDnd = inst;
-            sortables.push(inst);
-        }
-    }
-
-    // Инлайн эффективных стилей текущего брейкпоинта для ОДНОГО блок-элемента (live preview).
-    function styleBlockEl(el) {
-        var id = el.getAttribute("data-block-id");
-        var b = byId(id);
-        if (!b) return;
-        var st = readStyles(b); // у инстанса — эффективные (definition ⊕ overrides.styles)
-        // Классы — база (0.1), свой стиль блока перебивает их.
-        var decls = effectiveClassStyles(b);
-        Object.assign(decls, effective(st, currentBp));
-        // При редактировании наведения показываем вид :hover прямо в холсте у выбранного блока.
-        if (currentState === "hover" && id === selectedId) {
-            if (currentClass) {
-                var cdef = findClassDef(currentClass);
-                if (cdef && cdef.styles && cdef.styles.hover) Object.assign(decls, cdef.styles.hover);
-            } else if (st && st.hover) {
-                Object.assign(decls, st.hover);
-            }
-        }
-        el.setAttribute("style", declsToCss(decls));
-    }
-    // Инлайним эффективные стили текущего брейкпоинта поверх <style> движка — точное превью без iframe.
-    function applyPreviewStyles() {
-        if (canvasOn && L.compilePreviewDesignCss && pageBlocks().length) {
-            var designStyle = ws.querySelector("style[data-lime-design-preview]");
-            if (!designStyle) {
-                designStyle = document.createElement("style");
-                designStyle.setAttribute("data-lime-design-preview", "");
-                ws.appendChild(designStyle);
-            }
-            designStyle.textContent = L.compilePreviewDesignCss(pageBlocks(), doc.components, currentBp);
-        }
-        var blocks = ws.querySelectorAll(".lime-block");
-        for (var i = 0; i < blocks.length; i++) styleBlockEl(blocks[i]);
-    }
-    // Точечная версия для Stage 7 patchBlockDom: стили только для свежего поддерева (content-правка
-    // не меняет design → перекомпилировать общий design-preview <style> не нужно).
-    function applyPreviewStylesScoped(rootEl) {
-        styleBlockEl(rootEl);
-        var inner = rootEl.querySelectorAll(".lime-block");
-        for (var i = 0; i < inner.length; i++) styleBlockEl(inner[i]);
-    }
-
-    // Подключает в редакторе <link> для всех шрифтов, реально используемых в документе
-    // (тема + любой styles.*.fontFamily) — живое превью. На публикации шрифты грузит сервер.
-    function ensureDocFonts() {
-        if (!window.LimeFonts) return;
-        var seen = {};
-        if (doc.theme && doc.theme.font) seen[doc.theme.font] = 1;
-        var json = JSON.stringify(doc), re = /"fontFamily":"((?:[^"\\]|\\.)*)"/g, m;
-        while ((m = re.exec(json))) seen[m[1].replace(/\\"/g, '"')] = 1;
-        Object.keys(seen).forEach(function (st) { window.LimeFonts.ensureFromStack(st); });
-    }
+    // ===== DRAG-AND-DROP — module lime-editor-dnd.js =====
+    // refreshV2SelectionOverlay — thunk: main переприсваивает её при инициализации canvas ниже.
+    var dnd = EditorDnd.create({
+        window: window,
+        ws: ws,
+        pageBlocks: pageBlocks,
+        byId: byId,
+        targetBlock: targetBlock,
+        runCommand: runCommand,
+        finishMutation: finishMutation,
+        getActive: function () { return active; },
+        setSelectedId: function (value) { selectedId = value; },
+        render: render,
+        applyPreviewStyles: applyPreviewStyles,
+        refreshInspector: refreshInspector,
+        isCanvasOn: function () { return canvasOn; },
+        refreshV2SelectionOverlay: function () { refreshV2SelectionOverlay(); },
+        scheduleLayersRefresh: scheduleLayersRefresh,
+        scheduleAutosave: scheduleAutosave,
+        markDirty: markDirty,
+        perfNow: perfNow,
+        perfRec: perfRec
+    });
+    function initDnD() { dnd.initDnD(); }
 
     // ===== INLINE CONTENT EDIT (без ре-рендера) — module lime-editor-inline-edit.js =====
     var inlineEdit = EditorInlineEdit.create({
@@ -1108,21 +857,6 @@
     // ===== INSPECTOR (breakpoint-aware) =====
     var PADS = { "0": "NONE", "8px": "XS", "16px": "SM", "24px": "MD", "48px": "LG", "80px": "XL" };
 
-    function curStyle(b) {
-        // Режим правки класса (0.1): инспектор читает/пишет стили класса, а не блока.
-        if (currentClass) {
-            var def = findClassDef(currentClass);
-            var cs = (def && def.styles) || {};
-            return (currentState === "hover" ? cs.hover : cs[currentBp]) || {};
-        }
-        var st = readStyles(b); // у инстанса — эффективные (definition ⊕ overrides.styles)
-        return (currentState === "hover" ? st.hover : st[currentBp]) || {};
-    }
-
-    function bpLabel() {
-        return currentBp === "base" ? "Десктоп" : currentBp === "tablet" ? "Планшет" : "Мобайл";
-    }
-
     var inspectorControls = EditorInspectorControls.create({
         escapeText: escapeText,
         fontGroups: (window.LimeFonts && window.LimeFonts.GROUPS) || [],
@@ -1144,67 +878,6 @@
     var splitCssLength = inspectorControls.splitCssLength;
     var tokenSwatches = inspectorControls.tokenSwatches;
     var unitSelectHtml = inspectorControls.unitSelectHtml;
-    // Пропы секции, переопределённые на бакете bp у ВСЕХ выбранных узлов (для multi-reset).
-    function ownOverrideProps(ids, bp) {
-        var buckets = ids.map(function (id) { var t = targetBlock(byId(id)); return (t && t.styles && t.styles[bp]) || {}; });
-        if (!buckets.length) return {};
-        var out = {};
-        Object.keys(buckets[0]).forEach(function (p) {
-            if (buckets.every(function (bk) { return hasOwn(bk, p); })) out[p] = true;
-        });
-        return out;
-    }
-    // Источник значения секции: "own" (переопределено здесь → reset), "tablet"/"base" (унаследовано
-    // с нижнего бр.), "class" (значение из класса) или null (значение блока на base / ничего).
-    function sectionSource(props, info) {
-        if (!info) return null;
-        // Инстанс компонента: единственная ось — локальный override относительно определения
-        // (на любом бакете, включая base). Bp-каскад определения для инстанса не показываем —
-        // его reset правил бы определение, а не копию.
-        if (info.instance) return props.some(function (p) { return hasOwn(info.instOwn, p); }) ? "instance-own" : null;
-        if (info.bp !== "base" && props.some(function (p) { return hasOwn(info.own, p); })) return "own";
-        if (info.bp === "mobile" && props.some(function (p) { return hasOwn(info.tablet, p); })) return "tablet";
-        if (info.bp !== "base" && props.some(function (p) { return hasOwn(info.base, p); })) return "base";
-        if (props.some(function (p) { return hasOwn(info.cls, p) && !hasOwn(info.own, p) && !hasOwn(info.tablet, p) && !hasOwn(info.base, p); })) return "class";
-        return null;
-    }
-    // редизайн редактора (фаза 2 инспектора): core-секции стиля показываем сразу, а редкие
-    // (Трекинг/Регистр/Граница/Тень/Прозрачность/Blend/Мин.высота — флаг adv) сворачиваем
-    // в одну группу «Дополнительно». Сами контролы и их data-doc-* хуки не меняются.
-    function styleSectionHtml(item, s, mixed, sourceInfo) {
-        var body = renderControl(item, s, mixed);
-        var props = registryProps(item);
-        var src = sectionSource(props, sourceInfo);
-        if (src === "instance-own") {
-            var instOv = props.filter(function (p) { return hasOwn(sourceInfo.instOwn, p); });
-            body = '<div class="lime-style-override"><span class="lime-style-override__badge" title="Переопределено в этой копии компонента">●</span>' +
-                '<button type="button" class="lime-btn lime-btn--ghost lime-btn--sm" data-doc-style-reset="' + instOv.join(",") + '">↺ к компоненту</button></div>' + body;
-        } else if (src === "own") {
-            var ov = props.filter(function (p) { return hasOwn(sourceInfo.own, p); });
-            body = '<div class="lime-style-override"><span class="lime-style-override__badge" title="Переопределено на этом брейкпоинте">●</span>' +
-                '<button type="button" class="lime-btn lime-btn--ghost lime-btn--sm" data-doc-style-reset="' + ov.join(",") + '">↺ сбросить</button></div>' + body;
-        } else if (src === "tablet" || src === "base") {
-            body = '<div class="lime-style-override lime-style-override--inherited"><span class="lime-style-override__src" data-style-src="' + src + '">← ' +
-                (src === "tablet" ? "планшет" : "десктоп") + '</span></div>' + body;
-        } else if (src === "class") {
-            body = '<div class="lime-style-override lime-style-override--inherited"><span class="lime-style-override__src" data-style-src="class">← класс</span></div>' + body;
-        }
-        return sec(item.title, body);
-    }
-    function renderStyleSections(s, mixed, sourceInfo) {
-        var core = [], adv = [];
-        STYLE_REGISTRY.forEach(function (item) {
-            (item.adv ? adv : core).push(styleSectionHtml(item, s, mixed, sourceInfo));
-        });
-        var out = core.join("");
-        if (adv.length) {
-            out += '<details class="lime-inspector__adv"' + (inspectorAdvOpen ? " open" : "") + '>' +
-                '<summary class="lime-inspector__adv-summary">Дополнительно</summary>' +
-                '<div class="lime-inspector__adv-body">' + adv.join("") + '</div>' +
-                '</details>';
-        }
-        return out;
-    }
 
     // ----- Панель «Классы» (этап 0.1) — модуль lime-editor-classes.js. -----
     var classTools = EditorClasses.create({
@@ -1331,139 +1004,53 @@
     var setV2GridFill = v2LayoutTools.setGridFill;
     var setV2Overflow = v2LayoutTools.setOverflow;
 
-    function refreshInspector() {
-        if (!inspectorEl) return;
-        var b = selectedId ? byId(selectedId) : null;
-        // редизайн: в V2 инспектор скрыт, пока ничего не выбрано — холст шире, меньше шума.
-        // В legacy (?classic=1) инспектор остаётся постоянным.
-        syncInspectorShell(!!b);
-        if (!b) {
-            inspectorEl.innerHTML = '<div class="lime-inspector__empty">' + ico("cta") +
-                '<p>Выбери блок в холсте, чтобы редактировать стили, раскладку и контент.</p></div>';
-            return;
-        }
-        var s = curStyle(b);
-        // Stage 5 multi-select: стилевые секции читают синтетический мульти-бакет (общее/Mixed),
-        // правки разветвляются на все выбранные узлы. Layout/fx/фон остаются на primary.
-        var multiIds = v2SelectionIds();
-        var multiSel = multiIds.length >= 2 && !currentClass;
-        var multiStyles = multiSel ? multiStyleModel(multiIds, currentState === "hover" ? "hover" : currentBp) : null;
-        var styleSecBucket = multiStyles ? multiStyles.values : s;
-        var styleMixed = multiStyles ? multiStyles.mixed : {};
-        // Stage 5 source/reset: секция показывает провенанс — own (переопределено здесь → «сбросить»),
-        // tablet/base (унаследовано), class (из класса). Multi: reset, когда все выбранные переопределены
-        // на этом бр. (own = пересечение); inherited/class-бейджи для multi не показываем (гетерогенно).
-        var singleInstance = !multiSel && b.type === "component" && componentRecord(b.ref);
-        var styleSourceInfo = (!currentClass && currentState === "normal")
-            ? (multiSel
-                ? { bp: currentBp, own: currentBp !== "base" ? ownOverrideProps(multiIds, currentBp) : {}, tablet: {}, base: {}, cls: {} }
-                : singleInstance
-                    // Инстанс: ось «локальный override → к компоненту» (на текущем бакете, в т.ч. base).
-                    ? { bp: currentBp, instance: true,
-                        instOwn: (b.overrides && b.overrides.styles && b.overrides.styles[currentBp]) || {} }
-                    : { bp: currentBp,
-                        own: (currentBp !== "base" && targetBlock(b).styles && targetBlock(b).styles[currentBp]) || {},
-                        tablet: (targetBlock(b).styles && targetBlock(b).styles.tablet) || {},
-                        base: (targetBlock(b).styles && targetBlock(b).styles.base) || {},
-                        cls: effectiveClassStyles(b) })
-            : null;
-        var multiBanner = multiSel
-            ? '<div class="lime-inspector__section"><div class="lime-doc-comp-banner" data-multi-select>Selected nodes: ' + multiIds.length + ' — style edits apply to all. <button type="button" class="lime-btn lime-btn--ghost lime-btn--sm" data-doc-op="group">Group</button></div></div>'
-            : '';
-        var isComp = b.type === "component";
-        var compName = (isComp && doc.components[b.ref]) ? doc.components[b.ref].name : "";
-        var resetOverridesBtn = (isComp && b.overrides)
-            ? '<button type="button" class="lime-btn lime-btn--ghost lime-btn--sm" data-doc-op="reset-overrides" title="Снять все локальные правки этой копии">↺ Сбросить правки</button> '
-            : '';
-        var banner = isComp
-            ? '<div class="lime-inspector__section"><div class="lime-doc-comp-banner">⊞ Компонент «' + escapeText(compName) + '» — правки текста/медиа/стиля локальны для этой копии. ' + resetOverridesBtn + '<button type="button" class="lime-btn lime-btn--ghost lime-btn--sm" data-doc-op="detach">Отвязать</button></div></div>'
-            : '';
-        if (isComp) banner = banner.replace("</div></div>", componentVariantControls(b) + "</div></div>");
-        var found = findBlock(selectedId);
-        var nested = !!(found && found.parentBlock); // вложен в контейнер → доступно «Наружу»
-        var t = targetBlock(b);
-        var colsSec = (t && t.type === "columns")
-            ? sec("Колонки", '<div class="lime-segmented">' + [2, 3].map(function (n) {
-                return '<button type="button" class="' + ((t.content && t.content.cols) == n ? "is-active" : "") + '" data-doc-cols="' + n + '">' + n + '</button>';
-            }).join("") + '</div>')
-            : "";
-        var containerHint = (t && L.isContainer(t.type))
-            ? '<div class="lime-inspector__section"><div class="lime-doc-comp-banner">▣ Контейнер выбран — блоки из сайдбара добавятся внутрь него.</div></div>'
-            : "";
-
-        // DnD C: режим раскладки контейнера → заметный тумблер «Свободно ⇄ Поток» в шапке.
-        // Делает free-режим (перемещение блоков как в Figma) видимым, а не спрятанным в Layout·V2.
-        var contMode = (t && L.isContainer(t.type) && t.type !== "component" && L.resolvedDesign)
-            ? ((L.resolvedDesign(t.design, currentBp).layout || {}).mode || "stack") : "";
-        var freeToggleBtn = contMode
-            ? '<button type="button" class="lime-block-toolbar__btn' + (contMode === "free" ? " is-active" : "") +
-                '" data-doc-op="free-toggle' +
-                '" title="' + (contMode === "free" ? "Вернуть блоки в поток" : "Свободное размещение — двигай блоки как в Figma") +
-                '" aria-label="Свободное размещение"><svg class="lime-ico"><use href="#i-free"/></svg></button>'
-            : "";
-        var headHtml =
-            '<div class="lime-inspector__head">' +
-                '<div class="lime-inspector__title">' + (isComp ? "компонент" : b.type) +
-                    '<small>Стили для: <b>' + bpLabel() + '</b>' + (currentBp === "base" ? "" : " (override)") + '</small></div>' +
-                '<div class="lime-flex lime-gap-2" role="toolbar" aria-label="Действия над блоком">' +
-                    freeToggleBtn +
-                    '<button type="button" class="lime-block-toolbar__btn" data-doc-op="up" title="Вверх" aria-label="Поднять блок">' + ico("up") + '</button>' +
-                    '<button type="button" class="lime-block-toolbar__btn" data-doc-op="down" title="Вниз" aria-label="Опустить блок">' + ico("down") + '</button>' +
-                    (nested ? '<button type="button" class="lime-block-toolbar__btn" data-doc-op="unwrap" title="Вытащить из контейнера" aria-label="Вытащить из контейнера">' + ico("out") + '</button>' : "") +
-                    (t && t.content && typeof t.content.text === "string"
-                        ? '<button type="button" class="lime-block-toolbar__btn" data-doc-op="ai" title="Переписать текст (AI)" aria-label="Переписать текст с помощью AI">' + ico("features") + '</button>' : "") +
-                    '<button type="button" class="lime-block-toolbar__btn" data-doc-op="dup" title="Дублировать" aria-label="Дублировать блок">' + ico("duplicate") + '</button>' +
-                    (b.type === "group" ? '<button type="button" class="lime-block-toolbar__btn" data-doc-op="ungroup" title="Ungroup" aria-label="Разгруппировать">' + ico("ungroup") + '</button>' : "") +
-                    (isComp ? "" : '<button type="button" class="lime-block-toolbar__btn" data-doc-op="comp" title="Сделать компонентом" aria-label="Сделать компонентом">' + ico("grid") + '</button>') +
-                    '<button type="button" class="lime-block-toolbar__btn lime-block-toolbar__btn--danger" data-doc-op="del" title="Удалить" aria-label="Удалить блок">' + ico("trash") + '</button>' +
-                '</div>' +
-            '</div>';
-
-        // Вкладки инспектора (Фаза удобства): режут длинный скролл втрое.
-        var tabs = [["style", "Стиль"], ["fx", "Эффекты"], ["motion", "Движение"]];
-        var tabsBar = '<div class="lime-insp-tabs">' + tabs.map(function (o) {
-            return '<button type="button" class="lime-insp-tab-btn' + (currentInspectorTab === o[0] ? " is-active" : "") + '" data-doc-insp-tab="' + o[0] + '">' + o[1] + '</button>';
-        }).join("") + '</div>';
-        function panel(name, body) {
-            return '<div class="lime-insp-panel" data-insp-tab="' + name + '"' + (currentInspectorTab === name ? "" : " hidden") + '>' + body + '</div>';
-        }
-
-        // Переключатель состояния (1.2): «Обычное / Наведение». В hover-режиме правим только
-        // стиль-пропсы (контент/фон/колонки скрыты — они не зависят от состояния).
-        var stateSeg = sec("Состояние", '<div class="lime-segmented">' +
-            '<button type="button" class="' + (currentState === "normal" ? "is-active" : "") + '" data-doc-state="normal">Обычное</button>' +
-            '<button type="button" class="' + (currentState === "hover" ? "is-active" : "") + '" data-doc-state="hover">Наведение</button>' +
-            '</div>' + (currentState === "hover" ? '<div class="lime-inspector__hint" style="margin-top:6px;">Стили применяются при наведении курсора. В холсте показан вид наведения.</div>' : ''));
-        var styleBody;
-        if (currentClass) {
-            // Режим правки класса: только баннер + переключатель состояния + стили (контент/фон/колонки — это про блок).
-            styleBody = classEditBanner() + stateSeg + renderStyleSections(styleSecBucket, styleMixed, styleSourceInfo);
-        } else if (currentState === "hover") {
-            styleBody = classesSection(b) + stateSeg + renderStyleSections(styleSecBucket, styleMixed, styleSourceInfo);
-        } else {
-            styleBody = componentPropsSection(b) + v2LayoutInspector(b, found) + classesSection(b) + containerHint + colsSec + bindingSection(t) + contentExtras(t) + bgInspector(b, s) + stateSeg + renderStyleSections(styleSecBucket, styleMixed, styleSourceInfo);
-        }
-        var fxBody = fxInspector(t) + animInspector(t);
-        var motionBody = motionInspector(t) + sceneInspector(t) + layersInspector(t);
-
-        inspectorEl.innerHTML =
-            '<div class="lime-insp-sticky">' + headHtml + banner + multiBanner + tabsBar + '</div>' +
-            panel("style", styleBody) + panel("fx", fxBody) + panel("motion", motionBody);
-
-        // Запоминаем развёрнутость группы «Дополнительно» между перерисовками инспектора.
-        var advEl = inspectorEl.querySelector(".lime-inspector__adv");
-        if (advEl) advEl.addEventListener("toggle", function () { inspectorAdvOpen = advEl.open; });
-
-        // Превью фон-пресетов — через style (в css-значениях кавычки/запятые, в атрибут не вставить).
-        if (window.LimeAssets && window.LimeAssets.BG_PRESETS) {
-            var pbtns = inspectorEl.querySelectorAll("[data-doc-bg-preset]");
-            for (var pi = 0; pi < pbtns.length; pi++) {
-                var pp = window.LimeAssets.BG_PRESETS[parseInt(pbtns[pi].getAttribute("data-doc-bg-preset"), 10)];
-                if (pp) pbtns[pi].style.backgroundImage = pp.css;
-            }
-        }
-        populateCollectionPickers(t);
-    }
+    // ===== INSPECTOR VIEW — module lime-editor-inspector.js =====
+    // curStyle/refreshInspector — hoisted-обёртки: их получают по значению модули, создающиеся
+    // раньше (shadow/section-bg/render). binding/extras/bg/pickers — thunk'и (алиасы ниже).
+    var inspectorView = EditorInspector.create({
+        window: window,
+        inspectorEl: inspectorEl,
+        L: L,
+        escapeText: escapeText,
+        ico: ico,
+        getDoc: function () { return doc; },
+        getSelectedId: function () { return selectedId; },
+        getCurrentClass: function () { return currentClass; },
+        getCurrentState: function () { return currentState; },
+        getCurrentBp: function () { return currentBp; },
+        getCurrentInspectorTab: function () { return currentInspectorTab; },
+        byId: byId,
+        findBlock: findBlock,
+        targetBlock: targetBlock,
+        readStyles: readStyles,
+        findClassDef: findClassDef,
+        effectiveClassStyles: effectiveClassStyles,
+        componentRecord: componentRecord,
+        syncInspectorShell: syncInspectorShell,
+        v2SelectionIds: v2SelectionIds,
+        multiStyleModel: multiStyleModel,
+        styleRegistry: STYLE_REGISTRY,
+        hasOwn: hasOwn,
+        registryProps: registryProps,
+        renderControl: renderControl,
+        section: sec,
+        classEditBanner: classEditBanner,
+        classesSection: classesSection,
+        componentPropsSection: componentPropsSection,
+        componentVariantControls: componentVariantControls,
+        v2LayoutInspector: v2LayoutInspector,
+        bindingSection: function (t) { return bindingSection(t); },
+        contentExtras: function (t) { return contentExtras(t); },
+        bgInspector: function (b, s) { return bgInspector(b, s); },
+        fxInspector: fxInspector,
+        animInspector: animInspector,
+        motionInspector: motionInspector,
+        sceneInspector: sceneInspector,
+        layersInspector: layersInspector,
+        populateCollectionPickers: function (t) { populateCollectionPickers(t); }
+    });
+    function refreshInspector() { inspectorView.refreshInspector(); }
+    function curStyle(b) { return inspectorView.curStyle(b); }
 
     // Наполняет select коллекций из /Data/ApiList (только для сохранённого сайта). Общий кэш
     // читают также render()/INIT — потому остаётся здесь и проброшен в модуль get/set-инъекцией.
