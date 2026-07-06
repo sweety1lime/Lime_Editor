@@ -1266,7 +1266,8 @@
         setContentValue: setContentValue,
         render: render,
         markDirty: markDirty,
-        csrfToken: csrfToken
+        csrfToken: csrfToken,
+        getDoc: function () { return doc; }
     });
     function aiStatus(text, danger) { aiGenerateFlow.aiStatus(text, danger); }
     function aiOpen() { aiGenerateFlow.aiOpen(); }

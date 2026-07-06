@@ -30,6 +30,7 @@
         var render = deps.render || noop;
         var markDirty = deps.markDirty || noop;
         var csrfToken = deps.csrfToken || function () { return ""; };
+        var getDoc = deps.getDoc || function () { return null; };
 
         function aiStatus(text, danger) {
             if (!document) return;
@@ -147,6 +148,13 @@
                 try { resp = JSON.parse(xhr.responseText); } catch (e) { /* no-op */ }
                 if (xhr.status >= 200 && xhr.status < 300 && resp && resp.blocks) {
                     leStatus("Материализую блоки…");
+                    // Промпт → doc.meta.aiPrompt: сервер выведет из него имя сайта при сохранении
+                    // (SiteNaming.FromDocument), вместо очередного «Новый сайт».
+                    var doc = getDoc();
+                    if (doc) {
+                        doc.meta = doc.meta || {};
+                        doc.meta.aiPrompt = prompt.slice(0, 200);
+                    }
                     if (opts.onSuccess) opts.onSuccess();
                     materialize(resp.blocks);
                 } else {

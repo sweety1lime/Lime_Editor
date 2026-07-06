@@ -201,7 +201,9 @@ namespace Lime_Editor.Controllers
                 return StatusCode(403, new { error = "site_limit" });
             }
 
-            var name = "Новый сайт";
+            // AI-генерация кладёт промпт в doc.meta.aiPrompt — выводим из него имя сайта,
+            // чтобы дашборд не превращался в стену «Новый сайт».
+            var name = SiteNaming.FromDocument(documentJson) ?? "Новый сайт";
             var created = new Site
             {
                 Name = name,
