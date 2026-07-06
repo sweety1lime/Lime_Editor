@@ -1,6 +1,6 @@
 # Lime — Roadmap до запуска
 
-> Дорожная карта подготовки продукта к публичному запуску. Обновлено: **2026-06-28**.
+> Дорожная карта подготовки продукта к публичному запуску. Обновлено: **2026-07-06**.
 > Это не учебный проект — оценка и приоритеты по меркам production-SaaS.
 
 **Легенда статуса:** ✅ сделано · 🟡 частично · 🔜 следующее · ⛔ запарковано (нужна внешняя инфра/решение) · 🧹 тех-долг
@@ -123,14 +123,62 @@
 ### 4.2 🧹 Включить nullable reference types
 - **Что:** `<Nullable>disable</Nullable>` отключает защиту от NRE на весь проект.
 - **Как:** включать поэтапно — `#nullable enable` пофайлово на новом/трогаемом коде, затем по проекту, разгребая warning'и. Не флипать глобально одним коммитом (лавина предупреждений).
-- **Когда:** continuous, начиная с нового кода.
+- **Сделано 2026-07-04:** первые 3 файла — те, что реально трогались в этой же сессии (experience-builder-плана Milestone 5) — переведены на `#nullable enable`: `AiContentService.cs` (27 warning'ов честно разобраны: nullable-возвраты у всех `TryParse*`/`CleanBlock`/`Cap`/`EditBlockAsync`, nullable-параметры у `SlugField`/`IsEditableValue`/`Cap`, безопасные `!`/`?? ""` там, где inbound-JSON-путь уже гарантирует non-null логикой кода), `AiController.cs` (2 warning'а: `int.Parse(GetUserId(User))` — `!` с комментарием про гарантию `[Authorize]`, `breakpoint` параметр → `string?` + `!` на вызове, где `responsive`-флаг уже гарантирует non-null), `Models/UserNamePolicy.cs` (только константы, без правок). Итог: 0 warning на всей solution, `dotnet test` **253/253** без изменений в поведении.
+- **Когда:** continuous, начиная с нового кода — на нём и продолжать при следующих правках.
 - **Готово когда:** `<Nullable>enable</Nullable>` на уровне проекта, 0 warning.
 
 ### 4.3 🧹 Мелочи
 - ✅ **Embed host-allowlist + Cache-Control медиа** (2026-07-03, находки ревизии experience-builder-плана): (1) embed-URL раньше не проверялся сервером вообще (только js `^https://` + sandbox) — добавлен allowlist доверенных хостов `LimeDoc.isAllowedEmbedUrl`/`EMBED_HOSTS` в общем рендере (редактор + Jint-publish идентично) и валидация на вводе `promptEmbed`; 8 проверок в `lime-doc.selftest.cjs`. (2) `/media/**` отдавался без кэш-заголовков — добавлен `Cache-Control: public, max-age=31536000, immutable` (GUID-имена → безопасно). Проверено: node selftest зелёный, `dotnet test` **250/250** (Jint-паритет цел), editor-v2 **41/41**.
 - ✅ **Playwright auth-флоу** (2026-06-29) — прогнаны sign-up→sign-in→MySites, валидации (mismatch/invalid email/несуществующий логин) и новые forgot/reset-password (anti-enumeration на ForgotPassword + отклонение битого токена на ResetPassword). Починен устаревший селектор приветствия (`.lime-dashboard__welcome` → `.lime-dash-hi`). `tests/flows/sign-up.spec.ts` 9/9 зелёные на dev-Postgres.
-- **csproj cleanup** — убрать стэйл `<Folder Include="wwwroot\css\Template_1\">` (папки уже нет). *Когда:* при следующей правке csproj.
-- **Парольная политика** — при желании поднять до требования спецсимвола (сейчас 8+цифра). *Когда:* по продуктовому решению.
+- ✅ **csproj cleanup** (проверено 2026-07-04) — пункт неактуален: в текущем `Lime_Editor.csproj` нет `<Folder Include="wwwroot\css\Template_1\">`, папки давно нет, ItemGroup чистый (только `wwwroot\demoimages\`).
+- **Парольная политика** — при желании поднять до требования спецсимвола (сейчас 8+цифра). *Когда:* по продуктовому решению — сознательно не трогали, это решение пользователя, а не техдолг.
+
+---
+
+## Milestone 5 — Дифференциация (Wave 1, внешний план `.claude/plans/zany-painting-willow.md`)
+**Цель:** отдельная от launch-очереди дорожка продуктовых отличий от конкурентов. Не блокер запуска.
+
+### 5.1 ✅ MCP / AI-agent API (закрыто 2026-07-05)
+- **Что:** MCP-сервер (`/mcp`, официальный `ModelContextProtocol.AspNetCore`) с 3 инструментами:
+  `list_sites`, `get_site_document`, `apply_commands` — свой AI-агент/скрипт пользователя может
+  редактировать сайты тем же безопасным command-конвейером, что и браузерный AI, но без входа
+  через cookie-сессию.
+- **Аутентификация:** новые персональные API-токены (`ApiToken`, хэш SHA-256, страница `/Home/ApiTokens`),
+  отдельная авторизационная схема `"ApiToken"` — не трогает cookie-схему Identity.
+- **Применение команд:** новый `JsCommandEngine` — Jint исполняет тот же `lime-commands.js`, что
+  браузер (`dryRunAiCommands`), без единой правки JS; переиспользован `AiContentService.TryParseCommands`
+  для allowlist-валидации команд от агента.
+- **Найдено и исправлено живым E2E (не юнит-тестами):** (1) ambient EF tenant-filter
+  (`LimeEditorContext.HasQueryFilter`) оказался no-op внутри MCP-запроса — `SiteTools` теперь
+  фильтрует по `ICurrentUser` явно, не полагаясь на амбиентный механизм; (2) версия документа
+  (`DateTime.Ticks`, 19 цифр) отдавалась как JSON-число — JS/большинство MCP-клиентов теряют
+  точность за пределами 2^53, из-за чего `baseVersion` не совпадал при обратной отправке; передаём
+  версию строкой.
+- **Проверено:** 20 новых xUnit-тестов (ApiTokenService, JsCommandEngine, tenant-isolation SiteTools,
+  auth integration) — `dotnet test` 273/273; живой E2E (токен через браузер → 3 инструмента через
+  сырые HTTP-вызовы, как настоящий агент) — list/get/apply/conflict/revoke все корректны.
+- **Осталось (Wave 1 item 4, вне этого захода):** GitHub+Vercel eject — код написан (см. 5.2),
+  осталась регистрация внешнего OAuth-приложения (решение пользователя, как и M1).
+
+### 5.2 🟡 GitHub+Vercel eject (Wave 1 item 4) — код готов, ждёт OAuth-приложения
+- **Что:** «задеплоить сайт в свой GitHub-репозиторий» одной кнопкой из MySites +
+  ссылка «Импорт в Vercel»; экспорт — тот же NextExportService (blob/jsx), что и скачивание кода.
+- **Сделано (2026-07-05/06):** `GitHubDeploymentService` (OAuth-флоу c PKCE, state подписан
+  DataProtection, токен пользователя хранится зашифрованным), `GitHubApiClient` (Git Data API:
+  blobs→tree→commit→ref), `GitHubController` (Deploy/QuickDeploy/OAuthCallback, ownership +
+  гейт AllowExport тарифа), модели `GitHubConnection`/`GitHubSiteDeployment` + миграция,
+  страница Deploy + алерты в MySites. DataProtection-ключи в проде персистятся на volume
+  `dataprotection_keys` (compose.prod.yml) — иначе пересоздание контейнера делало бы токены
+  нечитаемыми. Конфиг: `GITHUB_OAUTH_CLIENT_ID`/`GITHUB_OAUTH_CLIENT_SECRET` (.env.example);
+  без них фича честно пишет «не настроено».
+- **Тесты (2026-07-06):** 14 xUnit против скриптованного GitHub API без сети — PKCE/state
+  (подделка и чужой пользователь → bad_state до единого HTTP-вызова), guards (not_connected /
+  site_not_found tenant-изоляция / export_not_allowed / битый токен), полный первый деплой
+  (санитизация имени репо, POST git/refs, строка деплоя в БД) и повторный (PATCH ветки,
+  родитель = старый head). `dotnet test` 287/287.
+- **Осталось:** зарегистрировать OAuth App (callback `https://${DOMAIN}/GitHub/OAuthCallback`),
+  живой E2E на реальном аккаунте; GitHub App-режим (выбор существующего repo) — заготовка
+  конфига есть, flow не собран.
 
 ---
 

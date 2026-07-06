@@ -45,11 +45,19 @@ services:
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
       SMTP_FROM: ${SMTP_FROM:-}
       SMTP_SSL: ${SMTP_SSL:-true}
+      # Ключи DataProtection — на volume: ими зашифрованы GitHub-токены пользователей
+      # (и подписаны cookie/antiforgery). Без персиста пересоздание контейнера делает
+      # сохранённые токены нечитаемыми, а все сессии — недействительными.
+      DataProtection__KeysPath: /app/keys
+      # GitHub-деплой (Wave 1 п.4): без ClientId/Secret фича честно пишет «не настроено».
+      GitHub__OAuthApp__ClientId: ${GITHUB_OAUTH_CLIENT_ID:-}
+      GitHub__OAuthApp__ClientSecret: ${GITHUB_OAUTH_CLIENT_SECRET:-}
     expose:
       - "8080"
     volumes:
       # Загруженные юзерами медиа — на хост-volume. В Phase 3 §3.2 плана переезд на S3.
       - media_data:/app/wwwroot/media
+      - dataprotection_keys:/app/keys
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:8080/health"]
       interval: 30s
@@ -103,3 +111,4 @@ volumes:
   caddy_config:
   media_data:
   backups_data:
+  dataprotection_keys:

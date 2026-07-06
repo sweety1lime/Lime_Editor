@@ -390,3 +390,6 @@ fix-dotnet-path.log
 Lime_Editor/wwwroot/media/
 
 /Microsoft/Windows/PowerShell/ModuleAnalysisCache
+
+# VS Code (локальные настройки редактора)
+.vscode/
