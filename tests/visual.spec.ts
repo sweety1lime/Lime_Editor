@@ -23,25 +23,27 @@ const PAGES = [
 // editor-b и community добавлены 2026-06-11 — baseline создаётся первым
 // прогоном `npx playwright test visual --update-snapshots`.
 
+// Стабилизация: остановить анимации, скрыть динамику
+async function stabilize(page: import("@playwright/test").Page) {
+  await page.addStyleTag({
+    content: `
+      *, *::before, *::after {
+        animation-duration: 0s !important;
+        animation-delay: 0s !important;
+        transition-duration: 0s !important;
+        transition-delay: 0s !important;
+      }
+      .lime-aurora::before, .lime-aurora::after { animation: none !important; }
+    `,
+  });
+  await page.waitForTimeout(500);
+}
+
 for (const p of PAGES) {
   test(`visual: ${p.name} (@visual)`, async ({ page }) => {
     await page.goto(p.path);
     await page.waitForLoadState("networkidle");
-
-    // Стабилизация: остановить анимации, скрыть динамику
-    await page.addStyleTag({
-      content: `
-        *, *::before, *::after {
-          animation-duration: 0s !important;
-          animation-delay: 0s !important;
-          transition-duration: 0s !important;
-          transition-delay: 0s !important;
-        }
-        .lime-aurora::before, .lime-aurora::after { animation: none !important; }
-      `,
-    });
-
-    await page.waitForTimeout(500);
+    await stabilize(page);
 
     await expect(page).toHaveScreenshot(`${p.name}.png`, {
       fullPage: true,
@@ -52,3 +54,34 @@ for (const p of PAGES) {
     });
   });
 }
+
+// ===== Editor V2 (дефолт после раскатки) — бейзлайны нового редактора =====
+
+// Пустой новый документ: интро-оверлей (промпт + тайлы Experience Packs).
+test("visual: editor-v2-intro (@visual)", async ({ page }) => {
+  await page.goto("/Home/EditDoc");
+  await page.waitForLoadState("networkidle");
+  await expect(page.locator("#lime-doc-intro")).toHaveClass(/is-on/);
+  await stabilize(page);
+  await expect(page).toHaveScreenshot("editor-v2-intro.png", { fullPage: true });
+});
+
+// V2-канвас с детерминированным контентом стартового шаблона (13 блоков, интро не показывается).
+test("visual: editor-v2-canvas (@visual)", async ({ page }) => {
+  await page.goto("/Home/EditDoc?template=startup");
+  await page.waitForLoadState("networkidle");
+  await expect(page.locator("#lime-doc-workspace .lime-block").first()).toBeVisible();
+  await stabilize(page);
+  await expect(page).toHaveScreenshot("editor-v2-canvas.png", { fullPage: true });
+});
+
+// Showcase Experience Pack на канвасе (Test Plan experience-builder-plan.md):
+// выбор пака через интро-тайл — тот же путь, что у пользователя.
+test("visual: showcase-pack-canvas (@visual)", async ({ page }) => {
+  await page.goto("/Home/EditDoc");
+  await page.waitForLoadState("networkidle");
+  await page.locator('[data-doc-pack="neo-lore-drop"]').click();
+  await expect(page.locator("#lime-doc-workspace .lime-block").first()).toBeVisible();
+  await stabilize(page);
+  await expect(page).toHaveScreenshot("showcase-pack-canvas.png", { fullPage: true });
+});
