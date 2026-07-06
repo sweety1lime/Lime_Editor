@@ -8,15 +8,18 @@
     align-items: center;
     justify-content: center;
     gap: var(--space-2);
+    max-width: 100%;
+    min-width: 0;
     height: 42px;
     padding: 0 20px;
     font-size: 14.5px;
     font-weight: 600;
     line-height: 1;
-    letter-spacing: -0.01em;
+    letter-spacing: 0;
     border-radius: 99px;
     border: 1px solid transparent;
     white-space: nowrap;
+    text-align: center;
     user-select: none;
     text-decoration: none;
     transition: all 0.18s var(--spring);
@@ -24,6 +27,7 @@
 .lime-btn svg { width: 17px; height: 17px; }
 .lime-btn:active { transform: translateY(0); }
 .lime-btn:disabled, .lime-btn[disabled] { opacity: 0.5; cursor: not-allowed; }
+.lime-btn.is-loading { pointer-events: none; }
 
 .lime-btn--primary {
     background: linear-gradient(180deg, var(--lime-bright), var(--lime));
@@ -142,7 +146,7 @@
     font-family: var(--font-grotesk);
     font-size: 19px;
     font-weight: 700;
-    letter-spacing: -0.02em;
+    letter-spacing: 0;
     color: var(--fg);
     text-decoration: none;
 }
@@ -178,7 +182,33 @@
 .lime-nav__link:hover { color: var(--fg); background: var(--glass); }
 .lime-nav__link--active { color: var(--lime); }
 .lime-nav__link--admin { color: var(--amber); }
-@media (max-width: 760px) { .lime-nav { display: none; } }
+@media (max-width: 760px) {
+    .lime-navbar__inner {
+        height: auto;
+        min-height: 66px;
+        padding-top: 10px;
+        padding-bottom: 10px;
+        flex-wrap: wrap;
+        gap: 10px 14px;
+    }
+    .lime-brand { flex: 0 0 auto; }
+    .lime-nav {
+        order: 3;
+        display: flex;
+        width: 100%;
+        margin-right: 0;
+        overflow-x: auto;
+        padding: 2px 2px 4px;
+        scrollbar-width: none;
+    }
+    .lime-nav::-webkit-scrollbar { display: none; }
+    .lime-nav__link {
+        display: inline-flex;
+        white-space: nowrap;
+        padding: 8px 11px;
+    }
+    .lime-nav__right { margin-left: auto; }
+}
 
 .lime-nav__right { display: flex; align-items: center; gap: 10px; }
 
@@ -250,6 +280,13 @@
 .lime-alert--danger { background: rgba(251, 113, 133, 0.08); border-color: rgba(251, 113, 133, 0.3); color: var(--rose); }
 .lime-alert--success { background: rgba(74, 222, 128, 0.08); border-color: rgba(74, 222, 128, 0.3); color: var(--success); }
 .lime-alert--warn { background: rgba(251, 191, 36, 0.08); border-color: rgba(251, 191, 36, 0.3); color: var(--amber); }
+.lime-alert--info { background: rgba(94, 234, 212, 0.08); border-color: rgba(94, 234, 212, 0.28); color: var(--fg-2); }
+.lime-alert a { color: var(--lime); font-weight: 700; text-decoration: none; }
+.lime-alert a:hover { text-decoration: underline; }
+.lime-alert__links { display: inline-flex; gap: 12px; flex-wrap: wrap; margin-left: 12px; }
+@media (max-width: 520px) {
+    .lime-alert__links { display: flex; margin-left: 0; margin-top: 10px; }
+}
 
 /* ============================================================ SECTION SCAFFOLD */
 .lime-section { padding: 96px 0; position: relative; }
@@ -345,6 +382,50 @@
     transition: background var(--t-fast);
 }
 .lime-dropdown__item:hover { background: var(--glass); color: var(--lime); }
+
+/* ============================================================ CONFIRM MODAL */
+.lime-confirm-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: var(--z-modal);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background: rgba(8, 10, 7, 0.72);
+    backdrop-filter: blur(14px);
+}
+.lime-confirm-backdrop.is-open { display: flex; }
+.lime-confirm {
+    width: min(420px, 100%);
+    padding: 22px;
+    border: 1px solid var(--line-2);
+    border-radius: var(--r-lg);
+    background: var(--ink-3);
+    box-shadow: var(--shadow-lg);
+}
+.lime-confirm h2 {
+    margin: 0 0 8px;
+    font-family: var(--font-grotesk);
+    font-size: 20px;
+    font-weight: 700;
+}
+.lime-confirm p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 14px;
+    line-height: 1.6;
+}
+.lime-confirm__actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 22px;
+}
+@media (max-width: 420px) {
+    .lime-confirm__actions .lime-btn { width: 100%; }
+}
 
 /* ============================================================ AVATAR */
 .lime-avatar {

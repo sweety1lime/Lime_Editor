@@ -105,7 +105,13 @@
                             }
                             <td style="padding:8px 16px 8px 0; color: var(--fg-muted); font-size: var(--text-sm);">@rec.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
                             <td style="padding:8px 0; text-align:right;">
-                                <form asp-action="DeleteRecord" method="post" style="display:inline;" onsubmit="return confirm('Удалить запись?');">
+                                <form asp-action="DeleteRecord" method="post" style="display:inline;"
+                                      data-lime-confirm
+                                      data-lime-confirm-title="Удалить запись?"
+                                      data-lime-confirm-message="Запись будет удалена из коллекции навсегда."
+                                      data-lime-confirm-action="Удалить"
+                                      data-lime-loading
+                                      data-lime-loading-text="Удаляем...">
                                     <input type="hidden" name="id" value="@rec.Id">
                                     <button type="submit" class="lime-btn lime-btn--danger lime-btn--sm">✕</button>
                                 </form>

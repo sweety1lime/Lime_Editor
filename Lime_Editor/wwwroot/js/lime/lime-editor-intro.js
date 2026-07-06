@@ -6,14 +6,18 @@
     "use strict";
 
     // Оверлей с промптом на пустом новом документе: ввод → AI-генерация (runGenerate),
-    // чипы-подсказки, Ctrl/Cmd+Enter. Внешние зависимости инжектятся: totalBlocks (пуст ли
-    // документ) и runGenerate (запуск генерации). Возвращает { hide } — чтобы onboarding-тур
-    // мог спрятать оверлей при форсе (?tour=1).
+    // чипы-подсказки, Ctrl/Cmd+Enter, плюс вторичная панель Experience Packs (Milestone 1
+    // experience-builder-plan.md) — applyPack(key) вместо навигации на ?template=key.
+    // Внешние зависимости инжектятся: totalBlocks (пуст ли документ), runGenerate (запуск
+    // генерации), packs (LimeExperiencePacks), applyPack (применить пак по key). Возвращает
+    // { hide } — чтобы onboarding-тур мог спрятать оверлей при форсе (?tour=1).
     function create(options) {
         options = options || {};
         var doc = options.document || (typeof document !== "undefined" ? document : null);
         var totalBlocks = options.totalBlocks || function () { return 0; };
         var runGenerate = options.runGenerate || function () {};
+        var packs = options.packs || { LIST: [], resolve: function () { return null; } };
+        var applyPack = options.applyPack || function () {};
 
         var introEl = doc ? doc.getElementById("lime-doc-intro") : null;
 
@@ -53,6 +57,30 @@
             if (introPrompt) introPrompt.addEventListener("keydown", function (e) {
                 if ((e.metaKey || e.ctrlKey) && e.key === "Enter") { e.preventDefault(); introRun(); }
             });
+
+            // Experience Packs: вторичная панель "или начни с готового пака" — applyPack(key)
+            // применяет тему+секции мгновенно на холсте, без ?template=key и перезагрузки.
+            var introPacks = doc.getElementById("lime-doc-intro-packs");
+            if (introPacks && packs.LIST && packs.LIST.length) {
+                introPacks.innerHTML = packs.LIST.map(function (p) {
+                    var full = packs.resolve(p.key);
+                    if (!full) return "";
+                    var grad = "linear-gradient(135deg," + full.theme.accent + "," + full.theme.accent2 + ")";
+                    return '<button type="button" class="lime-le-pack-tile" data-doc-pack="' + p.key + '">' +
+                        '<span class="lime-le-pack-tile__swatch" style="background:' + grad + '"></span>' +
+                        '<span class="lime-le-pack-tile__body">' +
+                        '<span class="lime-le-pack-tile__name">' + full.name + '</span>' +
+                        '<span class="lime-le-pack-tile__preview">' + full.preview + '</span>' +
+                        '</span></button>';
+                }).join("");
+                introPacks.addEventListener("click", function (e) {
+                    var btn = e.target.closest("[data-doc-pack]");
+                    if (!btn) return;
+                    applyPack(btn.getAttribute("data-doc-pack"));
+                    hide();
+                });
+            }
+
             // Показываем только на пустом новом документе.
             if (totalBlocks() === 0) {
                 introEl.classList.add("is-on");

@@ -63,6 +63,7 @@ var block = { content: {} };
     var grad = api.bgInspector(block, { backgroundImage: "linear-gradient(135deg, #a78bfa, #38bdf8)" });
     check("gradient-режим: угол + 2 цвета", grad.indexOf('data-doc-grad="angle"') >= 0 && grad.indexOf('data-doc-grad="c1"') >= 0);
     check("любой режим: видео-фон доступен", grad.indexOf('data-doc-bg-video') >= 0);
+    check("видео-фон честно помечен как ссылка, не загрузка (Milestone 4)", grad.indexOf("загрузка файла пока не поддерживается") >= 0);
 }
 
 if (failed) {

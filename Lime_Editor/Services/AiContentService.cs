@@ -1,3 +1,4 @@
+#nullable enable
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;
@@ -101,9 +102,13 @@ namespace Lime_Editor.Services
         private static readonly HashSet<string> AllowedCommands = new(StringComparer.Ordinal)
         {
             "setStyle", "setContent", "setDesign", "setBlockProp",
-            "insertBlock", "removeBlock", "reorderBlock", "moveBlock",
+            "insertBlock", "removeBlock", "reorderBlock", "moveBlock", "setTheme",
         };
-        private const int MaxCommands = 40;
+        // Milestone 5, Фаза A (experience-builder-plan.md): «заполнить пак текстом» шлёт один батч
+        // setContent на ВСЕ текстовые поля документа, а не на один блок — для neo-lore-drop это
+        // 71 поле (замерено при планировании), 40 стало тесно. 100 — с запасом, число всё ещё
+        // ограничено (не generic patch), новых типов команд/whitelist это не добавляет.
+        private const int MaxCommands = 100;
 
         private const string CommandSystemPrompt =
 @"Ты — AI-редактор конструктора сайтов Lime. Тебе дан контекст: выбранное поддерево блоков (с их id,
@@ -121,6 +126,12 @@ namespace Lime_Editor.Services
 - insertBlock: {block:{type, content}} — добавить новую секцию в конец страницы. Доступные type и поля content
   (все — строки): cover{uptitle,title,desc,cta}, heading{text}, text{text}, cta{title,desc,btn},
   buttonGroup{primary,secondary}, features{items:[{icon,title,desc}]}, stats{items:[{num,label}]}, divider, spacer
+- setTheme: {key, value} — цвет/шрифт темы сайта (не блока). key ∈ accent|accent2|bg|fg|muted|font;
+  value — hex-цвет вида ""#rrggbb"" для цветовых key, CSS font-stack строка для font
+- setBlockProp: {id, prop, value} — motion/анимация уже существующего блока. prop ∈
+  anim|animDelay|animDuration|parallax|marquee|scene|sticky|stickyOffset; anim — строка вида ""fade-up"";
+  animDelay/animDuration — число (сек); parallax — число 0..1; marquee — {speed:число, reverse:bool};
+  scene — {mode:""pin""|""horizontal"", length:число}; sticky — bool; stickyOffset — число
 
 Правила: для правок меняй ТОЛЬКО блоки с id из контекста, не выдумывай id; для новой секции используй insertBlock
 с блоком из списка выше; value — строка или число; язык текстов — язык контекста; никаких других команд, типов
@@ -173,7 +184,7 @@ content, styles, design) и тема. Подгони ТОЛЬКО отображ
             if (cmds == null || (breakpoint != "tablet" && breakpoint != "mobile")) return result;
             foreach (var c in cmds)
             {
-                if (!ResponsiveCommands.Contains(c["type"]?.ToString())) continue;
+                if (!ResponsiveCommands.Contains(c["type"]?.ToString() ?? "")) continue;
                 var bp = (c["payload"] as JObject)?["breakpoint"]?.ToString();
                 if (bp == breakpoint) result.Add(c);
             }
@@ -200,7 +211,7 @@ content, styles, design) и тема. Подгони ТОЛЬКО отображ
         // Парсинг + валидация списка команд от модели. public static — покрыто юнит-тестами.
         // Возвращает null, если JSON не разобрался; иначе очищенный список (чужие типы/битая форма
         // молча отброшены, строки урезаны, число команд ограничено). Пустой список — валиден.
-        public static List<JObject> TryParseCommands(string raw)
+        public static List<JObject>? TryParseCommands(string raw)
         {
             if (string.IsNullOrWhiteSpace(raw)) return null;
             JToken root;
@@ -304,7 +315,7 @@ content, styles, design) и тема. Подгони ТОЛЬКО отображ
         // Валидация ответа модели: { name, fields:[{name,type,label}], records:[{...}] }.
         // Чужие типы → text; имена слагифицируются и дедуплицируются; лимиты полей/записей;
         // записи фильтруются по известным полям, значения — строки с обрезкой. public static — юнит-тесты.
-        public static JObject TryParseCollection(string raw)
+        public static JObject? TryParseCollection(string raw)
         {
             if (string.IsNullOrWhiteSpace(raw)) return null;
             JToken root;
@@ -321,7 +332,7 @@ content, styles, design) и тема. Подгони ТОЛЬКО отображ
                 var name = SlugField(fo["name"]?.ToString());
                 if (string.IsNullOrEmpty(name) || names.Contains(name)) continue;
                 var type = fo["type"]?.ToString();
-                if (!CollectionFieldTypes.Contains(type)) type = "text";
+                if (type == null || !CollectionFieldTypes.Contains(type)) type = "text";
                 var label = fo["label"]?.ToString();
                 if (string.IsNullOrWhiteSpace(label)) label = name;
                 names.Add(name);
@@ -339,7 +350,7 @@ content, styles, design) и тема. Подгони ТОЛЬКО отображ
                     var rec = new JObject();
                     foreach (var f in fields)
                     {
-                        var fn = (string)f["name"];
+                        var fn = (string)f["name"]!;
                         var v = ro[fn];
                         rec[fn] = v == null || v.Type == JTokenType.Null ? "" : Cap(v.ToString());
                     }
@@ -354,7 +365,7 @@ content, styles, design) и тема. Подгони ТОЛЬКО отображ
 
         // Имя поля → snake_case (как DataController.Slugify). Пустое/без букв-цифр → "" (поле отбросится).
         // Guard перед SlugGenerator: его фолбэк "site" не должен превращать безымянное поле в валидное.
-        private static string SlugField(string s)
+        private static string SlugField(string? s)
         {
             if (string.IsNullOrWhiteSpace(s)) return "";
             var hasAlnum = false;
@@ -374,10 +385,28 @@ content, styles, design) и тема. Подгони ТОЛЬКО отображ
             return result.Length > 2000 ? result.Substring(0, 2000) : result;
         }
 
+        // Milestone 5, Фаза C (experience-builder-plan.md): «✦ Промпт для ассета» — не трогает
+        // документ вообще (ни commands, ни content), просто предлагает текст-бриф под asset slot
+        // пака. Своя система-роль (не редактор текстов лендингов, как у RewriteTextAsync выше) —
+        // чтобы модель не путала задачи.
+        private const string AssetBriefSystemPrompt =
+            "Ты помогаешь дизайнерам подобрать промпт для поиска или генерации визуального ассета " +
+            "(3D-сцена, лого, декор, фон) под конкретный слот сайта. Тебе дан слот (что нужно и " +
+            "требования), название и категория пака, акцентные цвета темы. Ответь ОДНИМ практичным " +
+            "текстовым промптом на русском, готовым для вставки в Midjourney/поиск ассетов/Spline. " +
+            "Без markdown, без кавычек, до 300 символов.";
+
+        public async Task<string> SuggestAssetBriefAsync(string contextJson, CancellationToken ct = default)
+        {
+            var result = await _provider.CompleteAsync(AssetBriefSystemPrompt, contextJson, 400, ct);
+            result = result.Trim().Trim('"');
+            return result.Length > 500 ? result.Substring(0, 500) : result;
+        }
+
         // «✨ AI: переписать» для выделенного блока/секции (вместе с детьми).
         // Возвращает тот же блок c переписанными текстами; null — если переписывать нечего
         // (контроллер ответит no_text). FormatException — если модель не дала валидный патч.
-        public async Task<string> EditBlockAsync(string blockJson, string instruction, int maxTokens, CancellationToken ct = default)
+        public async Task<string?> EditBlockAsync(string blockJson, string instruction, int maxTokens, CancellationToken ct = default)
         {
             JObject block;
             try { block = JObject.Parse(blockJson); }
@@ -452,7 +481,7 @@ content, styles, design) и тема. Подгони ТОЛЬКО отображ
 
         // Текст «достоин переписывания»: не URL/якорь/цвет/почта и содержит хоть одну букву
         // (отсекает голые числа, hex-цвета, ссылки, протокол-строки).
-        private static bool IsEditableValue(string v)
+        private static bool IsEditableValue(string? v)
         {
             if (string.IsNullOrWhiteSpace(v)) return false;
             var t = v.Trim();
@@ -468,7 +497,7 @@ content, styles, design) и тема. Подгони ТОЛЬКО отображ
         // Парсинг + валидация ответа модели. public static — покрыто юнит-тестами.
         // Возвращает null, если JSON не разобрался; иначе список очищенных блоков
         // (мусорные типы/поля молча отброшены).
-        public static List<JObject> TryParseBlocks(string raw)
+        public static List<JObject>? TryParseBlocks(string raw)
         {
             if (string.IsNullOrWhiteSpace(raw)) return null;
             // Модели любят оборачивать в ```json ... ``` — срезаем.
@@ -494,7 +523,7 @@ content, styles, design) и тема. Подгони ТОЛЬКО отображ
         // Очистка одного блока по whitelist (тип + текстовые поля content). Возвращает чистый
         // {type, content} либо null (неизвестный тип / пустой текстовый блок). Единая точка
         // валидации структуры блока — и для генерации, и для AI-команды insertBlock (этап 10.4).
-        public static JObject CleanBlock(JObject b)
+        public static JObject? CleanBlock(JObject? b)
         {
             if (b == null) return null;
             var type = b["type"]?.ToString();
@@ -554,14 +583,14 @@ content, styles, design) и тема. Подгони ТОЛЬКО отображ
 
         // Ответ модели на правку: JSON-объект путь→новый текст. null, если не разобрался
         // или это не объект. public static — покрыто юнит-тестами.
-        public static JObject TryParseEditMap(string raw)
+        public static JObject? TryParseEditMap(string raw)
         {
             if (string.IsNullOrWhiteSpace(raw)) return null;
             try { return JToken.Parse(StripFence(raw)) as JObject; }
             catch (JsonReaderException) { return null; }
         }
 
-        private static string Cap(string v)
+        private static string? Cap(string? v)
         {
             if (v == null) return null;
             v = v.Trim();

@@ -132,6 +132,9 @@ namespace Lime.Tests.Integration
             AssertRequestSizeLimit(
                 typeof(AiController).GetMethod(nameof(AiController.Suggest)),
                 RequestBodyLimits.AiLargeBytes);
+            AssertRequestSizeLimit(
+                typeof(AiController).GetMethod(nameof(AiController.SuggestAssetBrief)),
+                RequestBodyLimits.AiSmallBytes);
         }
 
         [Fact]

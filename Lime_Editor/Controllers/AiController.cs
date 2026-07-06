@@ -1,3 +1,4 @@
+#nullable enable
 using Lime_Editor.Models;
 using Lime_Editor.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -39,7 +40,8 @@ namespace Lime_Editor.Controllers
             _maxTokens = config.GetValue("Ai:MaxTokens", 4000);
         }
 
-        private int CurrentUserId => int.Parse(_userManager.GetUserId(User));
+        // [Authorize] на контроллере гарантирует аутентифицированного пользователя с NameIdentifier.
+        private int CurrentUserId => int.Parse(_userManager.GetUserId(User)!);
         private OwnerRef Owner => OwnerRef.ForUser(CurrentUserId);
 
         [HttpPost]
@@ -159,7 +161,7 @@ namespace Lime_Editor.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         [RequestSizeLimit(RequestBodyLimits.AiLargeBytes)]
-        public async Task<IActionResult> Suggest(string context, string instruction, string breakpoint = null)
+        public async Task<IActionResult> Suggest(string context, string instruction, string? breakpoint = null)
         {
             if (string.IsNullOrWhiteSpace(context) || context.Length > 20000 ||
                 string.IsNullOrWhiteSpace(instruction) || instruction.Length > 300)
@@ -181,8 +183,10 @@ namespace Lime_Editor.Controllers
 
             try
             {
+                // responsive==true гарантирует breakpoint == "tablet"/"mobile" (non-null) — компилятор
+                // не связывает это с проверкой выше без прямого null-чека, отсюда "!" .
                 var commands = responsive
-                    ? await _ai.SuggestResponsiveAsync(context, instruction.Trim(), breakpoint, _maxTokens, HttpContext.RequestAborted)
+                    ? await _ai.SuggestResponsiveAsync(context, instruction.Trim(), breakpoint!, _maxTokens, HttpContext.RequestAborted)
                     : await _ai.SuggestCommandsAsync(context, instruction.Trim(), _maxTokens, HttpContext.RequestAborted);
                 await _entitlements.IncrementAsync(Owner, Meter);
                 return Content(
@@ -192,6 +196,42 @@ namespace Lime_Editor.Controllers
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 _logger.LogError(ex, "AI suggest failed for user {UserId}", CurrentUserId);
+                return StatusCode(502, new { error = "ai_failed" });
+            }
+        }
+
+        // Milestone 5, Фаза C (experience-builder-plan.md): «✦ Промпт для ассета» — короткий
+        // текст-бриф под asset slot пака. Документ не трогает вообще (ни content, ни commands),
+        // поэтому нет ни validate/dry-run, ни отдельного эндпоинта под каждый тип правки.
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [RequestSizeLimit(RequestBodyLimits.AiSmallBytes)]
+        public async Task<IActionResult> SuggestAssetBrief(string context)
+        {
+            if (string.IsNullOrWhiteSpace(context) || context.Length > 2000)
+            {
+                return BadRequest(new { error = "input" });
+            }
+            if (!_ai.IsConfigured)
+            {
+                return StatusCode(503, new { error = "not_configured" });
+            }
+
+            var usage = await _entitlements.GetUsageAsync(Owner, Meter);
+            if (usage.Used >= usage.Limit)
+            {
+                return StatusCode(429, new { error = "quota", used = usage.Used, limit = usage.Limit });
+            }
+
+            try
+            {
+                var result = await _ai.SuggestAssetBriefAsync(context, HttpContext.RequestAborted);
+                await _entitlements.IncrementAsync(Owner, Meter);
+                return Json(new { text = result, used = usage.Used + 1, limit = usage.Limit });
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogError(ex, "AI asset-brief failed for user {UserId}", CurrentUserId);
                 return StatusCode(502, new { error = "ai_failed" });
             }
         }

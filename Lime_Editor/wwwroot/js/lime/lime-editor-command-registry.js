@@ -22,6 +22,9 @@
         var v2SelectionIds = options.v2SelectionIds || function () { return []; };
         var aiOpen = options.aiOpen || function () {};
         var aiSuggest = options.aiSuggest || function () {};
+        var aiFillPackText = options.aiFillPackText || function () {};
+        var aiRestylePack = options.aiRestylePack || function () {};
+        var aiAdaptPackMobile = options.aiAdaptPackMobile || function () {};
         var undo = options.undo || function () {};
         var redo = options.redo || function () {};
         var runBlockOp = options.runBlockOp || function () {};
@@ -57,6 +60,9 @@
             { id: "open-code", title: "Открыть код сайта", keywords: "css head custom code", shortcut: "", when: function () { return !!codeModal; }, run: function () { triggerClick("[data-doc-code-open]"); } },
             { id: "open-ai", title: "AI: сгенерировать страницу", keywords: "ai generate prompt создать", shortcut: "", when: function () { return true; }, run: aiOpen },
             { id: "ai-edit", title: "AI: поправить выбранный блок", keywords: "rewrite suggest ai selected", shortcut: "", when: canRunSelected, run: function () { aiSuggest(getSelectedId()); } },
+            { id: "fill-pack-text", title: "AI: заполнить текстом пака", keywords: "ai fill text заполнить пак brief", shortcut: "", when: function () { return true; }, run: aiFillPackText },
+            { id: "restyle-pack", title: "AI: сменить оформление (тема+motion)", keywords: "ai theme motion restyle тема мотион оформление вайб", shortcut: "", when: function () { return true; }, run: aiRestylePack },
+            { id: "adapt-pack-mobile", title: "AI: адаптировать пак под mobile", keywords: "ai mobile responsive pack мобайл адаптив пак", shortcut: "", when: function () { return true; }, run: aiAdaptPackMobile },
             { id: "undo", title: "Отменить", keywords: "history назад", shortcut: "Ctrl+Z", when: function () { return true; }, run: undo },
             { id: "redo", title: "Вернуть", keywords: "history вперед", shortcut: "Ctrl+Shift+Z", when: function () { return true; }, run: redo },
             { id: "duplicate", title: "Дублировать выбранный блок", keywords: "copy clone duplicate", shortcut: "Ctrl+D", when: canRunSelected, run: function () { runBlockOp("dup"); } },

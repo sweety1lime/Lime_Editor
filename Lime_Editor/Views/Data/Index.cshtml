@@ -71,7 +71,13 @@
                     <div class="lime-flex lime-gap-2 lime-items-center">
                         <a class="lime-btn lime-btn--soft lime-btn--sm" asp-action="Records" asp-route-id="@col.Id">Записи (@cnt)</a>
                         <a class="lime-btn lime-btn--ghost lime-btn--sm" asp-action="Edit" asp-route-id="@col.Id">Поля</a>
-                        <form asp-action="DeleteCollection" method="post" style="display:inline;" onsubmit="return confirm('Удалить коллекцию и все её записи?');">
+                        <form asp-action="DeleteCollection" method="post" style="display:inline;"
+                              data-lime-confirm
+                              data-lime-confirm-title="Удалить коллекцию?"
+                              data-lime-confirm-message="Коллекция «@col.Name» и все её записи будут удалены навсегда."
+                              data-lime-confirm-action="Удалить"
+                              data-lime-loading
+                              data-lime-loading-text="Удаляем...">
                             <input type="hidden" name="id" value="@col.Id">
                             <button type="submit" class="lime-btn lime-btn--danger lime-btn--sm">✕</button>
                         </form>

@@ -58,6 +58,9 @@ const registry = Registry.create({
     v2SelectionIds: () => selectionIds,
     aiOpen: () => calls.push("aiOpen"),
     aiSuggest: id => calls.push("aiSuggest:" + id),
+    aiFillPackText: () => calls.push("fillPackText"),
+    aiRestylePack: () => calls.push("restylePack"),
+    aiAdaptPackMobile: () => calls.push("adaptPackMobile"),
     undo: () => calls.push("undo"),
     redo: () => calls.push("redo"),
     runBlockOp: op => calls.push("block:" + op),
@@ -85,8 +88,12 @@ check("modal commands run through injected DOM", clicked.includes("theme:is-open
 
 selectedId = "b1";
 byCommand("ai-edit").run();
+byCommand("fill-pack-text").run();
+byCommand("restyle-pack").run();
+byCommand("adapt-pack-mobile").run();
 byCommand("duplicate").run();
 byCommand("delete").run();
+check("AI commands delegate correctly", calls.includes("aiSuggest:b1") && calls.includes("fillPackText") && calls.includes("restylePack") && calls.includes("adaptPackMobile"));
 check("selected commands read current selected id", calls.includes("aiSuggest:b1") && calls.includes("block:dup") && calls.includes("block:del"));
 
 selectionIds = ["a", "b"];

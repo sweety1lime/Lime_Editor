@@ -89,6 +89,7 @@
             }
 
             <div class="lime-flex lime-gap-3 lime-mb-6" style="flex-wrap: wrap;">
+                <a class="lime-btn lime-btn--ghost" href="/Home/ApiTokens">API-токены</a>
                 <a class="lime-btn lime-btn--ghost" href="/Home/ExportMyData">Скачать мои данные (JSON)</a>
                 <form asp-action="Logout" asp-controller="Home" method="post" style="margin:0;">
                     <button type="submit" class="lime-btn lime-btn--ghost">Выйти из аккаунта</button>
@@ -101,7 +102,12 @@
                 Подтверди паролем.
             </p>
             <form asp-action="DeleteMyAccount" asp-controller="Home" method="post"
-                  onsubmit="return confirm('Удалить аккаунт навсегда? Это действие нельзя отменить.');">
+                  data-lime-confirm
+                  data-lime-confirm-title="Удалить аккаунт?"
+                  data-lime-confirm-message="Аккаунт, сайты, медиа, коллекции и заявки будут удалены навсегда. Это действие нельзя отменить."
+                  data-lime-confirm-action="Удалить аккаунт"
+                  data-lime-loading
+                  data-lime-loading-text="Удаляем...">
                 <div class="lime-field" style="max-width: 320px;">
                     <label class="lime-label" for="del-pass">Текущий пароль</label>
                     <input class="lime-input" type="password" id="del-pass" name="password" autocomplete="current-password" required />

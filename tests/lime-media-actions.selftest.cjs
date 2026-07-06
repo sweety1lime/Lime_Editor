@@ -10,13 +10,16 @@ function check(name, cond) {
     else { failed++; console.error("FAIL " + name); }
 }
 
-function makeHarness(answers) {
-    const block = { id: "e1", type: "embed", content: {} };
+function makeHarness(answers, opts) {
+    opts = opts || {};
+    const block = { id: "e1", type: "embed", content: opts.content || {} };
     const calls = [];
     const alerts = [];
+    const prompts = [];
     const win = {
         LimeDoc,
-        prompt() { return answers.shift(); },
+        LimeExperiencePacks: opts.experiencePacks,
+        prompt(msg) { prompts.push(msg); return answers.shift(); },
         alert(msg) { alerts.push(msg); }
     };
     const api = MediaActions.create({
@@ -25,6 +28,7 @@ function makeHarness(answers) {
         ws: null,
         byId(id) { return id === "e1" ? block : null; },
         targetBlock(b) { return b; },
+        getDoc: opts.getDoc || function () { return null; },
         setContentValue(b, field, value, remove) {
             calls.push({ field, value, remove: !!remove });
             if (!b.content) b.content = {};
@@ -32,7 +36,7 @@ function makeHarness(answers) {
             else b.content[field] = value;
         }
     });
-    return { api, block, calls, alerts };
+    return { api, block, calls, alerts, prompts };
 }
 
 {
@@ -54,6 +58,40 @@ function makeHarness(answers) {
     const h = makeHarness(["rive", "https://evil.example.com/scene"]);
     h.api.promptEmbed("e1");
     check("promptEmbed rejects URL outside allowlist", h.calls.length === 0 && h.alerts.length === 1);
+}
+
+// --- Milestone 4 (experience-builder-plan.md): slot-aware prompt copy ---
+{
+    const fakePacks = {
+        resolve(key) {
+            if (key !== "neo-lore-drop") return null;
+            return { assetSlots: [{ slot: "hero-scene", label: "Hero scene", hint: "Spline/Rive/Sketchfab embed URL" }] };
+        }
+    };
+    const h = makeHarness(["spline", "https://my.spline.design/scene"], {
+        content: { __slot: "hero-scene" },
+        getDoc: () => ({ pack: "neo-lore-drop" }),
+        experiencePacks: fakePacks
+    });
+    h.api.promptEmbed("e1");
+    check("promptEmbed: known slot appends its hint to the URL prompt", h.prompts[1].indexOf("Spline/Rive/Sketchfab embed URL") >= 0);
+}
+{
+    // Тот же блок, но документ не помечен как пак (doc.pack не резолвится) — промпт как раньше.
+    const fakePacks = { resolve: () => null };
+    const h = makeHarness(["spline", "https://my.spline.design/scene"], {
+        content: { __slot: "hero-scene" },
+        getDoc: () => ({ pack: "startup" }),
+        experiencePacks: fakePacks
+    });
+    h.api.promptEmbed("e1");
+    check("promptEmbed: unresolved pack -> unchanged prompt text, no crash", h.prompts[1] === "Ссылка на Spline:");
+}
+{
+    // Обычный embed без __slot — поведение не меняется вообще.
+    const h = makeHarness(["spline", "https://my.spline.design/scene"]);
+    h.api.promptEmbed("e1");
+    check("promptEmbed: no __slot on the block -> unchanged prompt text", h.prompts[1] === "Ссылка на Spline:");
 }
 
 if (failed) {

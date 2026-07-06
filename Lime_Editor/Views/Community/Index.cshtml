@@ -71,7 +71,12 @@
                             @if (isAuthed)
                             {
                                 <form asp-action="Clone" asp-controller="Community" method="post" style="display:inline;"
-                                      onsubmit="return confirm('Создать копию этого сайта у себя в «Мои сайты»?');">
+                                      data-lime-confirm
+                                      data-lime-confirm-title="Создать копию?"
+                                      data-lime-confirm-message="Сайт «@card.Name» появится у тебя в «Мои сайты» как черновик."
+                                      data-lime-confirm-action="Создать копию"
+                                      data-lime-loading
+                                      data-lime-loading-text="Копируем...">
                                     <input type="hidden" name="siteId" value="@card.SiteId">
                                     <button type="submit" class="lime-btn lime-btn--ghost lime-btn--sm" title="Скопировать к себе как черновик">⭐ Как шаблон</button>
                                 </form>

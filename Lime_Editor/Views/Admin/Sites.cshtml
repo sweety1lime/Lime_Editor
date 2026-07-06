@@ -53,7 +53,13 @@
                             }
                         </td>
                         <td>
-                            <form asp-action="DeleteSite" method="post" onsubmit="return confirm('Удалить сайт?');">
+                            <form asp-action="DeleteSite" method="post"
+                                  data-lime-confirm
+                                  data-lime-confirm-title="Удалить сайт?"
+                                  data-lime-confirm-message="Сайт «@s.Name» будет удалён навсегда."
+                                  data-lime-confirm-action="Удалить"
+                                  data-lime-loading
+                                  data-lime-loading-text="Удаляем...">
                                 <input type="hidden" name="idSite" value="@s.Id">
                                 <button type="submit" class="lime-btn lime-btn--danger lime-btn--sm">Удалить</button>
                             </form>

@@ -463,6 +463,20 @@
                 { kind: "remove", path: f.parentPath, index: f.index },
                 { kind: "insert", path: f.parentPath, index: f.index, value: c.block }
             ];
+        },
+        // Тема документа: doc.theme[key] = value (документ-уровень, не блок — путь абсолютный
+        // от корня doc, findPath тут не нужен). Milestone 5, Фаза B (experience-builder-plan.md).
+        setTheme: function (doc, c) {
+            var allowed = { accent: 1, accent2: 1, bg: 1, fg: 1, muted: 1, font: 1 };
+            if (!allowed[c.key] || typeof c.value !== "string") return [];
+            var isColor = c.key !== "font";
+            if (isColor && !/^#[0-9a-fA-F]{3,8}$/.test(c.value)) return [];
+            if (!isColor && (!c.value.trim() || c.value.length > 200)) return [];
+            var ops = [];
+            if (!doc.theme) ops.push({ kind: "set", path: ["theme"], value: {} });
+            if (doc.theme && doc.theme[c.key] === c.value) return [];
+            ops.push({ kind: "set", path: ["theme", c.key], value: c.value });
+            return ops;
         }
     };
 
@@ -472,7 +486,7 @@
     // формы отсекают мусор/опасное ДО применения, чтобы некорректный ответ не портил документ.
     var AI_ALLOWED = {
         setStyle: 1, setContent: 1, setDesign: 1, setBlockProp: 1,
-        insertBlock: 1, removeBlock: 1, reorderBlock: 1, moveBlock: 1
+        insertBlock: 1, removeBlock: 1, reorderBlock: 1, moveBlock: 1, setTheme: 1
     };
     function validateAiCommands(list, opts) {
         opts = opts || {};

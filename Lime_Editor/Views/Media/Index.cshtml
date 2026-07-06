@@ -52,7 +52,13 @@
                         <div class="lime-media-card__name" title="@m.OriginalName">@m.OriginalName</div>
                         <div class="lime-media-card__meta">@(m.SizeBytes / 1024) КБ · @m.UploadedAt.ToString("yyyy-MM-dd")</div>
                         <code class="lime-media-card__url" data-url="@url" onclick="this.select?.()">@url</code>
-                        <form asp-action="Delete" method="post" onsubmit="return confirm('Удалить навсегда?');">
+                        <form asp-action="Delete" method="post"
+                              data-lime-confirm
+                              data-lime-confirm-title="Удалить медиа?"
+                              data-lime-confirm-message="Файл «@m.OriginalName» будет удалён навсегда."
+                              data-lime-confirm-action="Удалить"
+                              data-lime-loading
+                              data-lime-loading-text="Удаляем...">
                             <input type="hidden" name="id" value="@m.Id">
                             <button type="submit" class="lime-btn lime-btn--danger lime-btn--sm" style="width:100%;">Удалить</button>
                         </form>

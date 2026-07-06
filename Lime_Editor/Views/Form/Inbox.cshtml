@@ -53,7 +53,13 @@
                             }
                         </div>
                         <form asp-action="DeleteSubmission" asp-controller="Form" method="post"
-                              style="display:inline;" onsubmit="return confirm('Удалить заявку?');">
+                              style="display:inline;"
+                              data-lime-confirm
+                              data-lime-confirm-title="Удалить заявку?"
+                              data-lime-confirm-message="Заявка будет удалена навсегда."
+                              data-lime-confirm-action="Удалить"
+                              data-lime-loading
+                              data-lime-loading-text="Удаляем...">
                             <input type="hidden" name="id" value="@sub.Id">
                             <button type="submit" class="lime-btn lime-btn--danger lime-btn--sm">Удалить</button>
                         </form>

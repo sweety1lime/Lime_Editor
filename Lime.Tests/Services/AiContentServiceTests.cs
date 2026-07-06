@@ -202,6 +202,24 @@ namespace Lime.Tests.Services
         }
 
         [Fact]
+        public void TryParseCommands_KeepsSetTheme()
+        {
+            // Milestone 5, Фаза B (experience-builder-plan.md): setTheme — новая команда, добавлена
+            // в AllowedCommands наравне с setBlockProp; неизвестный тип по-прежнему отсеивается.
+            var raw = @"{""commands"":[
+                {""type"":""setTheme"",""payload"":{""key"":""accent"",""value"":""#42ffa3""}},
+                {""type"":""setBlockProp"",""payload"":{""id"":""b1"",""prop"":""scene"",""value"":{""mode"":""pin"",""length"":2}}},
+                {""type"":""renameNode"",""payload"":{""id"":""b1"",""name"":""x""}}
+            ]}";
+            var cmds = AiContentService.TryParseCommands(raw);
+            Assert.NotNull(cmds);
+            Assert.Equal(2, cmds.Count); // только setTheme + setBlockProp
+            Assert.Equal("setTheme", cmds[0]["type"].ToString());
+            Assert.Equal("accent", cmds[0]["payload"]["key"].ToString());
+            Assert.Equal("setBlockProp", cmds[1]["type"].ToString());
+        }
+
+        [Fact]
         public void TryParseCommands_HandlesFenceBareArrayAndGarbage()
         {
             Assert.NotNull(AiContentService.TryParseCommands("```json\n{\"commands\":[]}\n```")); // пустой — валиден
@@ -214,8 +232,11 @@ namespace Lime.Tests.Services
         [Fact]
         public void TryParseCommands_EnforcesCountAndLength()
         {
-            var many = string.Join(",", Enumerable.Repeat(@"{""type"":""removeBlock"",""payload"":{""id"":""b""}}", 60));
-            Assert.Equal(40, AiContentService.TryParseCommands($@"{{""commands"":[{many}]}}").Count);
+            // Milestone 5, Фаза A (experience-builder-plan.md): MaxCommands поднят 40 -> 100 —
+            // «заполнить пак текстом» шлёт один батч setContent на ВСЕ текстовые поля документа
+            // (71 поле у neo-lore-drop), а не на один блок, как раньше было единственным сценарием.
+            var many = string.Join(",", Enumerable.Repeat(@"{""type"":""removeBlock"",""payload"":{""id"":""b""}}", 150));
+            Assert.Equal(100, AiContentService.TryParseCommands($@"{{""commands"":[{many}]}}").Count);
 
             var longVal = new string('я', 5000);
             var capped = AiContentService.TryParseCommands(
@@ -405,6 +426,29 @@ namespace Lime.Tests.Services
             Assert.Equal("Меню", col["name"].ToString());
             Assert.Single((JArray)col["fields"]);
             Assert.Equal("Латте", ((JArray)col["records"])[0]["dish"].ToString());
+        }
+
+        // Milestone 5, Фаза C (experience-builder-plan.md): «✦ Промпт для ассета» — не мутирует
+        // документ, просто отдаёт короткий текст-бриф. Мокаем провайдер, проверяем trim/
+        // quote-strip/length-cap (тот же паттерн, что RewriteTextAsync) + что contextJson уходит
+        // в CompleteAsync как есть (без доп. "Инструкция:"-обёртки — она тут не нужна).
+        [Fact]
+        public async Task SuggestAssetBrief_TrimsQuotesAndPassesContextThrough()
+        {
+            var stub = new StubProvider("  \"неоновая киберпанк-сцена, влажные улицы, отражения\"  ");
+            var svc = new AiContentService(stub);
+            var ctx = @"{""slotLabel"":""Hero scene"",""slotHint"":""Spline embed"",""packName"":""Neo Lore Drop""}";
+            var result = await svc.SuggestAssetBriefAsync(ctx);
+            Assert.Equal("неоновая киберпанк-сцена, влажные улицы, отражения", result);
+            Assert.Equal(ctx, stub.LastUser);
+        }
+
+        [Fact]
+        public async Task SuggestAssetBrief_CapsLengthAt500()
+        {
+            var svc = new AiContentService(new StubProvider(new string('x', 600)));
+            var result = await svc.SuggestAssetBriefAsync(@"{""slotLabel"":""Logo""}");
+            Assert.Equal(500, result.Length);
         }
     }
 }

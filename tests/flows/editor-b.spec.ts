@@ -8,6 +8,16 @@ import { test, expect, type Page } from "@playwright/test";
 const topBlocks = "#lime-doc-workspace .lime-doc-page > .lime-block";
 const nestedBlocks = "#lime-doc-workspace .lime-block .lime-block";
 
+// Milestone 2 (UI-уровни): дефолт свежей сессии — Basic, он прячет Design/Motion/Pro-секции
+// инспектора и часть тулбара. Тесты редактора работают с полным инспектором, поэтому фиксируем
+// уровень Pro до загрузки страницы (эквивалент пользователя, прошедшего онбординг).
+// Дефолт Basic для новичка покрыт отдельно в tests/flows/showcase-progressive-ui.spec.ts.
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => {
+    try { localStorage.setItem("lime-ui-level", "pro"); } catch (e) { /* приватный режим */ }
+  });
+});
+
 // редизайн: левый сайдбар — icon-rail с одной активной панелью за раз
 // (insert / layers / components). Перед обращением к содержимому панели её нужно открыть.
 async function openSidebarPanel(page: Page, name: "insert" | "layers" | "components") {
@@ -60,12 +70,12 @@ test("editor-v2 D2: command flag keeps structural and checkpoint history coheren
   await page.locator('[data-doc-cols="3"]').click();
   await expect(page.locator(`[data-block-id="${columnsId}"]`)).toHaveAttribute("data-cols", "3");
 
-  // Sticky и parallax-range уже top-level op/gesture-команды.
+  // Sticky и parallax-пресет (Milestone 3: сегменты вместо range) — top-level op/gesture-команды.
   await page.locator('[data-doc-insp-tab="motion"]').click();
   await page.locator('[data-doc-sticky="1"]').click();
   await expect(page.locator(`[data-block-id="${columnsId}"][data-sticky]`)).toHaveCount(1);
-  await page.locator('[data-doc-motion="parallax"]').fill("0.4");
-  await expect(page.locator(`[data-block-id="${columnsId}"]`)).toHaveAttribute("data-parallax", "0.4");
+  await page.locator('[data-doc-parallax-preset="0.35"]').click();
+  await expect(page.locator(`[data-block-id="${columnsId}"]`)).toHaveAttribute("data-parallax", "0.35");
   await page.waitForTimeout(500); // parallax — debounce-жест (400мс): ждём коммита в историю до следующего шага
 
   // Overlay — content gesture-команда.
@@ -92,7 +102,7 @@ test("editor-v2 D2: command flag keeps structural and checkpoint history coheren
   await expect(page.locator(`[data-block-id="${columnsId}"]`)).not.toHaveClass(new RegExp(`\\b${reusableClass}\\b`));
   await page.locator("[data-doc-undo]").click(); // op gesture: overlay
   await expect(page.locator(`[data-block-id="${columnsId}"] .lime-block__overlay`)).toHaveCount(0);
-  await page.locator("[data-doc-undo]").click(); // op gesture: parallax range
+  await page.locator("[data-doc-undo]").click(); // op gesture: parallax preset
   await expect(page.locator(`[data-block-id="${columnsId}"][data-parallax]`)).toHaveCount(0);
   await page.locator("[data-doc-undo]").click(); // op: sticky
   await expect(page.locator(`[data-block-id="${columnsId}"][data-sticky]`)).toHaveCount(0);
@@ -110,7 +120,7 @@ test("editor-v2 D2: command flag keeps structural and checkpoint history coheren
   await page.locator("[data-doc-redo]").click();
   await expect(page.locator(`[data-block-id="${columnsId}"][data-sticky]`)).toHaveCount(1);
   await page.locator("[data-doc-redo]").click();
-  await expect(page.locator(`[data-block-id="${columnsId}"]`)).toHaveAttribute("data-parallax", "0.4");
+  await expect(page.locator(`[data-block-id="${columnsId}"]`)).toHaveAttribute("data-parallax", "0.35");
   await page.locator("[data-doc-redo]").click();
   await expect(page.locator(`[data-block-id="${columnsId}"] .lime-block__overlay`)).toHaveCount(1);
   await page.locator("[data-doc-redo]").click();

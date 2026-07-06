@@ -107,6 +107,38 @@
         };
     }
 
+    // ----- Studio Folio (второй Experience Pack, портфолио/creative studio) -----
+    // Тёплая светлая палитра, серифный Playfair Display для заголовков поверх
+    // тела-шрифта темы — контраст с тёмным неон-стеком neo-*, доказывает, что формат
+    // пака не завязан на один визуальный язык.
+    function folioCard(title, text, tag) {
+        return {
+            type: "container",
+            styles: {
+                base: {
+                    backgroundColor: "#fffdfa",
+                    border: "1px solid rgba(33,31,23,.12)",
+                    borderRadius: "18px",
+                    padding: "26px",
+                    minHeight: "240px",
+                    boxShadow: "0 16px 40px rgba(33,31,23,.08)"
+                }
+            },
+            css: ">.lime-block__inner>.lime-block__children{display:flex;flex-direction:column;gap:12px;height:100%}.lime-block__heading{font-size:24px;line-height:1.08;margin:0;font-family:'Playfair Display',serif}.lime-block__text{margin:0}",
+            children: [
+                { type: "text", content: { text: tag }, styles: { base: { color: "#c4531f", fontSize: "11px", fontWeight: "800", letterSpacing: ".14em", textTransform: "uppercase", margin: "0" } } },
+                { type: "heading", content: { text: title }, styles: { base: { fontSize: "24px", lineHeight: "1.08", margin: "0" } } },
+                { type: "text", content: { text: text }, styles: { base: { fontSize: "15px", lineHeight: "1.6", opacity: "0.78", margin: "0" } } }
+            ]
+        };
+    }
+    function folioClientName(text) {
+        return { type: "text", content: { text: text }, styles: { base: { fontFamily: "'Playfair Display', serif", fontSize: "28px", opacity: "0.5", margin: "0", whiteSpace: "nowrap" } } };
+    }
+    function folioSectionHeading(text) {
+        return { type: "heading", content: { text: text }, styles: { base: { textAlign: "center", fontSize: "38px", fontFamily: "'Playfair Display', serif", padding: "58px 24px 10px" } }, anim: "fade-up" };
+    }
+
     var PRESETS = {
         hero: [{
             type: "cover",
@@ -258,15 +290,24 @@
                         fx: ["gradient-text"]
                     },
                     {
-                        type: "embed",
-                        content: {
-                            provider: "spline",
-                            aspect: "4/5",
-                            embedUrl: "https://my.spline.design/neo-lore-drop-placeholder/",
-                            fallbackTitle: "Hero scene slot",
-                            fallbackText: "Replace with a Spline hero scene or keep the animated poster fallback for v1."
-                        },
-                        styles: { base: { padding: "12px", backgroundColor: "rgba(255,255,255,.055)", border: "1px solid rgba(255,255,255,.16)", borderRadius: "34px", boxShadow: "0 28px 90px rgba(0,0,0,.34)" } }
+                        type: "container",
+                        css: ">.lime-block__inner>.lime-block__children{display:flex;flex-direction:column;gap:8px}",
+                        children: [
+                            {
+                                type: "embed",
+                                content: {
+                                    __slot: "hero-scene",
+                                    provider: "sketchfab",
+                                    aspect: "4/5",
+                                    embedUrl: "https://sketchfab.com/models/14d2eaa145ee42938e004115871adf6c/embed",
+                                    poster: "https://media.sketchfab.com/models/14d2eaa145ee42938e004115871adf6c/thumbnails/5d7a2ad41170412098396a0a2600ee35/ea6d6d6b389d44e5978e84eac9cdd30f.jpeg",
+                                    fallbackTitle: "Hero scene",
+                                    fallbackText: "“Cyberpunk City – #1” by John Doe (CC BY, via Sketchfab). Swap for your own Spline/Rive/Sketchfab scene."
+                                },
+                                styles: { base: { padding: "12px", backgroundColor: "rgba(255,255,255,.055)", border: "1px solid rgba(255,255,255,.16)", borderRadius: "34px", boxShadow: "0 28px 90px rgba(0,0,0,.34)" } }
+                            },
+                            neoText("3D: “Cyberpunk City – #1” by John Doe · CC BY · Sketchfab", "11px", "0.5")
+                        ]
                     }
                 ]
             }
@@ -314,7 +355,7 @@
                     },
                     mobile: { padding: "58px 18px" }
                 },
-                css: ">.lime-block__inner{max-width:1180px;margin:0 auto}.lime-block__children{align-items:stretch}.lime-block__children--scene>.lime-block{max-width:460px}.lime-block__heading{margin-bottom:0}",
+                css: ">.lime-block__inner{max-width:1180px;margin:0 auto}.lime-block__children{align-items:stretch}.lime-block__heading{margin-bottom:0}",
                 scene: { mode: "horizontal", length: 3 },
                 layers: [
                     { kind: "shape", shape: "square", color: "rgba(66,255,163,.10)", x: 8, y: 20, w: 220, z: 0, depth: 0.22, blur: 20 },
@@ -372,15 +413,24 @@
                         { type: "buttonGroup", content: { primary: "Replace scene", secondary: "Asset brief" } }
                     ] },
                     {
-                        type: "embed",
-                        content: {
-                            provider: "spline",
-                            aspect: "16/10",
-                            embedUrl: "https://my.spline.design/neo-lore-drop-placeholder/",
-                            fallbackTitle: "Customizer scene slot",
-                            fallbackText: "Paste a trusted Spline, Rive, Lottie, YouTube, Vimeo, Sketchfab or Figma URL."
-                        },
-                        styles: { base: { padding: "12px", backgroundColor: "rgba(255,255,255,.055)", border: "1px solid rgba(255,255,255,.16)", borderRadius: "30px" } }
+                        type: "container",
+                        css: ">.lime-block__inner>.lime-block__children{display:flex;flex-direction:column;gap:8px}",
+                        children: [
+                            {
+                                type: "embed",
+                                content: {
+                                    __slot: "customizer-scene",
+                                    provider: "sketchfab",
+                                    aspect: "16/10",
+                                    embedUrl: "https://sketchfab.com/models/14d2eaa145ee42938e004115871adf6c/embed",
+                                    poster: "https://media.sketchfab.com/models/14d2eaa145ee42938e004115871adf6c/thumbnails/5d7a2ad41170412098396a0a2600ee35/203d7b36e53944dd9dacc6ab3b9f1b46.jpeg",
+                                    fallbackTitle: "Customizer scene",
+                                    fallbackText: "Same swap flow: paste your own Spline, Rive, Lottie, YouTube, Vimeo, Sketchfab or Figma URL here."
+                                },
+                                styles: { base: { padding: "12px", backgroundColor: "rgba(255,255,255,.055)", border: "1px solid rgba(255,255,255,.16)", borderRadius: "30px" } }
+                            },
+                            neoText("3D: “Cyberpunk City – #1” by John Doe · CC BY · Sketchfab", "11px", "0.5")
+                        ]
                     }
                 ]
             }
@@ -453,6 +503,212 @@
                 styles: { base: { color: "#f6fbff", backgroundColor: "#080a0e", padding: "54px 32px" }, mobile: { padding: "42px 18px" } },
                 css: ">.lime-block__inner{max-width:1180px;margin:0 auto}.lime-block__footer{border-top:1px solid rgba(255,255,255,.12);padding-top:32px}"
             }
+        ],
+
+        "folio-navbar": [
+            {
+                type: "navbar",
+                content: {
+                    brand: "Studio Folio",
+                    links: [{ label: "Работы" }, { label: "О нас" }, { label: "Отзывы" }],
+                    cta: "Обсудить проект"
+                },
+                styles: {
+                    base: { color: "#211f1c", backgroundColor: "rgba(246,243,238,.86)", borderBottom: "1px solid rgba(33,31,23,.10)", padding: "16px 28px" },
+                    mobile: { padding: "12px 16px" }
+                },
+                css: ">.lime-block__inner{max-width:1180px;margin:0 auto}.lime-block__navbar-brand{font-family:'Playfair Display',serif;font-size:19px}.lime-block__cta-btn{background:#c4531f;color:#fdf7f1;border-radius:999px}",
+                sticky: true,
+                stickyOffset: 0
+            }
+        ],
+
+        "folio-hero": [
+            {
+                type: "container",
+                content: { width: "boxed" },
+                styles: {
+                    base: {
+                        color: "#211f1c",
+                        backgroundColor: "#f6f3ee",
+                        padding: "108px 34px 84px",
+                        minHeight: "680px",
+                        overflow: "hidden"
+                    },
+                    mobile: { padding: "72px 18px 56px", minHeight: "600px", overflow: "hidden" }
+                },
+                css: ">.lime-block__inner{max-width:1180px;margin:0 auto}.lime-block__children{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(320px,100%),1fr));gap:48px;align-items:center}.lime-block__cover-title{font-family:'Playfair Display',serif;font-size:58px;line-height:1.02;letter-spacing:0;margin:14px 0 20px}.lime-block__cover-desc{max-width:620px;font-size:19px;line-height:1.6;opacity:.82}.lime-block__cover-uptitle{letter-spacing:.18em;color:#c4531f;font-weight:700;text-transform:uppercase}.lime-block__cover-cta{border-radius:999px;background:#c4531f;color:#fdf7f1}.lime-block__image{border-radius:28px}",
+                layers: [
+                    { kind: "shape", shape: "blob", color: "rgba(196,83,31,.14)", x: 62, y: 8, w: 320, z: 0, depth: 0.22, blur: 40, opacity: 0.85 },
+                    { kind: "shape", shape: "circle", color: "rgba(47,44,40,.08)", x: 6, y: 62, w: 220, z: 0, depth: 0.16, blur: 30, opacity: 0.7 }
+                ],
+                anim: "fade-up",
+                animDuration: "0.9",
+                children: [
+                    {
+                        type: "cover",
+                        content: {
+                            uptitle: "STUDIO FOLIO",
+                            title: "Design that reads like a good story",
+                            desc: "A warm, editorial portfolio starter for creative studios and independent makers — work first, process second, motion that never gets in the way.",
+                            cta: "See the work"
+                        },
+                        styles: { base: { padding: "0", backgroundColor: "transparent", color: "inherit" } }
+                    },
+                    {
+                        type: "image",
+                        content: { __slot: "hero-portrait", src: "", alt: "Studio portrait" },
+                        styles: { base: { aspectRatio: "4/5", objectFit: "cover", borderRadius: "28px", boxShadow: "0 28px 80px rgba(33,31,23,.18)" } }
+                    }
+                ]
+            }
+        ],
+
+        "folio-work": [
+            folioSectionHeading("Избранные работы"),
+            {
+                type: "container",
+                content: { width: "boxed", layout: "bento" },
+                styles: { base: { backgroundColor: "#f6f3ee", padding: "8px 32px 86px" }, mobile: { padding: "6px 18px 56px" } },
+                css: ">.lime-block__inner{max-width:1160px;margin:0 auto}",
+                anim: "fade-up",
+                children: [
+                    folioCard("Northline Coffee — Brand Identity", "Full brand system for a specialty roaster: mark, packaging and a warm print-forward site.", "Brand"),
+                    folioCard("Fable & Co — Editorial Site", "An article-first publishing layout with a slow, readable rhythm.", "Web"),
+                    folioCard("Solace Studio — Motion Reel", "Title sequences and product motion for a growing DTC label.", "Motion"),
+                    folioCard("Marrow Ceramics — Packaging", "Unboxing system built around texture and restraint.", "Packaging")
+                ]
+            }
+        ],
+
+        "folio-about": [
+            {
+                type: "container",
+                content: { width: "boxed" },
+                styles: {
+                    base: { color: "#211f1c", backgroundColor: "#efe9df", padding: "84px 32px", borderTop: "1px solid rgba(33,31,23,.10)", borderBottom: "1px solid rgba(33,31,23,.10)" },
+                    mobile: { padding: "58px 18px" }
+                },
+                css: ">.lime-block__inner{max-width:1040px;margin:0 auto}.lime-block__children{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(280px,100%),1fr));gap:42px;align-items:start}",
+                anim: "fade-up",
+                children: [
+                    { type: "container", children: [
+                        { type: "text", content: { text: "ABOUT THE STUDIO" }, styles: { base: { color: "#c4531f", fontSize: "12px", textTransform: "uppercase", letterSpacing: ".16em", fontWeight: "700", margin: "0 0 10px" } } },
+                        { type: "heading", content: { text: "We design quiet, confident brands" }, styles: { base: { fontFamily: "'Playfair Display', serif", fontSize: "40px", lineHeight: "1.06", margin: "0" } } }
+                    ] },
+                    { type: "container", css: ">.lime-block__inner>.lime-block__children{display:flex;flex-direction:column;gap:16px}", children: [
+                        { type: "text", content: { text: "A small studio working across brand, editorial web and motion. We start with the story, then build the system: type, colour, layout and the small rules that keep a brand consistent long after launch." }, styles: { base: { fontSize: "17px", lineHeight: "1.65", opacity: "0.82", margin: "0" } } },
+                        { type: "text", content: { text: "Every project ships with a short brand guide and a site the client can edit without touching code." }, styles: { base: { fontSize: "16px", lineHeight: "1.6", opacity: "0.7", margin: "0" } } }
+                    ] }
+                ]
+            }
+        ],
+
+        "folio-clients": [
+            {
+                type: "container",
+                styles: { base: { color: "#211f1c", backgroundColor: "#f6f3ee", padding: "42px 0", borderTop: "1px solid rgba(33,31,23,.10)", borderBottom: "1px solid rgba(33,31,23,.10)" } },
+                marquee: { speed: 34, reverse: false },
+                children: [
+                    folioClientName("Northline"),
+                    folioClientName("Fable & Co"),
+                    folioClientName("Solace"),
+                    folioClientName("Marrow"),
+                    folioClientName("Heldt & Frey")
+                ]
+            }
+        ],
+
+        "folio-reel": [
+            folioSectionHeading("Демо-рил"),
+            {
+                type: "container",
+                content: { width: "boxed" },
+                styles: { base: { backgroundColor: "#f6f3ee", padding: "8px 32px 86px" }, mobile: { padding: "6px 18px 56px" } },
+                css: ">.lime-block__inner{max-width:900px;margin:0 auto}.lime-block__embed{border-radius:22px;overflow:hidden;box-shadow:0 24px 70px rgba(33,31,23,.16)}",
+                anim: "fade-up",
+                children: [
+                    {
+                        type: "embed",
+                        content: {
+                            __slot: "reel-embed",
+                            provider: "youtube",
+                            aspect: "16/9",
+                            embedUrl: "https://www.youtube.com/embed/aqz-KE-bpKQ",
+                            poster: "https://img.youtube.com/vi/aqz-KE-bpKQ/maxresdefault.jpg",
+                            fallbackTitle: "Демо-рил",
+                            fallbackText: "«Big Buck Bunny» — Blender Foundation (CC BY, официальный YouTube-канал). Замени на свой рил."
+                        },
+                        styles: { base: { padding: "0" } }
+                    }
+                ]
+            }
+        ],
+
+        "folio-testimonials": [
+            folioSectionHeading("Отзывы клиентов"),
+            {
+                type: "testimonials",
+                content: {
+                    items: [
+                        { quote: "They turned a vague idea into a brand we're proud to show.", author: "Northline Coffee", role: "Founder" },
+                        { quote: "Calm process, sharp taste, delivered on time.", author: "Fable & Co", role: "Editorial Lead" },
+                        { quote: "The site is the first thing new clients compliment.", author: "Marrow Ceramics", role: "Owner" }
+                    ]
+                },
+                styles: { base: { color: "#211f1c", backgroundColor: "#efe9df", padding: "12px 32px 80px" }, mobile: { padding: "8px 18px 56px" } },
+                css: ">.lime-block__inner{max-width:1040px;margin:0 auto}.lime-block__testimonial{background:#fffdfa;border-color:rgba(33,31,23,.12)}",
+                anim: "fade-up"
+            }
+        ],
+
+        "folio-faq": [
+            folioSectionHeading("Как мы работаем"),
+            {
+                type: "accordion",
+                content: {
+                    items: [
+                        { q: "Сколько занимает проект?", a: "Небольшой брендинг+сайт — 3-4 недели. Точный срок обсуждаем на брифе." },
+                        { q: "Как формируется цена?", a: "Фикс за проект, не почасовая ставка — стоимость известна заранее." },
+                        { q: "Можно ли редактировать сайт самим после запуска?", a: "Да — сайт собран в конструкторе, весь текст и медиа правятся без разработчика." }
+                    ]
+                },
+                styles: { base: { color: "#211f1c", backgroundColor: "#f6f3ee", padding: "12px 32px 80px" }, mobile: { padding: "8px 18px 56px" } },
+                css: ">.lime-block__inner{max-width:900px;margin:0 auto}.lime-block__accordion-item{background:#fffdfa;border-color:rgba(33,31,23,.12)}",
+                anim: "fade-up"
+            }
+        ],
+
+        "folio-cta": [{
+            type: "cta",
+            content: { title: "Есть проект?", desc: "Расскажите, что задумали — ответим в течение дня.", btn: "Написать нам" },
+            styles: {
+                base: {
+                    color: "#fdf7f1",
+                    backgroundImage: "linear-gradient(135deg, #c4531f 0%, #8a3d18 100%)",
+                    padding: "92px 32px", textAlign: "center", borderRadius: "24px"
+                },
+                mobile: { padding: "64px 18px" }
+            },
+            css: ">.lime-block__inner{max-width:900px;margin:0 auto}.lime-block__cta h3{font-family:'Playfair Display',serif;font-size:42px;line-height:1.05;margin:0 0 12px}.lime-block__cta-btn{background:#fdf7f1;color:#2f2c28;border-radius:999px}",
+            anim: "fade-up"
+        }],
+
+        "folio-footer": [
+            {
+                type: "footer",
+                content: {
+                    brand: "Studio Folio",
+                    tagline: "Небольшая студия: бренд, editorial-сайты и motion.",
+                    columns: [
+                        { title: "Студия", links: [{ label: "Работы" }, { label: "О нас" }, { label: "Контакты" }] },
+                        { title: "Соцсети", links: [{ label: "Instagram" }, { label: "Behance" }, { label: "LinkedIn" }] }
+                    ],
+                    copyright: "2026 Studio Folio. Демо-контент."
+                },
+                styles: { base: { color: "#211f1c", backgroundColor: "#efe9df", padding: "54px 32px" }, mobile: { padding: "42px 18px" } },
+                css: ">.lime-block__inner{max-width:1180px;margin:0 auto}.lime-block__footer{border-top:1px solid rgba(33,31,23,.12);padding-top:32px}"
+            }
         ]
     };
 
@@ -475,6 +731,10 @@
         { key: "neo-factions", icon: "N2", label: "Neo factions" },
         { key: "neo-vision", icon: "N3", label: "Neo vision" },
         { key: "neo-customizer", icon: "N4", label: "Neo embed" },
+        { key: "folio-work", icon: "F1", label: "Folio работы" },
+        { key: "folio-about", icon: "F2", label: "Folio о нас" },
+        { key: "folio-clients", icon: "F3", label: "Folio клиенты" },
+        { key: "folio-reel", icon: "F4", label: "Folio рил" },
         { key: "footer", icon: "▭", label: "Подвал" }
     ];
 

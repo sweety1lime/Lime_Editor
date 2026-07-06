@@ -31,6 +31,10 @@
         var getCurrentState = options.getCurrentState || function () { return "normal"; };
         var getCurrentBp = options.getCurrentBp || function () { return "base"; };
         var getCurrentInspectorTab = options.getCurrentInspectorTab || function () { return "style"; };
+        // UI-уровни (Milestone 2 experience-builder-plan.md): дефолт "pro" — если уровень не
+        // инжектнут (напр. старые тесты), поведение как раньше — ничего не сворачивается.
+        var getCurrentUiLevel = options.getCurrentUiLevel || function () { return "pro"; };
+        var UiLevel = options.uiLevel || (win && win.LimeEditorUiLevel) || { atOrBelow: function () { return true; } };
         var byId = options.byId || function () { return null; };
         var findBlock = options.findBlock || function () { return null; };
         var targetBlock = options.targetBlock || function (b) { return b; };
@@ -61,6 +65,7 @@
         var motionInspector = options.motionInspector || noop;
         var sceneInspector = options.sceneInspector || noop;
         var layersInspector = options.layersInspector || noop;
+        var recipesInspector = options.recipesInspector || noop;
         var populateCollectionPickers = options.populateCollectionPickers || function () {};
 
         // Развёрнутость группы «Дополнительно» переживает перерисовки инспектора (redesign фаза 2).
@@ -107,9 +112,10 @@
             if (props.some(function (p) { return hasOwn(info.cls, p) && !hasOwn(info.own, p) && !hasOwn(info.tablet, p) && !hasOwn(info.base, p); })) return "class";
             return null;
         }
-        // редизайн редактора (фаза 2 инспектора): core-секции стиля показываем сразу, а редкие
-        // (Трекинг/Регистр/Граница/Тень/Прозрачность/Blend/Мин.высота — флаг adv) сворачиваем
-        // в одну группу «Дополнительно». Сами контролы и их data-doc-* хуки не меняются.
+        // редизайн редактора (фаза 2 инспектора) + Milestone 2 (UI-уровни): секции с tier
+        // не выше текущего UI-уровня показываем сразу, всё, что выше — сворачиваем в одну
+        // группу «Дополнительно» (не убираем совсем — раскрытие обучающее, не paywall).
+        // Сами контролы и их data-doc-* хуки не меняются.
         function styleSectionHtml(item, s, mixed, sourceInfo) {
             var body = renderControl(item, s, mixed);
             var props = registryProps(item);
@@ -130,10 +136,15 @@
             }
             return sec(item.title, body);
         }
-        function renderStyleSections(s, mixed, sourceInfo) {
+        // Общий бакетинг по UI-уровню: chunks — [{tier, html}], пустые html отфильтровываются
+        // (иначе, например, componentPropsSection на не-компоненте создал бы пустую запись в
+        // «Дополнительно»). Используется и для STYLE_REGISTRY, и для секций-модулей (Layout·V2,
+        // Классы, пропсы компонента) — один общий fold, а не несколько подряд.
+        function tieredSections(level, chunks) {
             var core = [], adv = [];
-            STYLE_REGISTRY.forEach(function (item) {
-                (item.adv ? adv : core).push(styleSectionHtml(item, s, mixed, sourceInfo));
+            chunks.forEach(function (c) {
+                if (!c || !c.html) return;
+                (UiLevel.atOrBelow(c.tier, level) ? core : adv).push(c.html);
             });
             var out = core.join("");
             if (adv.length) {
@@ -143,6 +154,11 @@
                     '</details>';
             }
             return out;
+        }
+        function renderStyleSections(s, mixed, sourceInfo, level) {
+            return tieredSections(level, STYLE_REGISTRY.map(function (item) {
+                return { tier: item.tier, html: styleSectionHtml(item, s, mixed, sourceInfo) };
+            }));
         }
 
         function refreshInspector() {
@@ -239,13 +255,18 @@
                     '</div>' +
                 '</div>';
 
-            // Вкладки инспектора (Фаза удобства): режут длинный скролл втрое.
-            var tabs = [["style", "Стиль"], ["fx", "Эффекты"], ["motion", "Движение"]];
+            // Вкладки инспектора (Фаза удобства): режут длинный скролл втрое. FX/Движение —
+            // Motion-tier и выше (Milestone 2): ниже уровня они просто не показываются в баре,
+            // раскрыть — один клик по тумблеру уровня в topbar-more, не paywall.
+            var uiLevel = getCurrentUiLevel();
+            var allTabs = [["style", "Стиль"], ["fx", "Эффекты"], ["motion", "Движение"]];
+            var tabs = allTabs.filter(function (o) { return o[0] === "style" || UiLevel.atOrBelow("motion", uiLevel); });
+            var effectiveTab = tabs.some(function (o) { return o[0] === currentInspectorTab; }) ? currentInspectorTab : "style";
             var tabsBar = '<div class="lime-insp-tabs">' + tabs.map(function (o) {
-                return '<button type="button" class="lime-insp-tab-btn' + (currentInspectorTab === o[0] ? " is-active" : "") + '" data-doc-insp-tab="' + o[0] + '">' + o[1] + '</button>';
+                return '<button type="button" class="lime-insp-tab-btn' + (effectiveTab === o[0] ? " is-active" : "") + '" data-doc-insp-tab="' + o[0] + '">' + o[1] + '</button>';
             }).join("") + '</div>';
             function panel(name, body) {
-                return '<div class="lime-insp-panel" data-insp-tab="' + name + '"' + (currentInspectorTab === name ? "" : " hidden") + '>' + body + '</div>';
+                return '<div class="lime-insp-panel" data-insp-tab="' + name + '"' + (effectiveTab === name ? "" : " hidden") + '>' + body + '</div>';
             }
 
             // Переключатель состояния (1.2): «Обычное / Наведение». В hover-режиме правим только
@@ -257,14 +278,24 @@
             var styleBody;
             if (currentClass) {
                 // Режим правки класса: только баннер + переключатель состояния + стили (контент/фон/колонки — это про блок).
-                styleBody = classEditBanner() + stateSeg + renderStyleSections(styleSecBucket, styleMixed, styleSourceInfo);
+                styleBody = classEditBanner() + stateSeg + renderStyleSections(styleSecBucket, styleMixed, styleSourceInfo, uiLevel);
             } else if (currentState === "hover") {
-                styleBody = classesSection(b) + stateSeg + renderStyleSections(styleSecBucket, styleMixed, styleSourceInfo);
+                styleBody = classesSection(b) + stateSeg + renderStyleSections(styleSecBucket, styleMixed, styleSourceInfo, uiLevel);
             } else {
-                styleBody = componentPropsSection(b) + v2LayoutInspector(b, found) + classesSection(b) + containerHint + colsSec + bindingSection(t) + contentExtras(t) + bgInspector(b, s) + stateSeg + renderStyleSections(styleSecBucket, styleMixed, styleSourceInfo);
+                // Design-tier секции (пропсы компонента/Layout·V2/Классы) и STYLE_REGISTRY делят
+                // один общий fold «Дополнительно» — иначе на Basic/Design было бы два подряд.
+                var registryChunks = STYLE_REGISTRY.map(function (item) {
+                    return { tier: item.tier, html: styleSectionHtml(item, styleSecBucket, styleMixed, styleSourceInfo) };
+                });
+                var tieredBody = tieredSections(uiLevel, [
+                    { tier: "design", html: componentPropsSection(b) },
+                    { tier: "design", html: v2LayoutInspector(b, found) },
+                    { tier: "design", html: classesSection(b) }
+                ].concat(registryChunks));
+                styleBody = containerHint + colsSec + bindingSection(t) + contentExtras(t) + bgInspector(b, s) + stateSeg + tieredBody;
             }
             var fxBody = fxInspector(t) + animInspector(t);
-            var motionBody = motionInspector(t) + sceneInspector(t) + layersInspector(t);
+            var motionBody = recipesInspector(t) + motionInspector(t) + sceneInspector(t) + layersInspector(t);
 
             inspectorEl.innerHTML =
                 '<div class="lime-insp-sticky">' + headHtml + banner + multiBanner + tabsBar + '</div>' +

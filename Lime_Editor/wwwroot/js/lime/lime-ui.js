@@ -74,6 +74,117 @@
     document.querySelectorAll(".lime-dropdown.is-open").forEach(function (d) { d.classList.remove("is-open"); });
   });
 
+  // ---- compact action menus
+  document.addEventListener("click", function (e) {
+    document.querySelectorAll(".lime-action-menu[open]").forEach(function (menu) {
+      if (!menu.contains(e.target)) menu.removeAttribute("open");
+    });
+  });
+
+  // ---- form confirmation modal
+  var confirmBackdrop = null;
+  var confirmTitle = null;
+  var confirmMessage = null;
+  var confirmAction = null;
+  var activeConfirmForm = null;
+
+  function ensureConfirmModal() {
+    if (confirmBackdrop) return;
+    confirmBackdrop = document.createElement("div");
+    confirmBackdrop.className = "lime-confirm-backdrop";
+    confirmBackdrop.setAttribute("role", "dialog");
+    confirmBackdrop.setAttribute("aria-modal", "true");
+    confirmBackdrop.innerHTML = '' +
+      '<div class="lime-confirm" role="document">' +
+        '<h2 data-lime-confirm-title>Подтвердить действие</h2>' +
+        '<p data-lime-confirm-message>Это действие нельзя отменить.</p>' +
+        '<div class="lime-confirm__actions">' +
+          '<button type="button" class="lime-btn lime-btn--ghost" data-lime-confirm-cancel>Отмена</button>' +
+          '<button type="button" class="lime-btn lime-btn--danger" data-lime-confirm-submit>Подтвердить</button>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(confirmBackdrop);
+    confirmTitle = confirmBackdrop.querySelector("[data-lime-confirm-title]");
+    confirmMessage = confirmBackdrop.querySelector("[data-lime-confirm-message]");
+    confirmAction = confirmBackdrop.querySelector("[data-lime-confirm-submit]");
+
+    confirmBackdrop.addEventListener("click", function (e) {
+      if (e.target === confirmBackdrop || e.target.closest("[data-lime-confirm-cancel]")) closeConfirmModal();
+      if (e.target.closest("[data-lime-confirm-submit]")) submitConfirmedForm();
+    });
+  }
+
+  function openConfirmModal(form) {
+    ensureConfirmModal();
+    activeConfirmForm = form;
+    confirmTitle.textContent = form.getAttribute("data-lime-confirm-title") || "Подтвердить действие";
+    confirmMessage.textContent = form.getAttribute("data-lime-confirm-message") || "Это действие нельзя отменить.";
+    confirmAction.textContent = form.getAttribute("data-lime-confirm-action") || "Подтвердить";
+    confirmBackdrop.classList.add("is-open");
+    confirmAction.focus();
+  }
+
+  function closeConfirmModal() {
+    if (!confirmBackdrop) return;
+    confirmBackdrop.classList.remove("is-open");
+    activeConfirmForm = null;
+  }
+
+  function submitConfirmedForm() {
+    if (!activeConfirmForm) return;
+    var form = activeConfirmForm;
+    closeConfirmModal();
+    form.dataset.limeConfirmAccepted = "1";
+    if (form.requestSubmit) form.requestSubmit();
+    else form.submit();
+  }
+
+  document.addEventListener("submit", function (e) {
+    var form = e.target;
+    if (!form || !form.matches || !form.matches("form[data-lime-confirm]")) return;
+    if (form.dataset.limeConfirmAccepted === "1") {
+      delete form.dataset.limeConfirmAccepted;
+      return;
+    }
+
+    e.preventDefault();
+    openConfirmModal(form);
+  }, true);
+
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && confirmBackdrop && confirmBackdrop.classList.contains("is-open")) {
+      closeConfirmModal();
+    }
+  });
+
+  // ---- submit loading states
+  function submitterFor(e, form) {
+    if (e.submitter) return e.submitter;
+    var active = document.activeElement;
+    if (active && form.contains(active) && active.matches("button,input[type='submit']")) return active;
+    return form.querySelector("button[type='submit'],input[type='submit'],button:not([type])");
+  }
+
+  document.addEventListener("submit", function (e) {
+    var form = e.target;
+    if (!form || !form.matches || !form.matches("form[data-lime-loading]") || e.defaultPrevented) return;
+    if (form.dataset.limeSubmitting === "1") {
+      e.preventDefault();
+      return;
+    }
+
+    form.dataset.limeSubmitting = "1";
+    form.classList.add("is-submitting");
+    var submitter = submitterFor(e, form);
+    if (submitter) {
+      var nextText = form.getAttribute("data-lime-loading-text") || submitter.getAttribute("data-lime-loading-text") || "Ждём...";
+      submitter.dataset.limeOriginalText = submitter.textContent;
+      submitter.textContent = nextText;
+      submitter.disabled = true;
+      submitter.classList.add("is-loading");
+    }
+  });
+
   // ---- hero mockup typeout loop
   var typeEl = document.querySelector("[data-typeloop]");
   if (typeEl) {

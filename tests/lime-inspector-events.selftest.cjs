@@ -136,7 +136,8 @@ function makeEnv(opts) {
         resetComponentOverrides: rec("resetOverrides"),
         setComponentVariant: rec("variant"),
         addComponentVariantFromInstance: rec("variantAdd"),
-        aiRewrite: rec("aiRewrite")
+        aiRewrite: rec("aiRewrite"),
+        aiSuggestAssetPrompt: rec("aiAssetPrompt")
     });
     api.bind();
     return { calls, state, blocks };
@@ -185,6 +186,14 @@ function makeEnv(opts) {
     handlers.click({ target: mk("ai") });
     check("op up → moveBlock(-1)", calls.includes("moveBlock:-1"));
     check("op dup/del/ai маршрутизированы", calls.includes("dup:") && calls.includes("del:") && calls.includes("aiRewrite:"));
+}
+
+// --- click: data-doc-ai-asset-prompt (Milestone 5, Фаза C) → aiSuggestAssetPrompt(el) ---
+{
+    const { calls } = makeEnv();
+    const btn = node({ "data-doc-ai-asset-prompt": "" });
+    handlers.click({ target: btn });
+    check("asset-prompt click маршрутизирован в aiSuggestAssetPrompt", calls.some(c => c.indexOf("aiAssetPrompt:") === 0));
 }
 
 // --- click: bg-preset через command-store = runCommands + autosave ---

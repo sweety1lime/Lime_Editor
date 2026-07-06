@@ -49,6 +49,7 @@
     var EditorEffects = window.LimeEditorEffects || {};
     var EditorV2Layout = window.LimeEditorV2Layout || {};
     var EditorV2Canvas = window.LimeEditorV2Canvas || {};
+    var EditorUiLevel = window.LimeEditorUiLevel || {};
     if (!EditorUtils.escapeText) throw new Error("LimeEditorUtils is required before lime-doc-editor.js");
     if (!EditorComponents.create) throw new Error("LimeEditorComponents is required before lime-doc-editor.js");
     if (!EditorComponentActions.create) throw new Error("LimeEditorComponentActions is required before lime-doc-editor.js");
@@ -87,6 +88,7 @@
     if (!EditorEffects.create) throw new Error("LimeEditorEffects is required before lime-doc-editor.js");
     if (!EditorV2Layout.create) throw new Error("LimeEditorV2Layout is required before lime-doc-editor.js");
     if (!EditorV2Canvas.create) throw new Error("LimeEditorV2Canvas is required before lime-doc-editor.js");
+    if (!EditorUiLevel.get) throw new Error("LimeEditorUiLevel is required before lime-doc-editor.js");
 
     var ws = document.getElementById("lime-doc-workspace");
     if (!ws) return;
@@ -111,6 +113,9 @@
     var currentState = "normal"; // normal | hover — редактируемое состояние блока (1.2)
     var currentClass = null;   // если задан cls — инспектор правит этот класс, а не блок (0.1)
     var currentInspectorTab = "style"; // style | fx | motion — активная вкладка инспектора
+    // UI-уровень (Milestone 2 experience-builder-plan.md): basic|design|motion|pro — прогрессивное
+    // раскрытие инспектора. Дефолт см. lime-editor-ui-level.js (новый юзер → basic, иначе pro).
+    var currentUiLevel = EditorUiLevel.get(window);
     var paletteJustDragged = false; // подавляет click палитры после drag-and-drop из палитры (DnD A)
 
     // Версия документа для optimistic concurrency (этап 0.4): Site.UpdatedAt.Ticks.
@@ -643,6 +648,7 @@
         csrfToken: csrfToken,
         byId: byId,
         targetBlock: targetBlock,
+        getDoc: function () { return doc; },
         setContentValue: setContentValue,
         setByPath: setByPath,
         hasCmdStore: function () { return !!cmdStore; },
@@ -941,6 +947,9 @@
     var setMarquee = effectsTools.setMarquee;
     var setMotionParallax = effectsTools.setMotionParallax;
     var setSceneLength = effectsTools.setSceneLength;
+    var setMarqueeSpeed = effectsTools.setMarqueeSpeed;
+    var recipesInspector = effectsTools.recipesInspector;
+    var applyRecipe = effectsTools.applyRecipe;
     var addLayer = effectsTools.addLayer;
     var delLayer = effectsTools.delLayer;
     var setLayerRng = effectsTools.setLayerRng;
@@ -1021,6 +1030,8 @@
         getCurrentState: function () { return currentState; },
         getCurrentBp: function () { return currentBp; },
         getCurrentInspectorTab: function () { return currentInspectorTab; },
+        getCurrentUiLevel: function () { return currentUiLevel; },
+        uiLevel: EditorUiLevel,
         byId: byId,
         findBlock: findBlock,
         targetBlock: targetBlock,
@@ -1049,6 +1060,7 @@
         motionInspector: motionInspector,
         sceneInspector: sceneInspector,
         layersInspector: layersInspector,
+        recipesInspector: recipesInspector,
         populateCollectionPickers: function (t) { populateCollectionPickers(t); }
     });
     function refreshInspector() { inspectorView.refreshInspector(); }
@@ -1059,6 +1071,7 @@
     var collectionsCache = null;
     var contentBinding = EditorContentBinding.create({
         document: document,
+        window: window,
         inspectorEl: inspectorEl,
         siteId: siteId,
         getDoc: function () { return doc; },
@@ -1196,9 +1209,11 @@
         toggleFx: toggleFx,
         setSticky: setSticky,
         setMarquee: setMarquee,
+        setMarqueeSpeed: setMarqueeSpeed,
         setSceneMode: setSceneMode,
         setSceneLength: setSceneLength,
         setMotionParallax: setMotionParallax,
+        applyRecipe: applyRecipe,
         addLayer: addLayer,
         delLayer: delLayer,
         pickLayerImage: pickLayerImage,
@@ -1224,7 +1239,8 @@
         resetComponentOverrides: resetComponentOverrides,
         setComponentVariant: setComponentVariant,
         addComponentVariantFromInstance: addComponentVariantFromInstance,
-        aiRewrite: aiRewrite
+        aiRewrite: aiRewrite,
+        aiSuggestAssetPrompt: aiSuggestAssetPrompt
     }).bind();
 
     // ===== SAVE / AUTOSAVE / CRASH RECOVERY — module lime-editor-persistence.js =====
@@ -1286,6 +1302,10 @@
     function aiGenerate() { aiGenerateFlow.aiGenerate(); }
     function aiRewrite() { aiGenerateFlow.aiRewrite(); }
     function aiEditBlock() { aiGenerateFlow.aiEditBlock(); }
+    // Фаза C Milestone 5: hoisted wrapper — EditorInspectorEvents.create() выше регистрируется
+    // ДО того, как aiPipeline создаётся ниже; функция-объявление хоистится, значит к моменту
+    // реального клика aiPipeline уже точно инициализирован (тот же приём, что и у aiRewrite).
+    function aiSuggestAssetPrompt(el) { aiPipeline.aiSuggestAssetPrompt(el); }
 
     // ===== AI COMMAND PIPELINE (этап 10.1) — модуль lime-editor-ai-pipeline.js =====
     // Изменяемое состояние (cmdStore/selectedId) отдаём геттерами; leStatus остаётся в main (его
@@ -1296,6 +1316,7 @@
         window: window,
         ws: ws,
         doc: doc,
+        L: L,
         getCmdStore: function () { return cmdStore; },
         getSelectedId: function () { return selectedId; },
         reid: reid,
@@ -1314,8 +1335,11 @@
     var applyAiCommands = aiPipeline.applyAiCommands;
     var aiSuggest = aiPipeline.aiSuggest;
     var aiAdaptMobile = aiPipeline.aiAdaptMobile;
+    var aiAdaptPackMobile = aiPipeline.aiAdaptPackMobile;
+    var aiFillPackText = aiPipeline.aiFillPackText;
+    var aiRestylePack = aiPipeline.aiRestylePack;
     // Тест/интеграционный шов: даёт скормить список команд (как от LLM) без живого AI-вызова.
-    window.__LIME_AI__ = { apply: applyAiCommands, suggest: aiSuggest, adaptMobile: aiAdaptMobile };
+    window.__LIME_AI__ = { apply: applyAiCommands, suggest: aiSuggest, adaptMobile: aiAdaptMobile, adaptPackMobile: aiAdaptPackMobile, fillPackText: aiFillPackText, restylePack: aiRestylePack };
 
     // ===== ТЕМА (токены сайта) — модуль lime-editor-theme.js =====
     EditorTheme.create({
@@ -1330,6 +1354,19 @@
 
     // ===== Топбар: overflow-меню «⋯» — модуль lime-editor-topbar.js =====
     EditorTopbar.init({ document: document });
+
+    // ===== UI-уровень (Milestone 2 experience-builder-plan.md) — модуль lime-editor-ui-level.js =====
+    // Тумблер живёт в topbar-more меню; смена уровня перекрашивает chrome (Pro/Motion-only пункты)
+    // и просит инспектор перерисоваться с новым фильтром — сам холст/документ не меняется.
+    EditorUiLevel.wireToggle({
+        document: document,
+        initialLevel: currentUiLevel,
+        onChange: function (level) {
+            currentUiLevel = level;
+            EditorUiLevel.set(window, level);
+            refreshInspector();
+        }
+    });
 
     var themeOpen = document.querySelector("[data-doc-theme-open]");
     var themeModal = document.getElementById("lime-doc-theme-modal");
@@ -1366,6 +1403,9 @@
         v2SelectionIds: v2SelectionIds,
         aiOpen: aiOpen,
         aiSuggest: aiSuggest,
+        aiFillPackText: aiFillPackText,
+        aiRestylePack: aiRestylePack,
+        aiAdaptPackMobile: aiAdaptPackMobile,
         undo: undo,
         redo: redo,
         runBlockOp: runBlockOp,
@@ -1384,7 +1424,13 @@
     }
 
     // ===== INTRO OVERLAY (стартовый промпт для пустого документа) — модуль lime-editor-intro.js =====
-    var intro = EditorIntro.create({ document: document, totalBlocks: totalBlocks, runGenerate: runGenerate });
+    // applyPack: то же API, что бутстрап ?template=key (строка 250-252), но по клику и без
+    // перезагрузки — applyTemplateByKey не зовёт render/markDirty сама (в отличие от insertPreset).
+    var intro = EditorIntro.create({
+        document: document, totalBlocks: totalBlocks, runGenerate: runGenerate,
+        packs: window.LimeExperiencePacks,
+        applyPack: function (key) { presetTools.applyTemplateByKey(key); render(); markDirty(); }
+    });
 
     // ===== ONBOARDING (этап 9.4): coachmark-тур — модуль lime-editor-onboarding.js =====
     // Авто-показ один раз (флаг в localStorage); ?tour=1 форсит. Документ не пуст — иначе

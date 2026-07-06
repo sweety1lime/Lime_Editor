@@ -67,6 +67,10 @@
             for (var i = 0; i < list.length; i++) if (list[i].key === key) { tpl = list[i]; break; }
             if (!tpl) return false;
             var doc = getDoc();
+            // Milestone 4 (experience-builder-plan.md): штамп для asset-slot требований в
+            // инспекторе — какой пак/шаблон построил документ. Для обычных шаблонов (не Experience
+            // Pack) безвреден — LimeExperiencePacks.resolve(key) просто вернёт null.
+            doc.pack = key;
             if (!doc.theme) doc.theme = {};
             if (tpl.theme) Object.keys(tpl.theme).forEach(function (k) { doc.theme[k] = tpl.theme[k]; });
             var lib = win.LimePresets && win.LimePresets.PRESETS;

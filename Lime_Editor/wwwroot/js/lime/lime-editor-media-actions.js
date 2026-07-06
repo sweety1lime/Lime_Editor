@@ -20,6 +20,7 @@
         var csrfToken = deps.csrfToken || function () { return ""; };
         var byId = deps.byId || function () { return null; };
         var targetBlock = deps.targetBlock || function (block) { return block; };
+        var getDoc = deps.getDoc || function () { return null; };
         var setContentValue = deps.setContentValue || noop;
         var setByPath = deps.setByPath || noop;
         var hasCmdStore = deps.hasCmdStore || function () { return false; };
@@ -137,7 +138,17 @@
                 return;
             }
             var preset = providers[provider] || providers.embed || { label: "Embed", aspect: "16/9" };
-            var url = win.prompt("Ссылка на " + (preset.label || "embed") + ":", current.embedUrl || providerExample(provider));
+            // Milestone 4 (experience-builder-plan.md): если это embed-слот пака (content.__slot),
+            // подсказываем требование к нему прямо в промпте — не paywall, а обучающая подсказка.
+            var slotHint = "";
+            var Packs = win.LimeExperiencePacks;
+            var docNow = getDoc();
+            if (current.__slot && Packs && docNow && docNow.pack) {
+                var full = Packs.resolve(docNow.pack);
+                var slot = full && full.assetSlots && full.assetSlots.filter(function (s) { return s.slot === current.__slot; })[0];
+                if (slot) slotHint = " (" + slot.hint + ")";
+            }
+            var url = win.prompt("Ссылка на " + (preset.label || "embed") + slotHint + ":", current.embedUrl || providerExample(provider));
             if (url == null) return;
             url = url.trim();
             if (!/^https:\/\//i.test(url)) {

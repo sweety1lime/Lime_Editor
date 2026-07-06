@@ -7,6 +7,7 @@
 
 const path = require("path");
 const Inspector = require(path.join(__dirname, "..", "Lime_Editor", "wwwroot", "js", "lime", "lime-editor-inspector.js"));
+const UiLevel = require(path.join(__dirname, "..", "Lime_Editor", "wwwroot", "js", "lime", "lime-editor-ui-level.js"));
 
 let failed = 0;
 function check(name, cond) {
@@ -46,8 +47,10 @@ function makeEnv(opts) {
         multiStyleModel: () => ({ values: { color: "#111" }, mixed: { margin: true } }),
         styleRegistry: opts.registry || [
             { title: "Цвет", props: ["color"] },
-            { title: "Тень", props: ["boxShadow"], adv: true }
+            { title: "Тень", props: ["boxShadow"], tier: "pro" }
         ],
+        getCurrentUiLevel: () => opts.level || "pro",
+        uiLevel: opts.uiLevel,
         hasOwn: (o, p) => Object.prototype.hasOwnProperty.call(o, p),
         registryProps: item => item.props,
         renderControl: item => "<ctl:" + item.title + ">",
@@ -105,12 +108,18 @@ function makeEnv(opts) {
     check("ownOverrideProps: только общие пропы", own.color === true && !own.margin);
 }
 
-// --- renderStyleSections: core сразу, adv в «Дополнительно» ---
+// --- renderStyleSections: core сразу, tier выше текущего UI-уровня — в «Дополнительно» ---
 {
-    const { api } = makeEnv({});
-    const html = api.renderStyleSections({ color: "red" }, {}, null);
-    check("core-секция снаружи details", html.indexOf("[Цвет]") >= 0 && html.indexOf("[Цвет]") < html.indexOf("<details"));
-    check("adv-секция внутри «Дополнительно»", html.indexOf("<details") < html.indexOf("[Тень]") && html.includes("Дополнительно"));
+    const { api } = makeEnv({ uiLevel: UiLevel, level: "design" });
+    const html = api.renderStyleSections({ color: "red" }, {}, null, "design");
+    check("core-секция (basic-tier) снаружи details", html.indexOf("[Цвет]") >= 0 && html.indexOf("[Цвет]") < html.indexOf("<details"));
+    check("pro-tier секция выше уровня design — внутри «Дополнительно»", html.indexOf("<details") < html.indexOf("[Тень]") && html.includes("Дополнительно"));
+}
+{
+    // На уровне Pro тот же pro-tier контрол уже не сворачивается — как сегодня.
+    const { api } = makeEnv({ uiLevel: UiLevel, level: "pro" });
+    const html = api.renderStyleSections({ color: "red" }, {}, null, "pro");
+    check("на уровне Pro «Дополнительно» не появляется", !html.includes("Дополнительно"));
 }
 
 // --- refreshInspector: empty-state / шапка+вкладки / баннеры ---

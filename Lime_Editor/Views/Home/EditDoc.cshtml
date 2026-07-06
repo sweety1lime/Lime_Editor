@@ -134,15 +134,27 @@
                     <button type="button" class="lime-btn lime-btn--ghost lime-btn--sm lime-btn--icon" data-topbar-more-toggle aria-haspopup="menu" aria-expanded="false" title="Ещё действия" aria-label="Ещё действия"><svg class="lime-ico"><use href="#i-more"/></svg></button>
                     <div class="lime-topbar-more__menu" role="menu" hidden>
                         <button type="button" class="lime-topbar-more__item" role="menuitem" data-doc-ai-open title="Сгенерировать страницу по описанию"><svg class="lime-ico"><use href="#i-features"/></svg> AI заново</button>
+                        <button type="button" class="lime-topbar-more__item" role="menuitem" data-doc-ai-fill-text title="Заполнить текст всех секций по короткому описанию"><svg class="lime-ico"><use href="#i-features"/></svg> AI: заполнить текстом</button>
+                        <button type="button" class="lime-topbar-more__item" role="menuitem" data-doc-ai-restyle title="Подобрать тему и motion по настроению"><svg class="lime-ico"><use href="#i-palette"/></svg> AI: оформление</button>
+                        <button type="button" class="lime-topbar-more__item" role="menuitem" data-doc-ai-mobile title="Адаптировать весь пак под мобильный экран"><svg class="lime-ico"><use href="#i-phone"/></svg> AI: мобайл</button>
                         <button type="button" class="lime-topbar-more__item" role="menuitem" data-doc-theme-open title="Тема сайта"><svg class="lime-ico"><use href="#i-palette"/></svg> Тема сайта</button>
-                        <button type="button" class="lime-topbar-more__item" role="menuitem" data-doc-code-open title="Глобальный CSS и код в head"><svg class="lime-ico"><use href="#i-embed"/></svg> Код сайта</button>
-                        <button type="button" class="lime-topbar-more__item" role="menuitem" data-doc-anim-preview title="Проиграть анимации появления"><svg class="lime-ico"><use href="#i-play"/></svg> Превью анимаций</button>
+                        <button type="button" class="lime-topbar-more__item" role="menuitem" data-doc-code-open data-doc-ui-pro title="Глобальный CSS и код в head"><svg class="lime-ico"><use href="#i-embed"/></svg> Код сайта</button>
+                        <button type="button" class="lime-topbar-more__item" role="menuitem" data-doc-anim-preview data-doc-ui-motion title="Проиграть анимации появления"><svg class="lime-ico"><use href="#i-play"/></svg> Превью анимаций</button>
                         @if (isEdit)
                         {
                             <div style="height:1px; background: var(--line); margin: 4px 0;"></div>
-                            <a class="lime-topbar-more__item" role="menuitem" href="/Export/Nextjs?siteId=@Model.SiteId&style=blob" title="Скачать сайт как готовый проект Next.js (рендер движком)"><svg class="lime-ico"><use href="#i-down"/></svg> Скачать код (Next.js)</a>
-                            <a class="lime-topbar-more__item" role="menuitem" href="/Export/Nextjs?siteId=@Model.SiteId&style=jsx" title="Скачать как Next.js с React-компонентами"><svg class="lime-ico"><use href="#i-down"/></svg> Скачать код (React)</a>
+                            <a class="lime-topbar-more__item" role="menuitem" data-doc-ui-pro href="/Export/Nextjs?siteId=@Model.SiteId&style=blob" title="Скачать сайт как готовый проект Next.js (рендер движком)"><svg class="lime-ico"><use href="#i-down"/></svg> Скачать код (Next.js)</a>
+                            <a class="lime-topbar-more__item" role="menuitem" data-doc-ui-pro href="/Export/Nextjs?siteId=@Model.SiteId&style=jsx" title="Скачать как Next.js с React-компонентами"><svg class="lime-ico"><use href="#i-down"/></svg> Скачать код (React)</a>
                         }
+                        <div class="lime-topbar-more__level" data-ui-level-toggle>
+                            <span class="lime-topbar-more__level-label">Уровень интерфейса</span>
+                            <div class="lime-segmented lime-segmented--wrap">
+                                <button type="button" data-ui-level="basic">Basic</button>
+                                <button type="button" data-ui-level="design">Design</button>
+                                <button type="button" data-ui-level="motion">Motion</button>
+                                <button type="button" data-ui-level="pro">Pro</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <button type="button" class="lime-btn lime-btn--primary lime-btn--sm" data-doc-save data-site-id="@(Model.SiteId?.ToString() ?? "")">
@@ -278,6 +290,8 @@
                         </div>
                     </div>
                     <div class="lime-le-prompt__msg" id="lime-doc-intro-msg"></div>
+                    <div class="lime-le-packs-divider">или начни с готового пака</div>
+                    <div class="lime-le-packs" id="lime-doc-intro-packs"></div>
                 </div>
             </div>
         </main>
@@ -455,6 +469,7 @@
     <script src="~/js/lime/lime-fonts.js" asp-append-version="true"></script>
     <script src="~/js/lime/lime-presets.js" asp-append-version="true"></script>
     <script src="~/js/lime/lime-templates.js" asp-append-version="true"></script>
+    <script src="~/js/lime/lime-experience-packs.js" asp-append-version="true"></script>
     <script src="~/js/lime/lime-doc.js" asp-append-version="true"></script>
     <script src="~/js/lime/lime-design.js" asp-append-version="true"></script>
     <script src="~/js/lime/lime-viewport.js" asp-append-version="true"></script>
@@ -483,6 +498,7 @@
     <script src="~/js/lime/lime-editor-style-engine.js" asp-append-version="true"></script>
     <script src="~/js/lime/lime-editor-dnd.js" asp-append-version="true"></script>
     <script src="~/js/lime/lime-editor-render.js" asp-append-version="true"></script>
+    <script src="~/js/lime/lime-editor-ui-level.js" asp-append-version="true"></script>
     <script src="~/js/lime/lime-editor-inspector.js" asp-append-version="true"></script>
     <script src="~/js/lime/lime-editor-inspector-events.js" asp-append-version="true"></script>
     <script src="~/js/lime/lime-editor-onboarding.js" asp-append-version="true"></script>

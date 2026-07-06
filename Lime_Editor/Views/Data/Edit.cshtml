@@ -47,7 +47,13 @@
                         <td style="padding:8px 12px 8px 0; color: var(--fg-muted);"><code>@f.Name</code></td>
                         <td style="padding:8px 12px 8px 0;">@(typeLabels.ContainsKey(f.Type) ? typeLabels[f.Type] : f.Type)</td>
                         <td style="padding:8px 0; text-align:right;">
-                            <form asp-action="RemoveField" method="post" style="display:inline;" onsubmit="return confirm('Удалить поле «@f.Label»?');">
+                            <form asp-action="RemoveField" method="post" style="display:inline;"
+                                  data-lime-confirm
+                                  data-lime-confirm-title="Удалить поле?"
+                                  data-lime-confirm-message="Поле «@f.Label» будет удалено из коллекции."
+                                  data-lime-confirm-action="Удалить"
+                                  data-lime-loading
+                                  data-lime-loading-text="Удаляем...">
                                 <input type="hidden" name="id" value="@Model.Id">
                                 <input type="hidden" name="fieldName" value="@f.Name">
                                 <button type="submit" class="lime-btn lime-btn--danger lime-btn--sm">✕</button>

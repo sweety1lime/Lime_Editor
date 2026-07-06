@@ -33,6 +33,30 @@
             return byId(selectedId());
         }
 
+        // Milestone 3 (experience-builder-plan.md): человеческие пресеты вместо голых чисел.
+        // Пресет-сег снаппится к БЛИЖАЙШЕМУ значению — если в документе уже лежит нестандартное
+        // число (старые шаблоны/neo-lore-drop), кнопка подсвечивается по ближайшему, ничего не
+        // ломается, просто визуально округляется до ярлыка.
+        var PARALLAX_PRESETS = [{ v: 0, l: "Нет" }, { v: 0.15, l: "Лёгкий" }, { v: 0.35, l: "Средний" }, { v: 0.6, l: "Сильный" }];
+        var SCENE_LEN_PRESETS = [{ v: 1, l: "Коротко" }, { v: 2, l: "Средне" }, { v: 3, l: "Длинно" }, { v: 4, l: "Оч. длинно" }];
+        var MARQUEE_SPEED_PRESETS = [{ v: 60, l: "Медленно" }, { v: 40, l: "Обычно" }, { v: 20, l: "Быстро" }];
+
+        function closestPreset(value, presets) {
+            var n = parseFloat(value);
+            if (isNaN(n)) n = 0;
+            var best = presets[0].v, bestDiff = Infinity;
+            presets.forEach(function (p) {
+                var diff = Math.abs(p.v - n);
+                if (diff < bestDiff) { bestDiff = diff; best = p.v; }
+            });
+            return best;
+        }
+        function presetSeg(presets, cur, dataAttr) {
+            return '<div class="lime-segmented">' + presets.map(function (p) {
+                return '<button type="button" class="' + (p.v === cur ? "is-active" : "") + '" data-' + dataAttr + '="' + p.v + '">' + p.l + '</button>';
+            }).join("") + '</div>';
+        }
+
         function animRng(prop, min, max, step, cur) {
             var n = parseFloat(cur); if (isNaN(n)) n = min;
             return '<div class="lime-range-row"><input type="range" class="lime-range" data-doc-anim="' + prop + '" min="' + min + '" max="' + max + '" step="' + step + '" value="' + n + '"><span class="lime-range__val">' + (cur != null && cur !== "" ? cur : "—") + '</span></div>';
@@ -56,9 +80,9 @@
         }
 
         function motionInspector(t) {
-            var px = t.parallax || "";
+            var curParallax = closestPreset(t.parallax || 0, PARALLAX_PRESETS);
             var rows = '<div class="lime-inspector__hint" style="margin:2px 0;">Параллакс (глубина)</div>' +
-                '<div class="lime-range-row"><input type="range" class="lime-range" data-doc-motion="parallax" min="0" max="0.8" step="0.05" value="' + (parseFloat(px) || 0) + '"><span class="lime-range__val">' + (px || "0") + '</span></div>' +
+                presetSeg(PARALLAX_PRESETS, curParallax, "doc-parallax-preset") +
                 '<div class="lime-inspector__hint" style="margin:8px 0 2px;">Залипание (sticky)</div>' +
                 '<div class="lime-segmented">' +
                 '<button type="button" class="' + (!t.sticky ? "is-active" : "") + '" data-doc-sticky="0">Нет</button>' +
@@ -70,6 +94,10 @@
                     '<button type="button" class="' + (!mq ? "is-active" : "") + '" data-doc-marquee="off">Нет</button>' +
                     '<button type="button" class="' + (mq && !mq.reverse ? "is-active" : "") + '" data-doc-marquee="ltr">→</button>' +
                     '<button type="button" class="' + (mq && mq.reverse ? "is-active" : "") + '" data-doc-marquee="rtl">←</button></div>';
+                if (mq) {
+                    rows += '<div class="lime-inspector__hint" style="margin:8px 0 2px;">Скорость ленты</div>' +
+                        presetSeg(MARQUEE_SPEED_PRESETS, closestPreset(mq.speed || 40, MARQUEE_SPEED_PRESETS), "doc-marquee-speed");
+                }
             }
             return sec("Движение", rows);
         }
@@ -84,10 +112,102 @@
             var len = (t.scene && t.scene.length) || 2;
             var extra = mode
                 ? '<div class="lime-inspector__hint" style="margin:8px 0 2px;">Длина, экранов</div>' +
-                  '<div class="lime-range-row"><input type="range" class="lime-range" data-doc-scene-len min="1" max="4" step="1" value="' + len + '"><span class="lime-range__val">' + len + '</span></div>' +
+                  presetSeg(SCENE_LEN_PRESETS, closestPreset(len, SCENE_LEN_PRESETS), "doc-scene-len-preset") +
                   '<div class="lime-inspector__hint" style="margin:6px 0;">Эффект виден на опубликованной странице.</div>'
                 : "";
             return sec("Сцена (scroll)", seg + extra);
+        }
+
+        // Milestone 3: готовые рецепты сцен — один клик применяет пачку motion-настроек на уже
+        // ВЫБРАННЫЙ блок (в отличие от LimePresets/Experience Packs, которые вставляют новую
+        // секцию). Значения horizontal-cards совпадают с тем, что руками применили к neo-factions
+        // в спайке Milestone 0 — не догадка, а проверенная комбинация.
+        var RECIPES = [
+            {
+                key: "pinned-hero", name: "Закреплённый герой", desc: "Секция держится на экране, контент проявляется", containerOnly: true,
+                apply: function () { return { scene: { mode: "pin", length: 2 }, anim: "fade-up", animDuration: 1.2 }; }
+            },
+            {
+                key: "horizontal-cards", name: "Горизонтальные карточки", desc: "Карточки едут вбок при скролле", containerOnly: true,
+                apply: function () { return { scene: { mode: "horizontal", length: 3 } }; }
+            },
+            {
+                key: "layered-parallax", name: "Слоистый параллакс", desc: "Параллакс секции + декоративные слои на разной глубине", containerOnly: false,
+                apply: function (b) {
+                    return {
+                        parallax: 0.3,
+                        layers: (b.layers || []).concat([
+                            { id: rid("l"), kind: "shape", shape: "blob", color: "#a78bfa", x: 12, y: 20, w: 220, z: 0, depth: 0.15, blur: 20, opacity: 0.7 },
+                            { id: rid("l"), kind: "shape", shape: "circle", color: "#38bdf8", x: 78, y: 65, w: 160, z: 0, depth: 0.35, blur: 12, opacity: 0.6 }
+                        ])
+                    };
+                }
+            },
+            {
+                key: "marquee-strip", name: "Бегущая строка", desc: "Содержимое едет непрерывной лентой", containerOnly: true,
+                apply: function () { return { marquee: { speed: 30, reverse: false } }; }
+            },
+            {
+                key: "reveal-sequence", name: "Последовательное появление", desc: "Дети секции проявляются по очереди", containerOnly: true,
+                applyChildren: function (children) {
+                    return children.map(function (c, i) { return { id: c.id, anim: "fade-up", animDelay: i * 120, animDuration: 0.6 }; });
+                }
+            }
+        ];
+
+        function recipesInspector(t) {
+            var isContainer = L.isContainer(t.type);
+            var applicable = RECIPES.filter(function (r) { return !r.containerOnly || isContainer; });
+            if (!applicable.length) return "";
+            var tiles = applicable.map(function (r) {
+                return '<button type="button" class="lime-recipe-tile" data-doc-recipe="' + r.key + '">' +
+                    '<span class="lime-recipe-tile__name">' + r.name + '</span>' +
+                    '<span class="lime-recipe-tile__desc">' + r.desc + '</span></button>';
+            }).join("");
+            return sec("Рецепты сцен", tiles);
+        }
+
+        function findChild(b, id) {
+            var kids = (b && b.children) || [];
+            for (var i = 0; i < kids.length; i++) if (kids[i].id === id) return kids[i];
+            return null;
+        }
+
+        function applyRecipe(key) {
+            var recipe = null;
+            for (var i = 0; i < RECIPES.length; i++) if (RECIPES[i].key === key) { recipe = RECIPES[i]; break; }
+            if (!recipe) return;
+            var source = selectedSource();
+            var b = targetBlock(source);
+            if (!b) return;
+            var patch = recipe.apply ? recipe.apply(b) : {};
+            var items = Object.keys(patch).map(function (prop) {
+                return { type: "setBlockProp", payload: { id: source.id, prop: prop, value: patch[prop] } };
+            });
+            if (recipe.applyChildren && b.children && b.children.length) {
+                recipe.applyChildren(b.children).forEach(function (childPatch) {
+                    ["anim", "animDelay", "animDuration"].forEach(function (p) {
+                        if (childPatch[p] !== undefined) items.push({ type: "setBlockProp", payload: { id: childPatch.id, prop: p, value: childPatch[p] } });
+                    });
+                });
+            }
+            if (!items.length) return;
+            var cmdStore = getCmdStore();
+            if (cmdStore) {
+                // runCommands обновляет только модель doc — в отличие от setBlockValue/setAnim,
+                // сама не патчит холст (нет единого DOM-атрибута на все возможные prop сразу для
+                // пачки из N разных block-id) — поэтому после батча зовём полный render().
+                var changed = runCommands(items, "recipe:" + key);
+                if (changed) scheduleAutosave();
+            } else {
+                items.forEach(function (it) {
+                    var tgt = it.payload.id === source.id ? b : findChild(b, it.payload.id);
+                    if (tgt) tgt[it.payload.prop] = it.payload.value;
+                });
+                markDirty();
+            }
+            render();
+            refreshInspector();
         }
 
         function layerRng(prop, i, min, max, step, cur, label) {
@@ -171,6 +291,15 @@
             var source = selectedSource();
             var b = targetBlock(source);
             if (b) setBlockValue(source, "marquee", { speed: 40, reverse: mode === "rtl" }, mode === "off");
+        }
+
+        function setMarqueeSpeed(value) {
+            var source = selectedSource();
+            var b = targetBlock(source);
+            if (!b || !b.marquee) return;
+            var next = clone(b.marquee);
+            next.speed = parseInt(value, 10);
+            setBlockValue(source, "marquee", next, false);
         }
 
         function setMotionParallax(value) {
@@ -383,17 +512,20 @@
         return {
             addLayer: addLayer,
             animInspector: animInspector,
+            applyRecipe: applyRecipe,
             delLayer: delLayer,
             fxInspector: fxInspector,
             initLayerDrag: initLayerDrag,
             layersInspector: layersInspector,
             motionInspector: motionInspector,
             pickLayerImage: pickLayerImage,
+            recipesInspector: recipesInspector,
             sceneInspector: sceneInspector,
             setAnim: setAnim,
             setLayerRng: setLayerRng,
             setLayerShape: setLayerShape,
             setMarquee: setMarquee,
+            setMarqueeSpeed: setMarqueeSpeed,
             setMotionParallax: setMotionParallax,
             setSceneLength: setSceneLength,
             setSceneMode: setSceneMode,

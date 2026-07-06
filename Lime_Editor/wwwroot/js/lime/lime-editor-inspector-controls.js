@@ -19,24 +19,24 @@
         { title: "Размер текста", kind: "range", prop: "fontSize", min: 12, max: 80, step: 1, unit: "px", units: CSS_UNITS },
         { title: "Жирность", kind: "seg", prop: "fontWeight", options: WEIGHTS },
         { title: "Межстрочный", kind: "range", prop: "lineHeight", min: 1, max: 2.4, step: 0.05, unit: "" },
-        { title: "Трекинг (межбуквенный)", kind: "range", prop: "letterSpacing", min: -2, max: 12, step: 0.5, unit: "px", units: CSS_UNITS_NO_PERCENT, adv: true },
-        { title: "Регистр", kind: "seg", prop: "textTransform", options: TRANSFORM, adv: true },
+        { title: "Трекинг (межбуквенный)", kind: "range", prop: "letterSpacing", min: -2, max: 12, step: 0.5, unit: "px", units: CSS_UNITS_NO_PERCENT, tier: "design" },
+        { title: "Регистр", kind: "seg", prop: "textTransform", options: TRANSFORM, tier: "design" },
         { title: "Выравнивание текста", kind: "seg", prop: "textAlign", options: ALIGN },
         { title: "Внутренние отступы", kind: "seg", prop: "padding", options: "PAD" },
         { title: "Внешние отступы (↑ / ↓)", kind: "ranges", items: [
             { prop: "marginTop", min: 0, max: 200, step: 2, unit: "px", units: CSS_UNITS },
             { prop: "marginBottom", min: 0, max: 200, step: 2, unit: "px", units: CSS_UNITS }
         ] },
-        { title: "Граница", kind: "group", adv: true, parts: [
+        { title: "Граница", kind: "group", tier: "design", parts: [
             { kind: "range", prop: "borderWidth", min: 0, max: 12, step: 1, unit: "px", units: CSS_UNITS_NO_PERCENT },
             { kind: "seg", prop: "borderStyle", options: BORDER_STYLE },
             { kind: "color", prop: "borderColor" }
         ] },
         { title: "Скругление", kind: "range", prop: "borderRadius", min: 0, max: 64, step: 1, unit: "px", units: CSS_UNITS },
-        { title: "Тень", kind: "shadow", prop: "boxShadow", adv: true },
-        { title: "Прозрачность", kind: "range", prop: "opacity", min: 0, max: 1, step: 0.05, unit: "", adv: true },
-        { title: "Смешивание (blend)", kind: "seg", prop: "mixBlendMode", options: BLEND, adv: true },
-        { title: "Мин. высота", kind: "range", prop: "minHeight", min: 0, max: 800, step: 10, unit: "px", units: CSS_UNITS, adv: true }
+        { title: "Тень", kind: "shadow", prop: "boxShadow", tier: "pro" },
+        { title: "Прозрачность", kind: "range", prop: "opacity", min: 0, max: 1, step: 0.05, unit: "", tier: "pro" },
+        { title: "Смешивание (blend)", kind: "seg", prop: "mixBlendMode", options: BLEND, tier: "pro" },
+        { title: "Мин. высота", kind: "range", prop: "minHeight", min: 0, max: 800, step: 10, unit: "px", units: CSS_UNITS, tier: "pro" }
     ];
 
     function hasOwn(o, k) {

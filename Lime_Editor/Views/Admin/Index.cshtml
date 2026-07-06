@@ -34,7 +34,12 @@
         <a class="lime-btn lime-btn--ghost" href="/Admin/Users">Пользователи →</a>
         <a class="lime-btn lime-btn--ghost" href="/Admin/Sites">Сайты →</a>
         <form method="post" asp-action="RepublishAll" asp-controller="Admin"
-              onsubmit="return confirm('Пересобрать все опубликованные сайты движка B из их JSON-снапшотов?');">
+              data-lime-confirm
+              data-lime-confirm-title="Пересобрать публикации?"
+              data-lime-confirm-message="Все опубликованные сайты движка B будут пересобраны из JSON-снапшотов."
+              data-lime-confirm-action="Пересобрать"
+              data-lime-loading
+              data-lime-loading-text="Пересобираем...">
             @Html.AntiForgeryToken()
             <button type="submit" class="lime-btn lime-btn--soft" title="После обновления рендерера фиксы доедут до уже опубликованных страниц">
                 ⟳ Пересобрать публикации (движок B)

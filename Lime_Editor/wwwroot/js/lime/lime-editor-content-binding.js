@@ -17,6 +17,7 @@
     function create(options) {
         options = options || {};
         var document = options.document || (typeof window !== "undefined" ? window.document : null);
+        var win = options.window || (typeof window !== "undefined" ? window : {});
         var inspectorEl = options.inspectorEl;
         var siteId = options.siteId || "";
         var getDoc = options.getDoc || function () { return null; };
@@ -113,18 +114,47 @@
 
         // Привязка к данным (фуллстак): форма пишет в коллекцию, collectionList читает из неё.
         // Select наполняется асинхронно после рендера (см. populateCollectionPickers).
+        // Milestone 4 (experience-builder-plan.md): требования к asset slot'у пака (формат/
+        // прозрачность/размер/mobile-crop) — если блок пришёл из Experience Pack и несёт
+        // content.__slot, штампованный при вставке (см. lime-presets.js/lime-editor-presets.js).
+        // Безопасный no-op для любого документа без doc.pack (все существующие/старые доки) —
+        // цепочка резолва рвётся на первом отсутствующем звене и возвращает "".
+        function slotHintSection(t) {
+            var slotKey = t && t.content && t.content.__slot;
+            if (!slotKey) return "";
+            var Packs = win.LimeExperiencePacks;
+            var doc = getDoc();
+            if (!Packs || !doc || !doc.pack) return "";
+            var full = Packs.resolve(doc.pack);
+            if (!full || !full.assetSlots) return "";
+            var slot = null;
+            for (var i = 0; i < full.assetSlots.length; i++) {
+                if (full.assetSlots[i].slot === slotKey) { slot = full.assetSlots[i]; break; }
+            }
+            if (!slot) return "";
+            return sec("Требования к ассету",
+                '<div class="lime-inspector__hint"><b>' + escapeText(slot.label) + ':</b> ' + escapeText(slot.hint) + '</div>' +
+                '<button type="button" class="lime-btn lime-btn--ghost lime-btn--sm" style="margin-top:6px;" ' +
+                'data-doc-ai-asset-prompt ' +
+                'data-slot-label="' + escapeText(slot.label) + '" data-slot-hint="' + escapeText(slot.hint) + '" ' +
+                'data-pack-name="' + escapeText(full.name || "") + '" data-pack-category="' + escapeText(full.category || "") + '">' +
+                '✦ Промпт для ассета</button>' +
+                '<div class="lime-inspector__hint" data-ai-asset-result style="margin-top:6px;"></div>');
+        }
+
         function contentExtras(t) {
+            var slotHtml = slotHintSection(t);
             // Обратный отсчёт (этап 1.2): дата окончания. Заголовок правится прямо в блоке.
             if (t.type === "countdown") {
                 var cdTarget = (t.content && t.content.target) || "";
-                return sec("Обратный отсчёт",
+                return slotHtml + sec("Обратный отсчёт",
                     '<label class="lime-v2-field"><span>Дата окончания</span><input type="datetime-local" class="lime-input" data-doc-cd-target value="' + escapeText(cdTarget) + '"></label>' +
                     '<div class="lime-inspector__hint" style="margin-top:6px;">Таймер обнулится в эту дату. Подпись правится прямо в блоке.</div>');
             }
-            if (t.type !== "form" && t.type !== "collectionList") return "";
+            if (t.type !== "form" && t.type !== "collectionList") return slotHtml;
             var colSelect = '<select class="lime-select" data-doc-collection style="width:100%;"><option value="">— нет —</option></select>';
             if (t.type === "form") {
-                return sec("Записывать в коллекцию",
+                return slotHtml + sec("Записывать в коллекцию",
                     colSelect +
                     '<div class="lime-inspector__hint" style="margin-top:6px;">Коллекции создаются в разделе «Данные» (кабинет → твой сайт).</div>');
             }
@@ -182,7 +212,7 @@
                     html += '<div class="lime-inspector__hint" style="margin-top:8px;">У коллекции пока нет полей — добавь их в разделе «Данные», чтобы настроить карточку.</div>';
                 }
             }
-            return sec("Источник — коллекция", html);
+            return slotHtml + sec("Источник — коллекция", html);
         }
 
         function setContentFlag(key, val) {

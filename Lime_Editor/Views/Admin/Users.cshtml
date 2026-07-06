@@ -78,7 +78,13 @@
                                         @(u.IsAdmin ? "Снять Admin" : "Назначить Admin")
                                     </button>
                                 </form>
-                                <form asp-action="DeleteUser" method="post" style="display:inline;" onsubmit="return confirm('Удалить пользователя со всеми сайтами?');">
+                                <form asp-action="DeleteUser" method="post" style="display:inline;"
+                                      data-lime-confirm
+                                      data-lime-confirm-title="Удалить пользователя?"
+                                      data-lime-confirm-message="Пользователь «@u.UserName» и все его сайты будут удалены навсегда."
+                                      data-lime-confirm-action="Удалить"
+                                      data-lime-loading
+                                      data-lime-loading-text="Удаляем...">
                                     <input type="hidden" name="userId" value="@u.Id">
                                     <button type="submit" class="lime-btn lime-btn--danger lime-btn--sm">Удалить</button>
                                 </form>

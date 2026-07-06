@@ -73,6 +73,62 @@ function cache() { return [{ slug: "posts", name: "Посты", schemaJson: JSON
     check("contentExtras: прочий тип → пусто", api.contentExtras({ type: "text" }) === "");
 }
 
+// --- contentExtras: slot-hint (Milestone 4 experience-builder-plan.md) ---
+{
+    var fakePacks = {
+        resolve: function (key) {
+            if (key !== "neo-lore-drop") return null;
+            return { assetSlots: [{ slot: "hero-scene", label: "Hero scene", hint: "Spline/Rive/Sketchfab embed URL" }] };
+        }
+    };
+    var api = CB.create({
+        window: { LimeExperiencePacks: fakePacks },
+        getDoc: function () { return { pack: "neo-lore-drop" }; },
+        getCollections: cache, escapeText: esc, section: sec
+    });
+    var withSlot = api.contentExtras({ type: "embed", content: { __slot: "hero-scene" } });
+    check("contentExtras: known slot renders its hint", withSlot.indexOf("Требования к ассету") >= 0 && withSlot.indexOf("Spline/Rive/Sketchfab embed URL") >= 0);
+
+    // Milestone 5, Фаза C: кнопка «✦ Промпт для ассета» + пустой result-контейнер рядом с хинтом.
+    check("contentExtras: slot-hint кнопка присутствует", withSlot.indexOf("data-doc-ai-asset-prompt") >= 0);
+    check("contentExtras: кнопка несёт label/hint слота в data-*", withSlot.indexOf('data-slot-label="Hero scene"') >= 0
+        && withSlot.indexOf('data-slot-hint="Spline/Rive/Sketchfab embed URL"') >= 0);
+    check("contentExtras: пустой result-контейнер рядом с кнопкой", withSlot.indexOf("data-ai-asset-result") >= 0);
+
+    check("contentExtras: no __slot on the block → no-op", api.contentExtras({ type: "embed", content: {} }) === "");
+
+    var noPackDoc = CB.create({
+        window: { LimeExperiencePacks: fakePacks },
+        getDoc: function () { return {}; }, // старый документ без doc.pack
+        getCollections: cache, escapeText: esc, section: sec
+    });
+    check("contentExtras: __slot present but doc.pack unset → no-op (old documents)",
+        noPackDoc.contentExtras({ type: "embed", content: { __slot: "hero-scene" } }) === "");
+
+    var unknownPackDoc = CB.create({
+        window: { LimeExperiencePacks: fakePacks },
+        getDoc: function () { return { pack: "startup" }; }, // не Experience Pack
+        getCollections: cache, escapeText: esc, section: sec
+    });
+    check("contentExtras: doc.pack resolves to null (plain template) → no-op",
+        unknownPackDoc.contentExtras({ type: "embed", content: { __slot: "hero-scene" } }) === "");
+
+    var unknownSlotDoc = CB.create({
+        window: { LimeExperiencePacks: fakePacks },
+        getDoc: function () { return { pack: "neo-lore-drop" }; },
+        getCollections: cache, escapeText: esc, section: sec
+    });
+    check("contentExtras: __slot doesn't match any of the pack's assetSlots → no-op",
+        unknownSlotDoc.contentExtras({ type: "embed", content: { __slot: "no-such-slot" } }) === "");
+
+    var noWindowDoc = CB.create({ getDoc: function () { return { pack: "neo-lore-drop" }; }, getCollections: cache, escapeText: esc, section: sec });
+    check("contentExtras: no LimeExperiencePacks injected at all → no-op, doesn't throw",
+        noWindowDoc.contentExtras({ type: "embed", content: { __slot: "hero-scene" } }) === "");
+
+    check("contentExtras: slot hint is prepended to countdown's own section (not replacing it)",
+        api.contentExtras({ type: "countdown", content: { __slot: "hero-scene", target: "" } }).indexOf("Обратный отсчёт") >= 0);
+}
+
 // --- setContentFlag: пишет через setContentValue, null → remove ---
 {
     var captured = null;

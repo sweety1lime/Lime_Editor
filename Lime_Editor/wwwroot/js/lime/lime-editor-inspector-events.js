@@ -72,9 +72,11 @@
         var toggleFx = options.toggleFx || noop;
         var setSticky = options.setSticky || noop;
         var setMarquee = options.setMarquee || noop;
+        var setMarqueeSpeed = options.setMarqueeSpeed || noop;
         var setSceneMode = options.setSceneMode || noop;
         var setSceneLength = options.setSceneLength || noop;
         var setMotionParallax = options.setMotionParallax || noop;
+        var applyRecipe = options.applyRecipe || noop;
         var addLayer = options.addLayer || noop;
         var delLayer = options.delLayer || noop;
         var pickLayerImage = options.pickLayerImage || noop;
@@ -103,6 +105,7 @@
         var setComponentVariant = options.setComponentVariant || noop;
         var addComponentVariantFromInstance = options.addComponentVariantFromInstance || noop;
         var aiRewrite = options.aiRewrite || noop;
+        var aiSuggestAssetPrompt = options.aiSuggestAssetPrompt || noop;
 
         function bind() {
             if (!inspectorEl) return;
@@ -211,10 +214,6 @@
                         var ol = t.parentNode.querySelector(".lime-range__val");
                         if (ol) ol.textContent = Math.round(parseFloat(t.value) * 100) + "%";
                     }
-                } else if (t.hasAttribute("data-doc-motion") && t.type === "range") {
-                    // Параллакс секции: пишем модель + DOM-атрибут (визуально едет только на публикации).
-                    setMotionParallax(t.value);
-                    var ml = t.parentNode.querySelector(".lime-range__val"); if (ml) ml.textContent = t.value;
                 } else if (t.hasAttribute("data-doc-layer-rng")) {
                     var li = parseInt(t.dataset.i, 10);
                     setLayerRng(li, t.dataset.docLayerRng, parseFloat(t.value));
@@ -222,10 +221,6 @@
                 } else if (t.hasAttribute("data-doc-layer-color")) {
                     var ci = parseInt(t.dataset.docLayerColor, 10);
                     setLayerRng(ci, "color", t.value);
-                } else if (t.hasAttribute("data-doc-scene-len") && t.type === "range") {
-                    setSceneLength(t.value);
-                    var sl = t.parentNode.querySelector(".lime-range__val");
-                    if (sl) sl.textContent = t.value;
                 } else if (t.hasAttribute("data-doc-shadow")) {
                     composeShadow();
                     if (t.type === "range") {
@@ -373,9 +368,19 @@
                 }
                 if ((el = e.target.closest("[data-doc-marquee]"))) {
                     setMarquee(el.dataset.docMarquee);
+                    refreshInspector(); // скорость ленты появляется/пропадает вместе с режимом
                     return;
                 }
-                if ((el = e.target.closest("[data-doc-scene]"))) { setSceneMode(el.dataset.docScene); return; }
+                if ((el = e.target.closest("[data-doc-marquee-speed]"))) { setMarqueeSpeed(el.dataset.docMarqueeSpeed); refreshInspector(); return; }
+                if ((el = e.target.closest("[data-doc-scene]"))) {
+                    setSceneMode(el.dataset.docScene);
+                    refreshInspector(); // длина сцены появляется/пропадает вместе с режимом
+                    return;
+                }
+                if ((el = e.target.closest("[data-doc-scene-len-preset]"))) { setSceneLength(el.dataset.docSceneLenPreset); refreshInspector(); return; }
+                if ((el = e.target.closest("[data-doc-parallax-preset]"))) { setMotionParallax(el.dataset.docParallaxPreset); refreshInspector(); return; }
+                if ((el = e.target.closest("[data-doc-recipe]"))) { applyRecipe(el.dataset.docRecipe); return; }
+                if ((el = e.target.closest("[data-doc-ai-asset-prompt]"))) { aiSuggestAssetPrompt(el); return; }
                 // ----- декор-слои -----
                 if ((el = e.target.closest("[data-doc-layer-add]"))) { addLayer(el.dataset.docLayerAdd); return; }
                 if ((el = e.target.closest("[data-doc-layer-del]"))) { delLayer(parseInt(el.dataset.docLayerDel, 10)); return; }

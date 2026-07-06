@@ -489,6 +489,41 @@ const blocks = (s) => s.getDoc().pages[0].blocks;
     check("ai-dryrun: команда по несуществующему id — 0 применений", noop.applied === 0);
 }
 
+// --- setTheme (Milestone 5, Фаза B): мутация doc.theme, не блока — путь абсолютный от корня ---
+{
+    const s = C.createStore(freshDoc());
+    check("setTheme: неизвестный key — no-op", s.dispatch("setTheme", { key: "border", value: "#ffffff" }) === false);
+    check("setTheme: не-строковый value — no-op", s.dispatch("setTheme", { key: "accent", value: 123 }) === false);
+    check("setTheme: битый hex — no-op", s.dispatch("setTheme", { key: "accent", value: "neon" }) === false);
+
+    s.dispatch("setTheme", { key: "accent", value: "#112233" });
+    check("setTheme: валидный hex применён", s.getDoc().theme.accent === "#112233");
+    check("setTheme: повтор того же значения — no-op", s.dispatch("setTheme", { key: "accent", value: "#112233" }) === false);
+
+    s.dispatch("setTheme", { key: "font", value: "'Space Grotesk', sans-serif" });
+    check("setTheme: строка шрифта применена", s.getDoc().theme.font === "'Space Grotesk', sans-serif");
+    check("setTheme: слишком длинная строка шрифта — no-op", s.dispatch("setTheme", { key: "font", value: "x".repeat(201) }) === false);
+    check("setTheme: пустая строка шрифта — no-op", s.dispatch("setTheme", { key: "font", value: "   " }) === false);
+
+    s.undo();
+    check("setTheme: undo вернул старый font", s.getDoc().theme.font === undefined);
+    s.undo();
+    check("setTheme: undo вернул старый accent", s.getDoc().theme.accent === undefined);
+    s.redo();
+    check("setTheme: redo применил accent снова", s.getDoc().theme.accent === "#112233");
+
+    // Документ без theme вообще — команда должна создать объект, а не упасть.
+    const noTheme = freshDoc();
+    delete noTheme.theme;
+    const s2 = C.createStore(noTheme);
+    s2.dispatch("setTheme", { key: "bg", value: "#fff" });
+    check("setTheme: создаёт theme при отсутствии", s2.getDoc().theme && s2.getDoc().theme.bg === "#fff");
+
+    // AI-allowlist: setTheme должен проходить validateAiCommands.
+    const v = C.validateAiCommands([{ type: "setTheme", payload: { key: "accent2", value: "#abc" } }]);
+    check("ai-validate: setTheme в allowlist", v.ok === true && v.commands.length === 1 && v.commands[0].type === "setTheme");
+}
+
 if (failed) {
     console.error("\nCOMMANDS-SELFTEST FAILED: " + failed);
     process.exit(1);
