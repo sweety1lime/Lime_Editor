@@ -107,6 +107,7 @@ namespace Lime_Editor.Services
                    customHead +
                    "</head>\n<body class=\"lime-published\">\n" +
                    (innerHtml ?? string.Empty) + "\n" +
+                   MadeWithBadge +
                    "</body>\n</html>";
         }
 
@@ -127,6 +128,17 @@ namespace Lime_Editor.Services
             catch { /* битый JSON → без per-page SEO */ }
             return (null, null);
         }
+
+        // Бейдж «Сделано в Lime» — viral-петля (стандарт рынка: Framer/Durable/Mixo).
+        // Ссылка root-relative: публикации живут на одном origin с приложением, "/" — лендинг.
+        // Инлайн-стили: строгий CSP публичных страниц разрешает style="" (script — нет).
+        // Когда разморозится биллинг — гейтить по плану (снятие бейджа = мотиватор апгрейда).
+        private const string MadeWithBadge =
+            "<a class=\"lime-made-badge\" href=\"/?utm_source=site-badge\" target=\"_blank\" rel=\"noopener\" " +
+            "style=\"position:fixed;right:14px;bottom:14px;z-index:2147483000;display:inline-flex;align-items:center;gap:6px;" +
+            "font:500 12px/1 system-ui,sans-serif;padding:7px 12px;border-radius:999px;background:rgba(8,10,7,.85);" +
+            "color:#eef2e9;text-decoration:none;border:1px solid rgba(197,242,78,.35);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);\">" +
+            "<span style=\"color:#c5f24e;\">&#9679;</span>Сделано в Lime</a>\n";
 
         // Гейт тарифа (этап 3.4): на планах без AllowCustomCode произвольный CSS/<head> не должен
         // попадать в публикацию. Вырезаем doc.customCss и doc.head из снапшота ПЕРЕД компиляцией —

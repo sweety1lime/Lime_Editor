@@ -32,6 +32,22 @@ namespace Lime.Tests.Services
             Assert.Contains("lime-published", html);
         }
 
+        // Viral-петля: бейдж «Сделано в Lime» на каждой публикации (стандарт рынка).
+        [Fact]
+        public void WrapCustomHtml_ContainsMadeWithBadge_OnceBeforeBodyClose()
+        {
+            var site = new Site { Name = "Сайт", IdSite = 1 };
+            var html = PublishedPageBuilder.WrapCustomHtml("<main>контент</main>", site);
+
+            Assert.Contains("lime-made-badge", html);
+            Assert.Contains("Сделано в Lime", html);
+            Assert.Equal(html.IndexOf("lime-made-badge"), html.LastIndexOf("lime-made-badge"));
+            Assert.True(html.IndexOf("lime-made-badge") < html.IndexOf("</body>"));
+            // Ссылка root-relative с utm; без скриптов — иначе строгий CSP публикаций её убил бы.
+            Assert.Contains("href=\"/?utm_source=site-badge\"", html);
+            Assert.Contains("rel=\"noopener\"", html);
+        }
+
         // Этап 3.6: per-page/record SEO перекрывает site-уровень; canonical/twitter/JSON-LD; AEO-безопасность.
         [Fact]
         public void WrapCustomHtml_PerPageSeoCanonicalTwitterJsonLd()
