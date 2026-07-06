@@ -37,6 +37,8 @@ namespace Lime_Editor.Models
         public virtual DbSet<Collection> Collections { get; set; }
         public virtual DbSet<CollectionRecord> CollectionRecords { get; set; }
         public virtual DbSet<ApiToken> ApiTokens { get; set; }
+        public virtual DbSet<GitHubConnection> GitHubConnections { get; set; }
+        public virtual DbSet<GitHubSiteDeployment> GitHubSiteDeployments { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -254,6 +256,47 @@ namespace Lime_Editor.Models
                 entity.Property(e => e.Label).HasMaxLength(120);
                 entity.HasIndex(e => e.TokenHash).IsUnique();
                 entity.HasIndex(e => e.UserId);
+                entity.HasOne<ApplicationUser>()
+                    .WithMany()
+                    .HasForeignKey(e => e.UserId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            // GitHub deploy integrations: protected OAuth token per user plus per-site repo mapping.
+            modelBuilder.Entity<GitHubConnection>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Kind).IsRequired().HasMaxLength(40);
+                entity.Property(e => e.Login).IsRequired().HasMaxLength(120);
+                entity.Property(e => e.AccessTokenProtected).IsRequired();
+                entity.Property(e => e.Scope).HasMaxLength(400);
+                entity.Property(e => e.TokenType).HasMaxLength(40);
+                entity.HasIndex(e => new { e.UserId, e.Kind }).IsUnique();
+                entity.HasIndex(e => e.GitHubUserId);
+                entity.HasOne<ApplicationUser>()
+                    .WithMany()
+                    .HasForeignKey(e => e.UserId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<GitHubSiteDeployment>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Mode).IsRequired().HasMaxLength(40);
+                entity.Property(e => e.Owner).IsRequired().HasMaxLength(120);
+                entity.Property(e => e.Repo).IsRequired().HasMaxLength(120);
+                entity.Property(e => e.Branch).HasMaxLength(120);
+                entity.Property(e => e.Style).HasMaxLength(20);
+                entity.Property(e => e.LastCommitSha).HasMaxLength(80);
+                entity.Property(e => e.LastError).HasMaxLength(1000);
+                entity.Property(e => e.VercelProjectId).HasMaxLength(120);
+                entity.Property(e => e.VercelUrl).HasMaxLength(400);
+                entity.HasIndex(e => new { e.SiteId, e.Mode }).IsUnique();
+                entity.HasIndex(e => e.UserId);
+                entity.HasOne<Site>()
+                    .WithMany()
+                    .HasForeignKey(e => e.SiteId)
+                    .OnDelete(DeleteBehavior.Cascade);
                 entity.HasOne<ApplicationUser>()
                     .WithMany()
                     .HasForeignKey(e => e.UserId)

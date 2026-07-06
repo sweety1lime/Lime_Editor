@@ -5,6 +5,7 @@ using Lime_Editor.Models;
 using Lime_Editor.Services;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;
@@ -18,6 +19,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Threading.RateLimiting;
@@ -27,9 +29,12 @@ namespace Lime_Editor
 {
     public class Startup
     {
-        public Startup(IConfiguration configuration)
+        private readonly IWebHostEnvironment _environment;
+
+        public Startup(IConfiguration configuration, IWebHostEnvironment environment)
         {
             Configuration = configuration;
+            _environment = environment;
         }
 
         public IConfiguration Configuration { get; }
@@ -108,6 +113,18 @@ namespace Lime_Editor
                 o.Cookie.SameSite = SameSiteMode.Lax;
                 o.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
             });
+            var dataProtection = services.AddDataProtection();
+            var dataProtectionKeysPath = Configuration["DataProtection:KeysPath"];
+            if (!string.IsNullOrWhiteSpace(dataProtectionKeysPath))
+            {
+                dataProtection.PersistKeysToFileSystem(new DirectoryInfo(dataProtectionKeysPath));
+            }
+            else if (_environment.IsEnvironment("Test"))
+            {
+                var testKeysPath = Path.Combine(Path.GetTempPath(), "Lime_Editor", "DataProtection-Keys");
+                Directory.CreateDirectory(testKeysPath);
+                dataProtection.PersistKeysToFileSystem(new DirectoryInfo(testKeysPath));
+            }
             services.AddSingleton<ITemplateExportService, TemplateExportService>();
             services.AddSingleton<NextExportService>(); // «eject» в Next.js (Итерация 4)
             services.AddSingleton<IImageProcessor, ImageSharpProcessor>();
@@ -125,6 +142,22 @@ namespace Lime_Editor
             services.AddHttpClient("ai", c => c.Timeout = TimeSpan.FromSeconds(120));
             services.AddSingleton<IAiProvider, OpenAiCompatibleProvider>();
             services.AddSingleton<AiContentService>();
+            services.AddHttpClient("github-oauth", c =>
+            {
+                c.BaseAddress = new Uri("https://github.com/");
+                c.Timeout = TimeSpan.FromSeconds(30);
+                c.DefaultRequestHeaders.UserAgent.ParseAdd("Lime-Editor/1.0");
+            });
+            services.AddHttpClient("github", c =>
+            {
+                c.BaseAddress = new Uri("https://api.github.com/");
+                c.Timeout = TimeSpan.FromSeconds(60);
+                c.DefaultRequestHeaders.UserAgent.ParseAdd("Lime-Editor/1.0");
+                c.DefaultRequestHeaders.Accept.ParseAdd("application/vnd.github+json");
+                c.DefaultRequestHeaders.Add("X-GitHub-Api-Version", "2022-11-28");
+            });
+            services.AddSingleton<GitHubApiClient>();
+            services.AddScoped<GitHubDeploymentService>();
             // Тарифы/лимиты (этап 3.4): scoped — работает с LimeEditorContext.
             services.AddScoped<IEntitlementService, EntitlementService>();
             services.AddScoped<ISiteService, SiteService>();

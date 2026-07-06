@@ -25,6 +25,29 @@
         </div>
     </div>
 
+    @if (TempData["GitHubDeployError"] is string ghError)
+    {
+        <div class="lime-alert lime-alert--danger lime-mb-4">@ghError</div>
+    }
+    @if (TempData["GitHubDeployMessage"] is string ghMessage)
+    {
+        var ghUrl = TempData["GitHubDeployUrl"] as string;
+        var ghVercelUrl = TempData["GitHubDeployVercelUrl"] as string;
+        <div class="lime-alert lime-alert--success lime-mb-4">
+            @ghMessage
+            <span class="lime-alert__links">
+                @if (!string.IsNullOrEmpty(ghUrl))
+                {
+                    <a href="@ghUrl" target="_blank" rel="noopener">Открыть GitHub</a>
+                }
+                @if (!string.IsNullOrEmpty(ghVercelUrl))
+                {
+                    <a href="@ghVercelUrl" target="_blank" rel="noopener">Импорт в Vercel</a>
+                }
+            </span>
+        </div>
+    }
+
     <!-- STATS -->
     <div class="lime-stats">
         <div class="lime-stat reveal" data-delay="1">
@@ -100,45 +123,66 @@
                     }
 
                     <div class="lime-site__actions">
-                        <form asp-action="UpdateSite" asp-controller="Home" method="post" style="display:inline;">
+                        <form asp-action="UpdateSite" asp-controller="Home" method="post" style="display:inline;" data-lime-loading data-lime-loading-text="Открываем...">
                             <input type="hidden" name="site" value="@jsonEdit">
                             <button type="submit" class="lime-btn lime-btn--soft lime-btn--sm">Редактировать</button>
                         </form>
-                        @if (!string.IsNullOrEmpty(site.DocumentJson))
+                        @if (site.IsPublished && !string.IsNullOrEmpty(site.Slug))
                         {
-                            <a class="lime-btn lime-btn--ghost lime-btn--sm" href="/Home/EditDoc?siteId=@site.IdSite">✦ Движок B</a>
-                        }
-                        <a class="lime-btn lime-btn--ghost lime-btn--sm" href="/Form/Inbox?siteId=@site.IdSite">
-                            📨 Заявки@(unreadLeads > 0 ? $" ({unreadLeads})" : "")
-                        </a>
-                        <a class="lime-btn lime-btn--ghost lime-btn--sm" href="/Data?siteId=@site.IdSite">🗃 Данные</a>
-                        <a class="lime-btn lime-btn--ghost lime-btn--sm" href="/Export/Nextjs?siteId=@site.IdSite" title="Next.js-проект (движок рендерит)">⬇ Код (Next.js)</a>
-                        <a class="lime-btn lime-btn--ghost lime-btn--sm" href="/Export/Nextjs?siteId=@site.IdSite&style=jsx" title="Next.js с настоящими React-компонентами">⬇ Код (React)</a>
-                        @if (site.IsPublished)
-                        {
-                            <form asp-action="ToggleGallery" asp-controller="Community" method="post" style="display:inline;">
-                                <input type="hidden" name="idSite" value="@site.IdSite">
-                                <button type="submit" class="lime-btn lime-btn--ghost lime-btn--sm"
-                                        title="@(site.ShowInGallery ? "Сайт виден в галерее сообщества — нажми, чтобы скрыть" : "Сайт скрыт из галереи — нажми, чтобы показать")">
-                                    @(site.ShowInGallery ? "🌐 В галерее" : "🚫 Скрыт")
-                                </button>
-                            </form>
-                            <form asp-action="Unpublish" asp-controller="Home" method="post" style="display:inline;">
-                                <input type="hidden" name="idSite" value="@site.IdSite">
-                                <button type="submit" class="lime-btn lime-btn--ghost lime-btn--sm">Снять</button>
-                            </form>
+                            <a class="lime-btn lime-btn--ghost lime-btn--sm" href="/u/@User.Identity.Name/@site.Slug" target="_blank" rel="noopener">Открыть</a>
                         }
                         else
                         {
-                            <form asp-action="Publish" asp-controller="Home" method="post" style="display:inline;">
+                            <form asp-action="Publish" asp-controller="Home" method="post" style="display:inline;" data-lime-loading data-lime-loading-text="Публикуем...">
                                 <input type="hidden" name="idSite" value="@site.IdSite">
                                 <button type="submit" class="lime-btn lime-btn--ghost lime-btn--sm">Опубликовать</button>
                             </form>
                         }
-                        <form asp-action="DeleteSite" asp-controller="Home" method="post" style="display:inline;" onsubmit="return confirm('Удалить сайт навсегда?');">
-                            <input type="hidden" name="site" value="@jsonEdit">
-                            <button type="submit" class="lime-btn lime-btn--danger lime-btn--sm">Удалить</button>
-                        </form>
+                        <a class="lime-btn lime-btn--ghost lime-btn--sm" href="/GitHub/Deploy?siteId=@site.IdSite" title="Выбрать способ деплоя в GitHub и Vercel">Деплой</a>
+                        @if (unreadLeads > 0)
+                        {
+                            <a class="lime-btn lime-btn--ghost lime-btn--sm" href="/Form/Inbox?siteId=@site.IdSite">Заявки (@unreadLeads)</a>
+                        }
+
+                        <details class="lime-action-menu">
+                            <summary class="lime-btn lime-btn--ghost lime-btn--sm" aria-label="Ещё действия">Ещё</summary>
+                            <div class="lime-action-menu__panel">
+                                @if (!string.IsNullOrEmpty(site.DocumentJson))
+                                {
+                                    <a class="lime-action-menu__item" href="/Home/EditDoc?siteId=@site.IdSite">Движок B</a>
+                                }
+                                @if (unreadLeads == 0)
+                                {
+                                    <a class="lime-action-menu__item" href="/Form/Inbox?siteId=@site.IdSite">Заявки</a>
+                                }
+                                <a class="lime-action-menu__item" href="/Data?siteId=@site.IdSite">Данные</a>
+                                <a class="lime-action-menu__item" href="/Export/Nextjs?siteId=@site.IdSite">Код Next.js</a>
+                                <a class="lime-action-menu__item" href="/Export/Nextjs?siteId=@site.IdSite&style=jsx">Код React</a>
+                                @if (site.IsPublished)
+                                {
+                                    <form asp-action="ToggleGallery" asp-controller="Community" method="post" data-lime-loading data-lime-loading-text="Обновляем...">
+                                        <input type="hidden" name="idSite" value="@site.IdSite">
+                                        <button type="submit" class="lime-action-menu__item">
+                                            @(site.ShowInGallery ? "Скрыть из галереи" : "Показать в галерее")
+                                        </button>
+                                    </form>
+                                    <form asp-action="Unpublish" asp-controller="Home" method="post" data-lime-loading data-lime-loading-text="Снимаем...">
+                                        <input type="hidden" name="idSite" value="@site.IdSite">
+                                        <button type="submit" class="lime-action-menu__item">Снять с публикации</button>
+                                    </form>
+                                }
+                                <form asp-action="DeleteSite" asp-controller="Home" method="post"
+                                      data-lime-confirm
+                                      data-lime-confirm-title="Удалить сайт?"
+                                      data-lime-confirm-message="Сайт «@site.Name» будет удалён навсегда. Это действие нельзя отменить."
+                                      data-lime-confirm-action="Удалить"
+                                      data-lime-loading
+                                      data-lime-loading-text="Удаляем...">
+                                    <input type="hidden" name="site" value="@jsonEdit">
+                                    <button type="submit" class="lime-action-menu__item lime-action-menu__item--danger">Удалить</button>
+                                </form>
+                            </div>
+                        </details>
                     </div>
                 </div>
             </div>

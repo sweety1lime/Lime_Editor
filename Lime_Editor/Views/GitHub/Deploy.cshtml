@@ -1,0 +1,150 @@
+@model GitHubDeployViewModel
+@{
+    ViewData["Title"] = "Деплой";
+    var canQuickDeploy = Model.AllowExport && Model.IsOAuthConfigured;
+}
+
+<section class="lime-container lime-band">
+    <div class="lime-deploy-head reveal">
+        <div>
+            <div class="lime-eyebrow">Публикация кода</div>
+            <h1 class="display">Деплой: @Model.SiteName</h1>
+            <p>Выбери, как Lime должен отправить Next.js-экспорт. Быстрый путь создаёт отдельный публичный репозиторий, а существующие репозитории лучше подключать через GitHub App.</p>
+        </div>
+        <a class="lime-btn lime-btn--ghost" href="/Home/MySites">Назад</a>
+    </div>
+</section>
+
+<section class="lime-container" style="padding-bottom:90px;">
+    <div class="lime-deploy-summary reveal">
+        <div>
+            <span class="lime-badge @(Model.IsPublished ? "lime-badge--success" : "lime-badge--muted")">
+                @(Model.IsPublished ? "Опубликован в Lime" : "Черновик")
+            </span>
+            @if (Model.HasUnpublishedChanges)
+            {
+                <span class="lime-badge lime-badge--warn">Есть неопубликованные изменения</span>
+            }
+            @if (!Model.HasDocument)
+            {
+                <span class="lime-badge lime-badge--warn">Нет документа движка B</span>
+            }
+        </div>
+        <div class="lime-deploy-summary__meta">
+            <span>Тариф: <b>@Model.PlanName</b></span>
+            @if (!string.IsNullOrWhiteSpace(Model.Slug))
+            {
+                <span>URL: <b>/@Model.Slug</b></span>
+            }
+        </div>
+    </div>
+
+    @if (!Model.AllowExport)
+    {
+        <div class="lime-alert lime-alert--warn lime-mb-4">
+            Экспорт в GitHub доступен на платных тарифах. Сейчас можно подготовить сайт в Lime, а деплой включить после смены тарифа.
+            <span class="lime-alert__links"><a href="/Billing/Index">Открыть тарифы</a></span>
+        </div>
+    }
+    @if (!Model.IsOAuthConfigured)
+    {
+        <div class="lime-alert lime-alert--danger lime-mb-4">
+            GitHub OAuth не настроен на сервере, поэтому быстрый деплой пока недоступен.
+        </div>
+    }
+    @if (Model.HasUnpublishedChanges)
+    {
+        <div class="lime-alert lime-alert--info lime-mb-4">
+            В GitHub уйдёт опубликованный снимок сайта, если он есть. Чтобы отправить последние правки, сначала нажми “Опубликовать” в карточке сайта.
+        </div>
+    }
+
+    <div class="lime-deploy-grid">
+        <article class="lime-deploy-card reveal">
+            <div class="lime-deploy-card__top">
+                <span class="lime-badge lime-badge--accent">Быстро</span>
+                <span class="lime-deploy-card__status">OAuth</span>
+            </div>
+            <h2>Новый публичный repo</h2>
+            <p>Подходит, когда пользователь хочет “сделай всё за меня”: Lime создаёт публичный репозиторий в его GitHub и пушит туда экспорт.</p>
+            <ul class="lime-deploy-list">
+                <li>Не просит доступ к существующим репозиториям.</li>
+                <li>Создаёт или обновляет repo вида <b>lime-...</b>.</li>
+                <li>После пуша даёт ссылку на импорт проекта в Vercel.</li>
+            </ul>
+
+            @if (Model.HasExistingQuickDeploy)
+            {
+                <div class="lime-deploy-current">
+                    <span>Уже подключено:</span>
+                    <a href="@Model.ExistingRepoUrl" target="_blank" rel="noopener">@Model.ExistingRepoOwner/@Model.ExistingRepoName</a>
+                    @if (Model.LastPushedAt.HasValue)
+                    {
+                        <small>Последний пуш: @Model.LastPushedAt.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</small>
+                    }
+                </div>
+            }
+
+            <div class="lime-deploy-card__actions">
+                @if (canQuickDeploy)
+                {
+                    <form asp-action="QuickDeploy" asp-controller="GitHub" method="post" data-lime-loading data-lime-loading-text="Отправляем...">
+                        <input type="hidden" name="siteId" value="@Model.SiteId">
+                        <input type="hidden" name="style" value="blob">
+                        <button type="submit" class="lime-btn lime-btn--primary">
+                            @(Model.HasExistingQuickDeploy ? "Обновить repo" : "Создать repo")
+                        </button>
+                    </form>
+                    @if (Model.HasOAuthConnection)
+                    {
+                        <span class="lime-deploy-card__hint">GitHub уже подключён.</span>
+                    }
+                    else
+                    {
+                        <span class="lime-deploy-card__hint">Сначала откроется авторизация GitHub.</span>
+                    }
+                }
+                else
+                {
+                    <button type="button" class="lime-btn lime-btn--primary" disabled>Недоступно</button>
+                    @if (!Model.AllowExport)
+                    {
+                        <a class="lime-btn lime-btn--ghost" href="/Billing/Index">Тарифы</a>
+                    }
+                }
+            </div>
+        </article>
+
+        <article class="lime-deploy-card lime-deploy-card--muted reveal" data-delay="1">
+            <div class="lime-deploy-card__top">
+                <span class="lime-badge lime-badge--muted">Контроль</span>
+                <span class="lime-deploy-card__status">GitHub App</span>
+            </div>
+            <h2>Существующий repo</h2>
+            <p>Подходит для пользователей, которых пугает OAuth: они ставят GitHub App только на выбранный репозиторий, а Lime работает в рамках этой установки.</p>
+            <ul class="lime-deploy-list">
+                <li>Можно выбрать приватный или уже существующий репозиторий.</li>
+                <li>Доступ ограничивается выбранными repo, а не всем аккаунтом.</li>
+                <li>Пользователь видит и может отозвать установку в GitHub.</li>
+            </ul>
+            <div class="lime-deploy-card__actions">
+                <button type="button" class="lime-btn lime-btn--ghost" disabled>Подключение скоро</button>
+                <span class="lime-deploy-card__hint">
+                    @(Model.IsGitHubAppConfigured ? "GitHub App настроен на сервере, осталось собрать flow выбора repo." : "Нужно настроить GitHub App на сервере.")
+                </span>
+            </div>
+        </article>
+    </div>
+
+    <div class="lime-deploy-caveats reveal" data-delay="2">
+        <div>
+            <h3>Перед импортом в Vercel</h3>
+            <p>Vercel поднимет Next.js-проект из GitHub, но динамические части нужно честно обозначить заранее.</p>
+        </div>
+        <ul class="lime-deploy-list">
+            <li>Формы и коллекции в экспортированном проекте требуют отдельного backend/storage, если они должны принимать реальные данные в проде.</li>
+            <li>SQLite внутри serverless-окружения Vercel не стоит обещать как надёжное постоянное хранилище.</li>
+            <li>Для статичных лендингов и демонстрации экспорт уже годится; для продакшена с заявками нужен следующий шаг интеграции.</li>
+        </ul>
+    </div>
+</section>
