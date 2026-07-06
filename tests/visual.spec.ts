@@ -7,10 +7,15 @@
  */
 import { test, expect } from "@playwright/test";
 
-const PAGES = [
+// Аноним-экраны: под залогиненным юзером landing/signin/signup редиректят на MySites,
+// поэтому их снимаем в чистом контексте (см. describe ниже), а не в общем списке.
+const ANON_PAGES = [
   { name: "landing", path: "/" },
   { name: "signin", path: "/Home/SignIn" },
   { name: "signup", path: "/Home/SignUp" },
+];
+
+const PAGES = [
   { name: "mysites", path: "/Home/MySites" },
   { name: "templates", path: "/Home/Templates" },
   { name: "profile", path: "/Home/Profile" },
@@ -54,6 +59,19 @@ for (const p of PAGES) {
     });
   });
 }
+
+test.describe("visual: аноним-экраны", () => {
+  test.use({ storageState: { cookies: [], origins: [] } });
+
+  for (const p of ANON_PAGES) {
+    test(`visual: ${p.name} (@visual)`, async ({ page }) => {
+      await page.goto(p.path);
+      await page.waitForLoadState("networkidle");
+      await stabilize(page);
+      await expect(page).toHaveScreenshot(`${p.name}.png`, { fullPage: true });
+    });
+  }
+});
 
 // ===== Editor V2 (дефолт после раскатки) — бейзлайны нового редактора =====
 

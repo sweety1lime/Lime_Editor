@@ -63,10 +63,11 @@ export default defineConfig({
       },
       dependencies: ["setup"],
     },
-    // Authed light (only for visual + smoke — flows гоняем только в dark чтобы экономить)
+    // Authed light: только smoke. Продукт dark-only (deep-ink редизайн) — visual в light
+    // снимал байт-в-байт те же скриншоты, что dark, вдвое раздувая прогон и набор бейзлайнов.
     {
       name: "chromium-light",
-      testMatch: [/visual\.spec\.ts/, /smoke\.spec\.ts/],
+      testMatch: [/smoke\.spec\.ts/],
       use: {
         ...devices["Desktop Chrome"],
         viewport: { width: 1440, height: 900 },

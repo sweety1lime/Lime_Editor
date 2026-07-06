@@ -482,3 +482,9 @@
     color: var(--lime);
     background: linear-gradient(135deg, var(--glass), var(--lime-soft));
 }
+
+/* Вариант с палитрой самого сайта (background задаётся inline из theme.accent/accent2). */
+.lime-community-placeholder--themed span {
+    color: rgba(255, 255, 255, 0.92);
+    text-shadow: 0 2px 14px rgba(0, 0, 0, 0.45);
+}

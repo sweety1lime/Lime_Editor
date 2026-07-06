@@ -567,18 +567,19 @@ html {
     z-index: 1100;
     width: min(420px, 92vw);
     padding: 16px 18px;
-    border: 1px solid #e2d8f7;
+    /* deep-ink/lime дизайн-система: тур — часть редактора, а не белая карточка из старой темы. */
+    border: 1px solid var(--border-soft, rgba(197, 242, 78, 0.18));
     border-radius: 12px;
-    background: #fff;
-    box-shadow: 0 10px 36px rgba(40,20,80,.28);
-    color: #2b2440;
+    background: var(--ink-2, #0c0f0a);
+    box-shadow: 0 10px 36px rgba(0, 0, 0, 0.5);
+    color: var(--text, #eef2e9);
 }
-.lime-tour-card__step { font-size: var(--text-xs, 12px); color: #7c3aed; font-weight: 600; letter-spacing: .02em; }
+.lime-tour-card__step { font-size: var(--text-xs, 12px); color: var(--lime, #c5f24e); font-weight: 600; letter-spacing: .02em; }
 .lime-tour-card__title { font-size: var(--text-lg, 18px); font-weight: 600; margin: 2px 0 6px; }
-.lime-tour-card__text { font-size: var(--text-sm, 14px); line-height: 1.5; color: #4b4566; }
+.lime-tour-card__text { font-size: var(--text-sm, 14px); line-height: 1.5; color: var(--muted, #828c79); }
 .lime-tour-card__actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
 .lime-tour-spot {
-    outline: 3px solid #7c3aed !important;
+    outline: 3px solid var(--lime, #c5f24e) !important;
     outline-offset: 2px;
     border-radius: 4px;
     transition: outline-color .2s;
@@ -589,10 +590,10 @@ html {
     align-items: center;
     gap: 1px;
     padding: 3px;
-    border: 1px solid #e2d8f7;
+    border: 1px solid var(--border-soft, rgba(197, 242, 78, 0.18));
     border-radius: 8px;
-    background: #fff;
-    box-shadow: 0 2px 10px rgba(40,20,80,.22);
+    background: var(--ink-2, #0c0f0a);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
     pointer-events: auto;
     z-index: 20;
     user-select: none;
@@ -605,18 +606,18 @@ html {
     border: 0;
     border-radius: 5px;
     background: transparent;
-    color: #4c1d95;
+    color: var(--text, #eef2e9);
     font: 14px/1 sans-serif;
     cursor: pointer;
 }
-.lime-align-toolbar__btn:hover { background: #f1ebfb; }
-.lime-align-toolbar__btn:active { background: #e6dcf8; }
-.lime-align-toolbar__btn:focus-visible { outline: 2px solid #7c3aed; outline-offset: 1px; }
+.lime-align-toolbar__btn:hover { background: var(--lime-soft, rgba(197, 242, 78, 0.12)); }
+.lime-align-toolbar__btn:active { background: rgba(197, 242, 78, 0.22); }
+.lime-align-toolbar__btn:focus-visible { outline: 2px solid var(--lime, #c5f24e); outline-offset: 1px; }
 .lime-align-toolbar__sep {
     width: 1px;
     height: 18px;
     margin: 0 3px;
-    background: #e2d8f7;
+    background: var(--border-soft, rgba(197, 242, 78, 0.18));
 }
 .lime-snap-guide {
     position: absolute;

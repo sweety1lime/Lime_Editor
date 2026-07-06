@@ -62,11 +62,46 @@ namespace Lime_Editor.Controllers
                 ? query.OrderByDescending(c => c.Likes).ThenByDescending(c => c.ViewsCount)
                 : query.OrderByDescending(c => c.SiteId);
 
+            var cards = await query.Take(60).ToListAsync();
+            await FillThemeColorsAsync(cards);
+
             return View(new CommunityViewModel
             {
-                Cards = await query.Take(60).ToListAsync(),
+                Cards = cards,
                 Sort = sort == "popular" ? "popular" : "new",
             });
+        }
+
+        // Превью-заглушка без OgImage: карточка красится палитрой самого сайта (theme.accent/accent2
+        // из опубликованного снапшота) вместо безликой буквы. Цвета уходят в style-атрибут, поэтому
+        // пропускаем строго hex — всё остальное отбрасываем (защита от style-инъекции).
+        private static readonly System.Text.RegularExpressions.Regex HexColor =
+            new(@"^#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$", System.Text.RegularExpressions.RegexOptions.Compiled);
+
+        private async Task FillThemeColorsAsync(System.Collections.Generic.List<CommunityCard> cards)
+        {
+            var needTheme = cards.Where(c => c.IsDocEngine && string.IsNullOrEmpty(c.OgImage))
+                .Select(c => c.SiteId).ToList();
+            if (needTheme.Count == 0) return;
+
+            var docs = await db.Sites.AsNoTracking().IgnoreQueryFilters()
+                .Where(s => s.IdSite.HasValue && needTheme.Contains(s.IdSite.Value))
+                .Select(s => new { Id = s.IdSite.Value, Json = s.PublishedDocumentJson })
+                .ToDictionaryAsync(x => x.Id, x => x.Json);
+
+            foreach (var card in cards)
+            {
+                if (!docs.TryGetValue(card.SiteId, out var json) || string.IsNullOrEmpty(json)) continue;
+                try
+                {
+                    var theme = Newtonsoft.Json.Linq.JObject.Parse(json)["theme"];
+                    var accent = (string)theme?["accent"];
+                    var accent2 = (string)theme?["accent2"];
+                    if (accent != null && HexColor.IsMatch(accent)) card.ThemeAccent = accent;
+                    if (accent2 != null && HexColor.IsMatch(accent2)) card.ThemeAccent2 = accent2;
+                }
+                catch (Newtonsoft.Json.JsonException) { /* битый снапшот → обычная заглушка */ }
+            }
         }
 
         // Лайк-тоггл. Форма с редиректом обратно в галерею — работает без JS.

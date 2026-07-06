@@ -186,6 +186,12 @@ namespace Lime_Editor.Controllers
         [HttpGet("SignUp")]
         public IActionResult SignUp()
         {
+            // Залогиненному регистрация не нужна — как и SignIn, уводим на дашборд.
+            if (User.Identity != null && User.Identity.IsAuthenticated)
+            {
+                return RedirectToAction("MySites", "Home");
+            }
+
             return View(HomeView("SignUp"));
         }
 

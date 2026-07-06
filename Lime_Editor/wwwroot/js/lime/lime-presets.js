@@ -727,14 +727,14 @@
         { key: "faq", icon: "?", label: "FAQ" },
         { key: "contact", icon: "✉", label: "Контакты" },
         { key: "cta", icon: "◉", label: "Призыв" },
-        { key: "neo-lore-intro", icon: "N1", label: "Neo lore" },
-        { key: "neo-factions", icon: "N2", label: "Neo factions" },
-        { key: "neo-vision", icon: "N3", label: "Neo vision" },
-        { key: "neo-customizer", icon: "N4", label: "Neo embed" },
-        { key: "folio-work", icon: "F1", label: "Folio работы" },
-        { key: "folio-about", icon: "F2", label: "Folio о нас" },
-        { key: "folio-clients", icon: "F3", label: "Folio клиенты" },
-        { key: "folio-reel", icon: "F4", label: "Folio рил" },
+        { key: "neo-lore-intro", icon: "N1", label: "Neo: лор" },
+        { key: "neo-factions", icon: "N2", label: "Neo: фракции" },
+        { key: "neo-vision", icon: "N3", label: "Neo: видение" },
+        { key: "neo-customizer", icon: "N4", label: "Neo: 3D-сцена" },
+        { key: "folio-work", icon: "F1", label: "Folio: работы" },
+        { key: "folio-about", icon: "F2", label: "Folio: о нас" },
+        { key: "folio-clients", icon: "F3", label: "Folio: клиенты" },
+        { key: "folio-reel", icon: "F4", label: "Folio: рил" },
         { key: "footer", icon: "▭", label: "Подвал" }
     ];
 

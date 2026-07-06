@@ -35,6 +35,14 @@
                         {
                             <img src="@card.OgImage" alt="@card.Name" loading="lazy">
                         }
+                        else if (!string.IsNullOrEmpty(card.ThemeAccent))
+                        {
+                            @* Палитра самого сайта (hex провалидирован контроллером) — превью с характером. *@
+                            <div class="lime-community-placeholder lime-community-placeholder--themed"
+                                 style="background: linear-gradient(135deg, @card.ThemeAccent, @(string.IsNullOrEmpty(card.ThemeAccent2) ? card.ThemeAccent : card.ThemeAccent2));">
+                                <span>@(string.IsNullOrEmpty(card.Name) ? "?" : card.Name.Substring(0, 1).ToUpper())</span>
+                            </div>
+                        }
                         else
                         {
                             <div class="lime-community-placeholder">@(string.IsNullOrEmpty(card.Name) ? "?" : card.Name.Substring(0, 1).ToUpper())</div>

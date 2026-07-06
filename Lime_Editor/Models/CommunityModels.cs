@@ -17,6 +17,12 @@ namespace Lime_Editor.Models
         public bool LikedByMe { get; set; }
         public bool IsDocEngine { get; set; }
 
+        // Палитра опубликованного документа для превью-заглушки (когда нет OgImage).
+        // Заполняются ТОЛЬКО валидированными hex-цветами (см. CommunityController) —
+        // значения уходят в style-атрибут, произвольная строка была бы style-инъекцией.
+        public string ThemeAccent { get; set; }
+        public string ThemeAccent2 { get; set; }
+
         public string PublicUrl => $"/u/{Author}/{Slug}";
     }
 

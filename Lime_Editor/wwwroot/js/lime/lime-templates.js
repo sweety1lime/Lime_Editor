@@ -66,12 +66,12 @@
             sections: ["navbar", "hero", "stats", "features", "steps", "testimonials", "contact", "footer"]
         },
         {
-            key: "neo-lore-drop", name: "Neo Lore Drop", desc: "Cinematic creator/Web3/game showcase with lore, factions, motion and an embed-ready scene slot.", style: "Showcase",
+            key: "neo-lore-drop", name: "Neo Lore Drop", desc: "Кинематографичный showcase для крипто/гейм/креатор-дропа: лор, фракции, motion и слот под живую 3D-сцену.", style: "Showcase",
             theme: { accent: "#42ffa3", accent2: "#ff4791", bg: "#080a0e", fg: "#f6fbff", muted: "#8f9aa8", font: "'Space Grotesk', 'Inter', system-ui, sans-serif" },
             sections: ["neo-navbar", "neo-hero", "neo-lore-intro", "neo-factions", "neo-vision", "neo-customizer", "neo-team", "neo-faq", "neo-discord", "neo-footer"]
         },
         {
-            key: "studio-folio", name: "Studio Folio", desc: "Editorial creative-studio portfolio: warm print-poster palette, marquee client strip, swappable reel embed.", style: "Портфолио",
+            key: "studio-folio", name: "Studio Folio", desc: "Editorial-портфолио креативной студии: тёплая печатная палитра, бегущая лента клиентов, сменяемый видео-рил.", style: "Портфолио",
             theme: { accent: "#c4531f", accent2: "#2f2c28", bg: "#f6f3ee", fg: "#211f1c", muted: "#8a8175", font: "'Work Sans', sans-serif" },
             sections: ["folio-navbar", "folio-hero", "folio-work", "folio-about", "folio-clients", "folio-reel", "folio-testimonials", "folio-faq", "folio-cta", "folio-footer"]
         }
