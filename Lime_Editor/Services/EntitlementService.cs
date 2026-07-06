@@ -4,6 +4,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Lime_Editor.Models;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 
 namespace Lime_Editor.Services
 {
@@ -22,14 +23,19 @@ namespace Lime_Editor.Services
         };
 
         private readonly LimeEditorContext _db;
+        private readonly bool _betaUnlockPro;
 
-        public EntitlementService(LimeEditorContext db)
+        public EntitlementService(LimeEditorContext db, IConfiguration config)
         {
             _db = db;
+            // Бета-режим (до разморозки биллинга M3): Free-пользователи получают лимиты Pro —
+            // иначе экспорт/GitHub-деплой/кастом-код в проде не может включить никто (кассы нет,
+            // Pro выдаётся только руками админа). Реальные платные подписки флаг не трогает.
+            _betaUnlockPro = config.GetValue<bool>("Entitlements:BetaUnlockPro");
         }
 
         // План владельца: активная/триал подписка с непросроченным периодом → её план,
-        // иначе Free. Если Free почему-то не засидился — вернём null (вызов упадёт явно).
+        // иначе Free (в бета-режиме — Pro). Если Free почему-то не засидился — встроенный Free.
         public async Task<Plan> ResolvePlanAsync(OwnerRef owner, CancellationToken ct = default)
         {
             var now = DateTime.UtcNow;
@@ -42,6 +48,12 @@ namespace Lime_Editor.Services
                 && (sub.CurrentPeriodEnd == null || sub.CurrentPeriodEnd > now))
             {
                 code = sub.PlanCode;
+            }
+
+            if (_betaUnlockPro && code == FreePlanCode)
+            {
+                var beta = await _db.Plans.AsNoTracking().FirstOrDefaultAsync(p => p.Code == "pro", ct);
+                if (beta != null) return beta;
             }
 
             return await _db.Plans.AsNoTracking().FirstOrDefaultAsync(p => p.Code == code, ct)

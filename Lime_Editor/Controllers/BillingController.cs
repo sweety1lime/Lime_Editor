@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 
 namespace Lime_Editor.Controllers
 {
@@ -26,18 +27,22 @@ namespace Lime_Editor.Controllers
         private readonly IPaymentProvider _payments;
         private readonly IBillingService _billing;
 
+        private readonly IConfiguration _config;
+
         public BillingController(
             LimeEditorContext context,
             UserManager<ApplicationUser> userManager,
             IEntitlementService entitlements,
             IPaymentProvider payments,
-            IBillingService billing)
+            IBillingService billing,
+            IConfiguration config)
         {
             db = context;
             _userManager = userManager;
             _entitlements = entitlements;
             _payments = payments;
             _billing = billing;
+            _config = config;
         }
 
         private int CurrentUserId => int.Parse(_userManager.GetUserId(User));
@@ -59,6 +64,7 @@ namespace Lime_Editor.Controllers
                 SitesUsed = sites,
                 StorageUsedMb = storageBytes / 1024 / 1024,
                 AllPlans = plans,
+                BetaUnlockPro = _config.GetValue<bool>("Entitlements:BetaUnlockPro"),
             });
         }
 

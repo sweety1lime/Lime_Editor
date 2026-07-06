@@ -11,5 +11,8 @@ namespace Lime_Editor.Models
         public int SitesUsed { get; set; }
         public long StorageUsedMb { get; set; }
         public IList<Plan> AllPlans { get; set; } = new List<Plan>();
+        // Бета-режим (Entitlements:BetaUnlockPro): страница честно объясняет, почему у Free
+        // сейчас лимиты Pro и что оплата появится позже.
+        public bool BetaUnlockPro { get; set; }
     }
 }

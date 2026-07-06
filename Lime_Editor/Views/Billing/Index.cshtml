@@ -15,6 +15,13 @@
 </section>
 
 <section class="lime-container" style="padding-bottom: var(--space-16);">
+    @if (Model.BetaUnlockPro)
+    {
+        <div class="lime-alert lime-alert--success lime-mb-6">
+            <strong>Бета:</strong> все возможности Pro сейчас открыты бесплатно — экспорт кода,
+            GitHub-деплой, свой CSS и расширенная AI-квота. Онлайн-оплата появится позже.
+        </div>
+    }
     <div class="lime-card lime-card--padded lime-mb-6">
         <h3 style="margin-bottom: var(--space-4);">Использование в этом месяце</h3>
         <div class="lime-grid lime-gap-4" style="grid-template-columns: repeat(auto-fit,minmax(220px,1fr));">
@@ -51,7 +58,7 @@
                     <li>Сайты: @LimitText(p.MaxSites)</li>
                     <li>AI в месяц: @LimitText(p.MonthlyAiCredits)</li>
                     <li>Хранилище: @LimitText(p.MaxStorageMb) МБ</li>
-                    <li>Свои домены: @LimitText(p.MaxCustomDomains)</li>
+                    @* «Свои домены» не показываем: фича ещё не реализована — не обещаем то, чего нет. *@
                     <li>Экспорт в код: @(p.AllowExport ? "да" : "—")</li>
                     <li>Свой CSS/код: @(p.AllowCustomCode ? "да" : "—")</li>
                 </ul>

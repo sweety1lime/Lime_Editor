@@ -320,7 +320,7 @@ namespace Lime_Editor.Models
             // Лимит -1 = безлимит. Платежей пока нет — Pro/Business выдаются вручную (админ).
             modelBuilder.Entity<Plan>().HasData(
                 new Plan { Code = "free",     Name = "Free",     Description = "Старт: попробовать конструктор.",        PriceMonthly = 0m,    Currency = "RUB", MaxSites = 3,  MonthlyAiCredits = 10,   MaxStorageMb = 100,   MaxCustomDomains = 0,  AllowExport = false, AllowCustomCode = false, FeaturesJson = "{}" },
-                new Plan { Code = "pro",      Name = "Pro",      Description = "Для фрилансеров: домены, экспорт, больше AI.", PriceMonthly = 790m,  Currency = "RUB", MaxSites = 25, MonthlyAiCredits = 300,  MaxStorageMb = 5120,  MaxCustomDomains = 3,  AllowExport = true,  AllowCustomCode = true,  FeaturesJson = "{}" },
+                new Plan { Code = "pro",      Name = "Pro",      Description = "Для фрилансеров: экспорт кода, свой CSS и больше AI.", PriceMonthly = 790m,  Currency = "RUB", MaxSites = 25, MonthlyAiCredits = 300,  MaxStorageMb = 5120,  MaxCustomDomains = 3,  AllowExport = true,  AllowCustomCode = true,  FeaturesJson = "{}" },
                 new Plan { Code = "business", Name = "Business", Description = "Студии и команды: максимум лимитов.",       PriceMonthly = 2490m, Currency = "RUB", MaxSites = -1, MonthlyAiCredits = 2000, MaxStorageMb = 51200, MaxCustomDomains = 25, AllowExport = true,  AllowCustomCode = true,  FeaturesJson = "{}" }
             );
 

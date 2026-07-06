@@ -52,6 +52,9 @@ services:
       # GitHub-деплой (Wave 1 п.4): без ClientId/Secret фича честно пишет «не настроено».
       GitHub__OAuthApp__ClientId: ${GITHUB_OAUTH_CLIENT_ID:-}
       GitHub__OAuthApp__ClientSecret: ${GITHUB_OAUTH_CLIENT_SECRET:-}
+      # Бета-режим: Free получает лимиты Pro (экспорт/GitHub-деплой/кастом-код/AI-квота).
+      # Выключить при разморозке биллинга (M3). Платные подписки флаг не трогает.
+      Entitlements__BetaUnlockPro: ${BETA_UNLOCK_PRO:-true}
     expose:
       - "8080"
     volumes:
