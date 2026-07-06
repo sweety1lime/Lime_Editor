@@ -309,9 +309,12 @@ namespace Lime_Editor.Models
             );
 
             modelBuilder.Entity<Template>().HasData(
-                new Template { IdTemplate = 1, Name = "Ruby",        FolderPreview = "/images/Template_1/Preview_1.png",        TypeId = 1 },
-                new Template { IdTemplate = 2, Name = "Sublime",     FolderPreview = "/images/Template_2/Template_Preview.png", TypeId = 1 },
-                new Template { IdTemplate = 3, Name = "Coming Soon", FolderPreview = "/images/Template_3/Preview.png",          TypeId = 1 },
+                // Превью легаси-шаблонов удалены из wwwroot при чистке репо — пути вели в 404
+                // (битые <img> на лендинге/MySites, красные smoke). Пустая строка (колонка NOT NULL)
+                // → вью падают в CSS-плейсхолдер .lime-shot (ветка IsNullOrEmpty уже есть).
+                new Template { IdTemplate = 1, Name = "Ruby",        FolderPreview = "", TypeId = 1 },
+                new Template { IdTemplate = 2, Name = "Sublime",     FolderPreview = "", TypeId = 1 },
+                new Template { IdTemplate = 3, Name = "Coming Soon", FolderPreview = "", TypeId = 1 },
                 // Id = 4 — псевдо-шаблон "Custom", на нём строятся сайты из "Создать сайт".
                 new Template { IdTemplate = 4, Name = "Custom",      FolderPreview = "/images/cover-1.jpg",                     TypeId = 1 }
             );

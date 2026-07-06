@@ -3,6 +3,7 @@ using System;
 using Lime_Editor.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Lime_Editor.Migrations
 {
     [DbContext(typeof(LimeEditorContext))]
-    partial class LimeEditorContextModelSnapshot : ModelSnapshot
+    [Migration("20260706175614_DropDeadLegacyTemplatePreviews")]
+    partial class DropDeadLegacyTemplatePreviews
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

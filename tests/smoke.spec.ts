@@ -19,7 +19,8 @@ const SCREENS: Screen[] = [
     path: "/",
     anonymousOnly: true,
     assert: async (p) => {
-      await expect(p.locator(".lime-hero__title")).toBeVisible();
+      // Хиро-заголовок после deep-ink редизайна: <h1 class="reveal"> с градиент-спаном.
+      await expect(p.locator("h1 .lime-hero__grad")).toBeVisible();
     },
   },
   {
@@ -51,7 +52,7 @@ const SCREENS: Screen[] = [
     path: "/Home/MySites",
     authed: true,
     assert: async (p) => {
-      await expect(p.locator(".lime-dashboard__welcome")).toBeVisible();
+      await expect(p.locator(".lime-dash-hi")).toBeVisible();
     },
   },
   {
@@ -68,15 +69,6 @@ const SCREENS: Screen[] = [
     authed: true,
     assert: async (p) => {
       await expect(p.locator('input[name="Email"]')).toBeVisible();
-    },
-  },
-  {
-    name: "editor-new",
-    path: "/Home/EditDoc",
-    authed: true,
-    assert: async (p) => {
-      await expect(p.locator("#lime-workspace")).toBeVisible();
-      await expect(p.locator(".lime-editor__sidebar")).toBeVisible();
     },
   },
   {
@@ -155,22 +147,13 @@ test.describe("smoke", () => {
   }
 });
 
-test("theme toggle persists across reload (@smoke)", async ({ page, context }) => {
+// Deep-ink редизайн: продукт dark-only, тумблер темы из UI убран. Инвариант вместо
+// старого «toggle persists»: тема жёстко dark и никакого тумблера в разметке нет.
+test("theme is dark-only, no toggle rendered (@smoke)", async ({ page }) => {
   await page.goto("/");
-  const initial = await page.evaluate(() => document.documentElement.dataset.theme);
-  await page.locator("[data-lime-theme-toggle]").first().click();
-  await page.waitForTimeout(150);
-  const after = await page.evaluate(() => document.documentElement.dataset.theme);
-  expect(after).not.toEqual(initial);
-
-  const cookies = await context.cookies();
-  const themeCookie = cookies.find((c) => c.name === "lime_theme");
-  expect(themeCookie?.value).toEqual(after);
-
-  await page.reload();
-  await page.waitForLoadState("domcontentloaded");
-  const reloaded = await page.evaluate(() => document.documentElement.dataset.theme);
-  expect(reloaded).toEqual(after);
+  const theme = await page.evaluate(() => document.documentElement.dataset.theme);
+  expect(theme).toEqual("dark");
+  await expect(page.locator("[data-lime-theme-toggle]")).toHaveCount(0);
 });
 
 test("anonymous /Home/MySites redirects to SignIn (@smoke)", async ({ page, context }) => {
