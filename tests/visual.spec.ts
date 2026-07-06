@@ -19,8 +19,7 @@ const PAGES = [
   { name: "mysites", path: "/Home/MySites" },
   { name: "templates", path: "/Home/Templates" },
   { name: "profile", path: "/Home/Profile" },
-  // Editor V2 — дефолт после раскатки; визуальные бейзлайны снимаем со старого редактора (fallback).
-  { name: "editor-new", path: "/Home/EditDoc?classic=1" },
+  // Классический редактор (fallback ?classic=1); V2-дефолт снимается ниже отдельными тестами.
   { name: "editor-b", path: "/Home/EditDoc?classic=1" },
   { name: "community", path: "/Community/Index" },
   { name: "media", path: "/Media/Index" },
