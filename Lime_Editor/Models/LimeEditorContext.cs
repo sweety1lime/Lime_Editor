@@ -36,6 +36,7 @@ namespace Lime_Editor.Models
         public virtual DbSet<BillingEvent> BillingEvents { get; set; }
         public virtual DbSet<Collection> Collections { get; set; }
         public virtual DbSet<CollectionRecord> CollectionRecords { get; set; }
+        public virtual DbSet<ApiToken> ApiTokens { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -240,6 +241,22 @@ namespace Lime_Editor.Models
                 entity.HasOne<Collection>()
                     .WithMany()
                     .HasForeignKey(e => e.CollectionId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            // Персональные токены доступа (MCP/AI-agent API). Хэш уникален (столкновение
+            // означало бы коллизию SHA-256 — не бывает практически, но индекс делает lookup
+            // по хэшу быстрым в любом случае). Удаление пользователя удаляет его токены.
+            modelBuilder.Entity<ApiToken>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.TokenHash).IsRequired().HasMaxLength(128);
+                entity.Property(e => e.Label).HasMaxLength(120);
+                entity.HasIndex(e => e.TokenHash).IsUnique();
+                entity.HasIndex(e => e.UserId);
+                entity.HasOne<ApplicationUser>()
+                    .WithMany()
+                    .HasForeignKey(e => e.UserId)
                     .OnDelete(DeleteBehavior.Cascade);
             });
 

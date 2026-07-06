@@ -21,19 +21,22 @@ namespace Lime_Editor.Controllers
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly SignInManager<ApplicationUser> _signInManager;
         private readonly IEmailSender _emailSender;
+        private readonly ApiTokenService _apiTokens;
 
         public AccountController(
             IMediaStorage mediaStorage,
             LimeEditorContext context,
             UserManager<ApplicationUser> userManager,
             SignInManager<ApplicationUser> signInManager,
-            IEmailSender emailSender)
+            IEmailSender emailSender,
+            ApiTokenService apiTokens)
         {
             _mediaStorage = mediaStorage;
             db = context;
             _userManager = userManager;
             _signInManager = signInManager;
             _emailSender = emailSender;
+            _apiTokens = apiTokens;
         }
 
         private int CurrentUserId => int.Parse(_userManager.GetUserId(User));
@@ -390,6 +393,39 @@ namespace Lime_Editor.Controllers
 
             await _signInManager.RefreshSignInAsync(user);
             return RedirectToAction(nameof(Profile));
+        }
+
+        // MCP/AI-agent API (Wave 1 п.5): управление персональными токенами доступа.
+        // Обычные cookie-сессионные экшены — глобальный antiforgery-фильтр их защищает как есть.
+        [Authorize]
+        [HttpGet("ApiTokens")]
+        public async Task<IActionResult> ApiTokens()
+        {
+            var model = new ApiTokensViewModel
+            {
+                Tokens = await _apiTokens.ListAsync(CurrentUserId),
+                NewToken = TempData["NewApiToken"] as string,
+            };
+            return View(HomeView("ApiTokens"), model);
+        }
+
+        [Authorize]
+        [HttpPost("CreateApiToken")]
+        [RequestSizeLimit(RequestBodyLimits.SmallFormBytes)]
+        public async Task<IActionResult> CreateApiToken(string label)
+        {
+            var (_, raw) = await _apiTokens.GenerateAsync(CurrentUserId, label);
+            TempData["NewApiToken"] = raw;
+            return RedirectToAction(nameof(ApiTokens));
+        }
+
+        [Authorize]
+        [HttpPost("RevokeApiToken")]
+        [RequestSizeLimit(RequestBodyLimits.SmallFormBytes)]
+        public async Task<IActionResult> RevokeApiToken(int tokenId)
+        {
+            await _apiTokens.RevokeAsync(CurrentUserId, tokenId);
+            return RedirectToAction(nameof(ApiTokens));
         }
 
         [Authorize]

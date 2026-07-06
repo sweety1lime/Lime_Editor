@@ -1,7 +1,9 @@
+using Lime_Editor.Auth;
 using Lime_Editor.Controllers;
 using Lime_Editor.Middleware;
 using Lime_Editor.Models;
 using Lime_Editor.Services;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
@@ -135,6 +137,18 @@ namespace Lime_Editor
             services.AddHostedService<OrphanMediaCleanupService>();
             services.AddHealthChecks()
                 .AddDbContextCheck<LimeEditorContext>("database");
+
+            // MCP/AI-agent API (Wave 1 п.5): персональные токены + инструменты list/get/apply.
+            // Схема "ApiToken" — ДОПОЛНИТЕЛЬНАЯ к cookie-схеме Identity (default остаётся ею же,
+            // AddIdentity уже её выставил) — не переопределяем DefaultScheme, только регистрируем.
+            services.AddScoped<ApiTokenService>();
+            services.AddSingleton<IDocumentCommandEngine, JsCommandEngine>();
+            services.AddAuthentication()
+                .AddScheme<AuthenticationSchemeOptions, ApiTokenAuthenticationHandler>(
+                    ApiTokenAuthenticationHandler.SchemeName, null);
+            services.AddMcpServer()
+                .WithHttpTransport(o => o.Stateless = true)
+                .WithToolsFromAssembly();
 
             // Anti-CSRF safe-by-default: каждый небезопасный метод (POST/PUT/DELETE) требует токен,
             // кроме помеченных [IgnoreAntiforgeryToken] (вебхук провайдера, публичная форма).
@@ -328,6 +342,15 @@ namespace Lime_Editor
                 endpoints.MapControllerRoute(
                     name: "default",
                     pattern: "{controller=Home}/{action=Index}/{id?}");
+                // MCP/AI-agent API: только по персональному Bearer-токену (схема "ApiToken",
+                // НЕ cookie-сессия); "external-api" — уже существовавшая, но нигде не
+                // использовавшаяся политика троттлинга (30/мин на пользователя) — заведена
+                // явно под такой случай, переиспользуем как есть.
+                endpoints.MapMcp("/mcp")
+                    .RequireAuthorization(policy => policy
+                        .AddAuthenticationSchemes(ApiTokenAuthenticationHandler.SchemeName)
+                        .RequireAuthenticatedUser())
+                    .RequireRateLimiting("external-api");
             });
         }
     }

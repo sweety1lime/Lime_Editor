@@ -1,0 +1,65 @@
+@model ApiTokensViewModel
+@{
+    ViewData["Title"] = "API-токены";
+}
+
+<section class="lime-container" style="padding: var(--space-12) 0 var(--space-16);">
+    <div class="lime-profile">
+        <div class="lime-card lime-card--padded">
+            <h3 style="margin-bottom: var(--space-2);">API-токены</h3>
+            <p class="lime-text-muted lime-mb-6">
+                Личный токен даёт скрипту/AI-агенту доступ к твоим сайтам через MCP-сервер
+                (<code>/mcp</code>) — без входа в аккаунт через браузер. Токен показывается один раз
+                сразу после создания — сохрани его, повторно посмотреть не получится.
+            </p>
+
+            @if (!string.IsNullOrEmpty(Model.NewToken))
+            {
+                <div class="lime-alert lime-alert--success lime-mb-4">
+                    <div><b>Новый токен создан — скопируй его сейчас, он больше не покажется:</b></div>
+                    <code data-new-api-token style="display:block; margin-top:6px; word-break:break-all; user-select:all;">@Model.NewToken</code>
+                </div>
+            }
+
+            <form asp-action="CreateApiToken" asp-controller="Home" method="post" class="lime-flex lime-gap-2 lime-mb-6" style="flex-wrap: wrap;">
+                <div class="lime-field" style="flex: 1 1 240px; margin:0;">
+                    <label class="lime-label" for="tok-label">Название токена</label>
+                    <input id="tok-label" class="lime-input" name="label" placeholder="Например: мой агент-скрипт" maxlength="120">
+                </div>
+                <button type="submit" class="lime-btn lime-btn--primary" style="align-self:flex-end;">Создать токен</button>
+            </form>
+
+            @if (Model.Tokens.Count == 0)
+            {
+                <p class="lime-text-muted">Токенов пока нет.</p>
+            }
+            else
+            {
+                <div class="lime-flex" style="flex-direction: column; gap: var(--space-3);">
+                    @foreach (var t in Model.Tokens)
+                    {
+                        <div class="lime-flex" style="justify-content: space-between; align-items: center; border: 1px solid var(--line); border-radius: var(--r-md); padding: 12px 14px;">
+                            <div>
+                                <div><b>@t.Label</b></div>
+                                <div class="lime-text-muted" style="font-size: 12px;">
+                                    Создан @t.CreatedAt.ToString("dd.MM.yyyy HH:mm")
+                                    @(t.LastUsedAt.HasValue ? " · использован " + t.LastUsedAt.Value.ToString("dd.MM.yyyy HH:mm") : " · ещё не использовался")
+                                </div>
+                            </div>
+                            <form asp-action="RevokeApiToken" asp-controller="Home" method="post"
+                                  data-lime-confirm
+                                  data-lime-confirm-title="Отозвать токен?"
+                                  data-lime-confirm-message="Токен «@t.Label» перестанет работать во всех скриптах и агентах."
+                                  data-lime-confirm-action="Отозвать"
+                                  data-lime-loading
+                                  data-lime-loading-text="Отзываем...">
+                                <input type="hidden" name="tokenId" value="@t.Id" />
+                                <button type="submit" class="lime-btn lime-btn--ghost lime-btn--sm">Отозвать</button>
+                            </form>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    </div>
+</section>
