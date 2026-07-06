@@ -179,9 +179,12 @@ namespace Lime_Editor.Controllers
                     return Conflict(new { error = "version", version = site.UpdatedAt?.Ticks ?? 0 });
                 }
 
-                site.MetaTitle = metaTitle;
-                site.MetaDescription = metaDescription;
-                site.OgImage = ogImage;
+                // Meta-поля перезаписываем только если клиент их реально прислал: редакторский
+                // save шлёт лишь html/documentJson — безусловное присваивание зануляло бы
+                // MetaTitle/OgImage (включая авто-превью публикации) на каждом автосейве.
+                if (Request.Form.ContainsKey("metaTitle")) site.MetaTitle = metaTitle;
+                if (Request.Form.ContainsKey("metaDescription")) site.MetaDescription = metaDescription;
+                if (Request.Form.ContainsKey("ogImage")) site.OgImage = ogImage;
                 if (documentJson != null)
                 {
                     if (Site.ShouldBackupOriginal(site.OriginalDocumentJson, site.DocumentJson, documentJson))
