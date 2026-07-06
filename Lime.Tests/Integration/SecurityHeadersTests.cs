@@ -91,8 +91,10 @@ namespace Lime.Tests.Integration
 
             Assert.True(response.Headers.TryGetValues("Content-Security-Policy", out var csp));
             var policy = csp.First();
-            // script-src без 'unsafe-inline' — это и есть защита от инъекции скриптов в контент.
-            Assert.Contains("script-src 'self' https://cdn.jsdelivr.net", policy);
+            // script-src только 'self', без 'unsafe-inline' и без CDN-хостов — защита от инъекции
+            // скриптов в контент (jsdelivr в allowlist означал бы «любой npm-пакет» как обход).
+            Assert.Contains("script-src 'self';", policy);
+            Assert.DoesNotContain("jsdelivr", policy);
             Assert.DoesNotContain("script-src 'self' 'unsafe-inline'", policy);
             // style-src 'unsafe-inline' обязателен (движок эмитит inline-стили) — страница не должна сломаться.
             Assert.Contains("style-src 'self' 'unsafe-inline'", policy);

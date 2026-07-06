@@ -27,7 +27,7 @@
     <link rel="stylesheet" href="~/css/lime/base.css" asp-append-version="true">
     <link rel="stylesheet" href="~/css/lime/components.css" asp-append-version="true">
     <link rel="stylesheet" href="~/css/lime/constructor.css" asp-append-version="true">
-    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.6/Sortable.min.js" defer></script>
+    <script src="~/js/vendor/Sortable.min.js" asp-append-version="true" defer></script>
     <script>
         window.__LIME_DOC__ = @Html.Raw(seedJson);
         window.__LIME_DOC_VERSION__ = @Model.DocVersion; // Site.UpdatedAt.Ticks — optimistic concurrency
@@ -462,8 +462,8 @@
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js" defer></script>
-    <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js" defer></script>
+    <script src="~/js/vendor/gsap.min.js" asp-append-version="true" defer></script>
+    <script src="~/js/vendor/ScrollTrigger.min.js" asp-append-version="true" defer></script>
     <script src="~/js/lime/lime-animate.js" asp-append-version="true" defer></script>
     <script src="~/js/lime/lime-assets.js" asp-append-version="true"></script>
     <script src="~/js/lime/lime-fonts.js" asp-append-version="true"></script>

@@ -14,16 +14,19 @@ namespace Lime_Editor.Middleware
         private const string CspReportUri = "; report-uri /Security/CspReport";
 
         // CSP для публичных страниц.
-        //  - script-src БЕЗ 'unsafe-inline': движок lime-doc.js не эмитит inline-скриптов
-        //    (рантаймы — внешние /js/lime/*, GSAP — с jsdelivr), поэтому это не ломает страницу,
-        //    но блокирует инъекции <script>/on*-атрибутов из пользовательского контента (stored-XSS).
+        //  - script-src ТОЛЬКО 'self' и БЕЗ 'unsafe-inline': движок lime-doc.js не эмитит
+        //    inline-скриптов, все рантаймы (включая GSAP) — self-hosted из /js/*, поэтому это
+        //    не ломает страницу, но блокирует инъекции <script>/on*-атрибутов из пользовательского
+        //    контента (stored-XSS). ВАЖНО: CDN-хостов в script-src быть не должно — разрешённый
+        //    cdn.jsdelivr.net означал бы «любой npm-пакет», т.е. обход CSP через кастомный <head>
+        //    Pro-тарифа (произвольный JS на одном origin с Identity-cookie посетителей).
         //  - style-src с 'unsafe-inline' ОБЯЗАТЕЛЕН: движок эмитит <style> и style="" из
         //    темы/классов/блоков; nonce тут не применим (стили генерятся одинаково в 3 местах).
         //  - frame-src https: и img-src https: — для пользовательских embed-сцен (sandbox-iframe),
         //    YouTube и картинок из медиа/фотостока/OG.
         private const string PublishedCsp =
             "default-src 'self'; " +
-            "script-src 'self' https://cdn.jsdelivr.net; " +
+            "script-src 'self'; " +
             "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
             "font-src 'self' https://fonts.gstatic.com data:; " +
             "img-src 'self' data: blob: https:; " +
@@ -37,7 +40,7 @@ namespace Lime_Editor.Middleware
 
         private const string AppReportOnlyCsp =
             "default-src 'self'; " +
-            "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; " +
+            "script-src 'self' 'unsafe-inline'; " +
             "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
             "font-src 'self' https://fonts.gstatic.com data:; " +
             "img-src 'self' data: blob: https:; " +

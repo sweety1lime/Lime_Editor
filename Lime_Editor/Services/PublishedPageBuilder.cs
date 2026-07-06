@@ -70,8 +70,8 @@ namespace Lime_Editor.Services
                 innerHtml.Contains("data-marquee") ||
                 innerHtml.Contains("data-scene"));
             var animScripts = hasMotion
-                ? "<script src=\"https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js\" defer></script>\n" +
-                  "<script src=\"https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js\" defer></script>\n" +
+                ? "<script src=\"/js/vendor/gsap.min.js\" defer></script>\n" +
+                  "<script src=\"/js/vendor/ScrollTrigger.min.js\" defer></script>\n" +
                   "<script src=\"/js/lime/lime-animate.js\" defer></script>\n"
                 : string.Empty;
             // Рантайм hash-роутинга — только для многостраничных сайтов (движок B).
