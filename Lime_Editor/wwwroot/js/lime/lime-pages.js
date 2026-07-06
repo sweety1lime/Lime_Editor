@@ -34,7 +34,44 @@
         try { window.scrollTo(0, 0); } catch (e) { /* noop */ }
     }
 
-    window.addEventListener("hashchange", apply);
+    // Переход между страницами (Премиум-слой A6): шторка в цвет темы накрывает экран,
+    // под ней меняется страница (+ ScrollTrigger пересчитывает pin/scrub-сцены на новой),
+    // затем шторка уезжает вверх. Стили — .lime-page-transition в constructor.css.
+    // reduced-motion / нет DOM — мгновенное переключение без шторки.
+    var veil = null;
+    function reduced() {
+        return !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+    }
+    function ensureVeil() {
+        if (veil || !document.body) return veil;
+        veil = document.createElement("div");
+        veil.className = "lime-page-transition";
+        document.body.appendChild(veil);
+        return veil;
+    }
+    var switching = false;
+    function applyWithTransition() {
+        if (reduced() || !ensureVeil()) { applyAndRefresh(); return; }
+        if (switching) return; // повторный hashchange во время шторки: доиграем текущий, apply возьмёт свежий hash
+        switching = true;
+        veil.classList.add("is-cover");
+        setTimeout(function () {
+            applyAndRefresh();
+            veil.classList.add("is-exit");
+            setTimeout(function () {
+                veil.classList.remove("is-cover");
+                veil.classList.remove("is-exit");
+                switching = false;
+            }, 450);
+        }, 420);
+    }
+    function applyAndRefresh() {
+        apply();
+        // Пересчёт scroll-сцен под новую страницу (pin-спейсеры считались, пока она была hidden).
+        if (window.ScrollTrigger) { try { window.ScrollTrigger.refresh(); } catch (e) { /* noop */ } }
+    }
+
+    window.addEventListener("hashchange", applyWithTransition);
     if (document.readyState === "loading") {
         document.addEventListener("DOMContentLoaded", apply);
     } else {

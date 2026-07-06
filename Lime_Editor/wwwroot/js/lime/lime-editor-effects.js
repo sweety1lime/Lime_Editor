@@ -40,6 +40,7 @@
         var PARALLAX_PRESETS = [{ v: 0, l: "Нет" }, { v: 0.15, l: "Лёгкий" }, { v: 0.35, l: "Средний" }, { v: 0.6, l: "Сильный" }];
         var SCENE_LEN_PRESETS = [{ v: 1, l: "Коротко" }, { v: 2, l: "Средне" }, { v: 3, l: "Длинно" }, { v: 4, l: "Оч. длинно" }];
         var MARQUEE_SPEED_PRESETS = [{ v: 60, l: "Медленно" }, { v: 40, l: "Обычно" }, { v: 20, l: "Быстро" }];
+        var STAGGER_PRESETS = [{ v: 0, l: "Нет" }, { v: 0.06, l: "Быстрый" }, { v: 0.12, l: "Средний" }, { v: 0.2, l: "Плавный" }];
 
         function closestPreset(value, presets) {
             var n = parseFloat(value);
@@ -72,11 +73,22 @@
             var presetSeg = '<div class="lime-segmented">' + presets.map(function (o) {
                 return '<button type="button" class="' + (curAnim === o.v ? "is-active" : "") + '" data-doc-anim="anim" data-val="' + o.v + '" title="' + o.t + '">' + o.l + '</button>';
             }).join("") + '</div>';
+            // Split-типографика (Премиум-слой): заголовок блока разбивается и проявляется каскадом.
+            // В редакторе играет как fade-up, настоящий split виден на опубликованной странице.
+            var splits = [
+                { v: "split-lines", l: "Строки", t: "Заголовок по строкам" },
+                { v: "split-words", l: "Слова", t: "Заголовок по словам" },
+                { v: "split-chars", l: "Буквы", t: "Заголовок по буквам" }
+            ];
+            var splitSeg = '<div class="lime-inspector__hint" style="margin:8px 0 2px;">Split-типографика (заголовок)</div>' +
+                '<div class="lime-segmented">' + splits.map(function (o) {
+                    return '<button type="button" class="' + (curAnim === o.v ? "is-active" : "") + '" data-doc-anim="anim" data-val="' + o.v + '" title="' + o.t + '">' + o.l + '</button>';
+                }).join("") + '</div>';
             var extra = curAnim
                 ? '<div class="lime-inspector__hint" style="margin:6px 0 2px;">Задержка, мс</div>' + animRng("animDelay", 0, 1000, 50, t.animDelay) +
                   '<div class="lime-inspector__hint" style="margin:6px 0 2px;">Длительность, с</div>' + animRng("animDuration", 0.2, 2, 0.1, t.animDuration)
                 : "";
-            return sec("Анимация появления", presetSeg + extra);
+            return sec("Анимация появления", presetSeg + splitSeg + extra);
         }
 
         function motionInspector(t) {
@@ -88,6 +100,10 @@
                 '<button type="button" class="' + (!t.sticky ? "is-active" : "") + '" data-doc-sticky="0">Нет</button>' +
                 '<button type="button" class="' + (t.sticky ? "is-active" : "") + '" data-doc-sticky="1">Sticky</button></div>';
             if (L.isContainer(t.type)) {
+                // Каскад (Премиум-слой A2): дети проявляются по очереди одной timeline (animStagger, сек).
+                var st = closestPreset(t.animStagger || 0, STAGGER_PRESETS);
+                rows += '<div class="lime-inspector__hint" style="margin:8px 0 2px;">Каскад детей (stagger)</div>' +
+                    presetSeg(STAGGER_PRESETS, st, "doc-stagger");
                 var mq = t.marquee;
                 rows += '<div class="lime-inspector__hint" style="margin:8px 0 2px;">Бегущая строка (для содержимого)</div>' +
                     '<div class="lime-segmented">' +
@@ -220,10 +236,24 @@
             var ls = t.layers || [];
             var list = ls.map(function (l, i) {
                 var isImg = l.kind === "image";
+                var isParticles = l.kind === "particles";
+                var kindLabel = isParticles ? "частицы" : (isImg ? "картинка" : "фигура");
                 var head = '<div class="lime-flex" style="justify-content:space-between;align-items:center;margin-bottom:4px;">' +
-                    '<b style="font-size:var(--text-xs);">Слой ' + (i + 1) + ' · ' + (isImg ? "картинка" : "фигура") + '</b>' +
+                    '<b style="font-size:var(--text-xs);">Слой ' + (i + 1) + ' · ' + kindLabel + '</b>' +
                     '<button type="button" class="lime-block-toolbar__btn lime-block-toolbar__btn--danger" data-doc-layer-del="' + i + '" title="Удалить">✕</button></div>';
-                var body = isImg
+                var body;
+                if (isParticles) {
+                    // WebGL-частицы: цвет/плотность/скорость. Живой рендер — на опубликованной
+                    // странице (в редакторе слой показан плейсхолдером, рантайм не грузится).
+                    body = '<div class="lime-color-row"><input type="color" class="lime-color-input" data-doc-layer-color="' + i + '" value="' + toHex(l.color || "#84cc16") + '"></div>' +
+                        layerRng("count", i, 20, 300, 10, (l.count != null ? l.count : 80), "Частиц") +
+                        layerRng("speed", i, 0.2, 3, 0.1, (l.speed != null ? l.speed : 1), "Скорость") +
+                        layerRng("z", i, -1, 3, 1, (l.z != null ? l.z : 0), "Слой (z): −1 за контентом, 2 поверх") +
+                        layerRng("opacity", i, 0.1, 1, 0.05, (l.opacity != null ? l.opacity : 1), "Прозрачность") +
+                        '<div class="lime-inspector__hint" style="margin:4px 0 0;">Эффект виден на опубликованной странице.</div>';
+                    return '<div class="lime-layer-card">' + head + body + '</div>';
+                }
+                body = isImg
                     ? '<button type="button" class="lime-btn lime-btn--soft lime-btn--sm" data-doc-layer-pick="' + i + '" style="width:100%;">' + (l.src ? "Заменить картинку" : "Выбрать картинку") + '</button>'
                     : '<div class="lime-segmented">' + ["circle", "blob", "square"].map(function (sh) {
                         return '<button type="button" class="' + ((l.shape || "circle") === sh ? "is-active" : "") + '" data-doc-layer-shape="' + i + '" data-shape="' + sh + '">' + (sh === "circle" ? "●" : sh === "blob" ? "⬭" : "■") + '</button>';
@@ -237,14 +267,16 @@
             }).join("");
             var add = '<div class="lime-flex lime-gap-2" style="margin-top:6px;">' +
                 '<button type="button" class="lime-btn lime-btn--ghost lime-btn--sm" data-doc-layer-add="shape" style="flex:1;">＋ Фигура</button>' +
-                '<button type="button" class="lime-btn lime-btn--ghost lime-btn--sm" data-doc-layer-add="image" style="flex:1;">＋ Картинка</button></div>';
+                '<button type="button" class="lime-btn lime-btn--ghost lime-btn--sm" data-doc-layer-add="image" style="flex:1;">＋ Картинка</button>' +
+                '<button type="button" class="lime-btn lime-btn--ghost lime-btn--sm" data-doc-layer-add="particles" style="flex:1;">＋ Частицы</button></div>';
             var hint = ls.length ? '<div class="lime-inspector__hint" style="margin:2px 0 6px;">Перетаскивай слои прямо на холсте.</div>' : "";
             return sec("Декор-слои", hint + list + add);
         }
 
         function fxInspector(t) {
             var fx = t.fx || [];
-            var FX = [["glass", "Стекло"], ["glow", "Свечение"], ["neon-border", "Неон-рамка"], ["gradient-text", "Градиент-текст"], ["tilt", "Наклон"]];
+            var FX = [["glass", "Стекло"], ["glow", "Свечение"], ["neon-border", "Неон-рамка"], ["gradient-text", "Градиент-текст"], ["tilt", "Наклон"],
+                ["grain", "Зерно"], ["magnetic", "Магнит-кнопки"], ["gl-distort", "WebGL-искажение"]];
             var chips = '<div class="lime-segmented lime-segmented--wrap">' + FX.map(function (o) {
                 return '<button type="button" class="' + (fx.indexOf(o[0]) >= 0 ? "is-active" : "") + '" data-doc-fx="' + o[0] + '">' + o[1] + '</button>';
             }).join("") + '</div>';
@@ -285,6 +317,14 @@
         function setSticky(enabled) {
             var source = selectedSource();
             if (source) setBlockValue(source, "sticky", true, !enabled);
+        }
+
+        // Каскад детей (Премиум-слой A2): animStagger в секундах, 0 = убрать.
+        function setStagger(value) {
+            var source = selectedSource();
+            if (!source) return;
+            var n = parseFloat(value) || 0;
+            setBlockValue(source, "animStagger", n, n === 0);
         }
 
         function setMarquee(mode) {
@@ -338,8 +378,14 @@
             var b = targetBlock(source);
             if (!b) return;
             var layers = clone(b.layers || []);
-            var layer = { id: rid("l"), kind: kind, x: 40, y: 28, w: kind === "image" ? 160 : 120, z: 0, depth: 0.2, opacity: 1 };
-            if (kind === "shape") { layer.shape = "blob"; layer.color = "#a78bfa"; }
+            var layer;
+            if (kind === "particles") {
+                // WebGL-частицы: слой растягивается на всю секцию, геометрия x/y/w не нужна.
+                layer = { id: rid("l"), kind: "particles", count: 80, speed: 1, color: "#84cc16", z: 0, opacity: 1 };
+            } else {
+                layer = { id: rid("l"), kind: kind, x: 40, y: 28, w: kind === "image" ? 160 : 120, z: 0, depth: 0.2, opacity: 1 };
+                if (kind === "shape") { layer.shape = "blob"; layer.color = "#a78bfa"; }
+            }
             layers.push(layer);
             setBlockValue(source, "layers", layers, false);
             if (kind === "image") openMediaPicker(selectedId(), "layers." + (layers.length - 1) + ".src", "blockpath");
@@ -363,6 +409,13 @@
             if (!blockEl) return;
             var layerEl = blockEl.querySelector('[data-layer-id="' + layer.id + '"]');
             if (!layerEl) { render(); return; }
+            // Частицы: геометрию не трогаем (слой на всю секцию), живой прогон — только z/opacity;
+            // count/speed/color видны на публикации, в редакторе слой — плейсхолдер.
+            if (layer.kind === "particles") {
+                layerEl.style.zIndex = (layer.z != null ? layer.z : 0);
+                layerEl.style.opacity = (layer.opacity != null ? layer.opacity : 1);
+                return;
+            }
             layerEl.style.left = (layer.x || 0) + "%";
             layerEl.style.top = (layer.y || 0) + "%";
             layerEl.style.width = (layer.w || 120) + "px";
@@ -529,6 +582,7 @@
             setMotionParallax: setMotionParallax,
             setSceneLength: setSceneLength,
             setSceneMode: setSceneMode,
+            setStagger: setStagger,
             setSticky: setSticky,
             toggleFx: toggleFx
         };

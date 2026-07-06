@@ -273,10 +273,13 @@
                 layers: [
                     { kind: "shape", shape: "square", color: "rgba(66,255,163,.16)", x: 2, y: 18, w: 260, z: 0, depth: 0.18, blur: 18, opacity: 0.75 },
                     { kind: "shape", shape: "square", color: "rgba(255,71,145,.14)", x: 76, y: 8, w: 300, z: 0, depth: 0.28, blur: 22, opacity: 0.72 },
-                    { kind: "shape", shape: "square", color: "rgba(255,255,255,.10)", x: 60, y: 72, w: 180, z: 0, depth: 0.16, blur: 8, opacity: 0.55 }
+                    { kind: "shape", shape: "square", color: "rgba(255,255,255,.10)", x: 60, y: 72, w: 180, z: 0, depth: 0.16, blur: 8, opacity: 0.55 },
+                    // WebGL-частицы во весь hero (lime-webgl.js на публикации; в редакторе — плейсхолдер).
+                    { kind: "particles", count: 110, speed: 0.8, color: "#42ffa3", z: 0, opacity: 0.55 }
                 ],
                 anim: "fade-up",
                 animDuration: "0.9",
+                fx: ["grain"],
                 children: [
                     {
                         type: "cover",
@@ -287,7 +290,10 @@
                             cta: "Enter the drop"
                         },
                         styles: { base: { padding: "0", backgroundColor: "transparent", color: "inherit" } },
-                        fx: ["gradient-text"]
+                        // split-lines: заголовок выезжает построчно из-под маски (публикация).
+                        anim: "split-lines",
+                        animDuration: "1",
+                        fx: ["gradient-text", "magnetic"]
                     },
                     {
                         type: "container",
@@ -329,6 +335,7 @@
                 },
                 css: ">.lime-block__inner{max-width:1040px;margin:0 auto}.lime-block__children{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(280px,100%),1fr));gap:42px;align-items:start}.lime-block__text:first-child{color:var(--lt-accent);font-size:12px;text-transform:uppercase;letter-spacing:.16em;font-weight:800}",
                 anim: "fade-up",
+                animStagger: 0.14,
                 children: [
                     { type: "container", children: [
                         { type: "text", content: { text: "LORE CORE" } },
@@ -544,6 +551,8 @@
                 ],
                 anim: "fade-up",
                 animDuration: "0.9",
+                // Портрет с WebGL-искажением по ховеру (когда владелец подставит фото в слот).
+                fx: ["gl-distort"],
                 children: [
                     {
                         type: "cover",
@@ -553,7 +562,10 @@
                             desc: "A warm, editorial portfolio starter for creative studios and independent makers — work first, process second, motion that never gets in the way.",
                             cta: "See the work"
                         },
-                        styles: { base: { padding: "0", backgroundColor: "transparent", color: "inherit" } }
+                        styles: { base: { padding: "0", backgroundColor: "transparent", color: "inherit" } },
+                        // Editorial-заголовок по словам — спокойный ритм (публикация).
+                        anim: "split-words",
+                        animDuration: "0.9"
                     },
                     {
                         type: "image",

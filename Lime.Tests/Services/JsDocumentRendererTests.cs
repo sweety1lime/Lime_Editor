@@ -169,6 +169,104 @@ namespace Lime.Tests.Services
             Assert.Contains("--lt-text-2xl:1.5rem;", html);
         }
 
+        // Премиум-слой: theme.motion эмитится data-атрибутами на корне публикации — по ним
+        // PublishedPageBuilder подключает рантаймы (Lenis/курсор/прелоадер). Loader — whitelist.
+        [Fact]
+        public void RenderSite_ThemeMotion_EmitsMotionAttrs()
+        {
+            var renderer = new JsDocumentRenderer(EnginePath());
+            var doc = /*lang=json*/ @"{
+                ""version"": 1,
+                ""theme"": { ""motion"": { ""smooth"": true, ""cursor"": true, ""loader"": ""counter"" } },
+                ""blocks"": [ { ""id"": ""b1"", ""type"": ""text"", ""content"": { ""text"": ""x"" } } ]
+            }";
+            var html = renderer.RenderSite(doc);
+
+            Assert.Contains("data-lime-smooth=\"1\"", html);
+            Assert.Contains("data-lime-cursor=\"1\"", html);
+            Assert.Contains("data-lime-loader=\"counter\"", html);
+        }
+
+        [Fact]
+        public void RenderSite_ThemeMotion_RejectsUnknownLoader_AndSilentByDefault()
+        {
+            var renderer = new JsDocumentRenderer(EnginePath());
+            var bad = /*lang=json*/ @"{ ""version"":1, ""theme"": { ""motion"": { ""loader"": ""evil"" } }, ""blocks"": [] }";
+            Assert.DoesNotContain("data-lime-loader", renderer.RenderSite(bad));
+            Assert.DoesNotContain("data-lime-smooth", renderer.RenderSite(/*lang=json*/ @"{ ""version"":1, ""blocks"": [] }"));
+        }
+
+        // Премиум-слой: каскад (animStagger) и WebGL-частицы (layers[].kind=particles) —
+        // числовые параметры проходят через parseFloat (мусор из документа не утекает в HTML).
+        [Fact]
+        public void RenderSite_StaggerAndParticlesLayer_EmitDataAttrs()
+        {
+            var doc = /*lang=json*/ @"{
+                ""version"": 1,
+                ""blocks"": [ {
+                    ""id"": ""c1"", ""type"": ""container"", ""animStagger"": 0.12,
+                    ""layers"": [ { ""id"": ""l1"", ""kind"": ""particles"", ""count"": 90, ""speed"": 1.4, ""color"": ""#42ffa3"" },
+                                  { ""id"": ""l2"", ""kind"": ""particles"", ""count"": ""mus}or"", ""speed"": null } ],
+                    ""children"": [ { ""id"": ""t1"", ""type"": ""text"", ""content"": { ""text"": ""x"" } } ]
+                } ]
+            }";
+            var html = new JsDocumentRenderer(EnginePath()).RenderSite(doc);
+
+            Assert.Contains("data-anim-stagger=\"0.12\"", html);
+            Assert.Contains("lime-block__layer--particles", html);
+            Assert.Contains("data-gl-count=\"90\"", html);
+            Assert.Contains("data-gl-speed=\"1.4\"", html);
+            Assert.Contains("data-gl-color=\"#42ffa3\"", html);
+            Assert.Contains("data-gl-count=\"80\"", html);  // мусорный count → дефолт
+            Assert.DoesNotContain("mus}or", html);
+        }
+
+        // Медиа-волна: кастомные шрифты файлом — theme.customFonts эмитится @font-face'ами
+        // со строгими белыми списками имени и URL (эмиссия в <style> без экранирования).
+        [Fact]
+        public void RenderSite_CustomFonts_EmitFontFaces_AndRejectUnsafe()
+        {
+            var renderer = new JsDocumentRenderer(EnginePath());
+            var doc = /*lang=json*/ @"{
+                ""version"": 1,
+                ""theme"": { ""customFonts"": [
+                    { ""name"": ""Brand Grotesk"", ""url"": ""/media/7/abc.woff2"" },
+                    { ""name"": ""Evil}body{display:none"", ""url"": ""/media/7/x.woff2"" },
+                    { ""name"": ""Sneaky"", ""url"": ""https://evil.example/x.woff2'); background:url('x"" },
+                    { ""name"": ""NotAFont"", ""url"": ""/media/7/x.ttf"" }
+                ] },
+                ""blocks"": [ { ""id"": ""b1"", ""type"": ""text"", ""content"": { ""text"": ""x"" } } ]
+            }";
+            var html = renderer.RenderSite(doc);
+
+            Assert.Contains("@font-face{font-family:'Brand Grotesk';src:url('/media/7/abc.woff2') format('woff2');", html);
+            Assert.DoesNotContain("Evil}", html);          // имя вне whitelist — вся запись отброшена
+            Assert.DoesNotContain("evil.example", html);   // URL с кавычкой/скобками — отброшен
+            Assert.DoesNotContain(".ttf", html);           // не-woff формат — отброшен
+        }
+
+        // Медиа-волна: нативный Lottie-блок — data-атрибуты для lime-lottie.js; src строго same-origin.
+        [Fact]
+        public void RenderSite_LottieBlock_EmitsMarkers_SameOriginOnly()
+        {
+            var renderer = new JsDocumentRenderer(EnginePath());
+            var doc = /*lang=json*/ @"{
+                ""version"": 1,
+                ""blocks"": [
+                    { ""id"": ""l1"", ""type"": ""lottie"", ""content"": { ""src"": ""/media/7/anim.json"", ""mode"": ""scroll"", ""speed"": 1.5, ""loop"": false } },
+                    { ""id"": ""l2"", ""type"": ""lottie"", ""content"": { ""src"": ""https://evil.example/x.json"" } }
+                ]
+            }";
+            var html = renderer.RenderSite(doc);
+
+            Assert.Contains("data-lime-lottie", html);
+            Assert.Contains("data-src=\"/media/7/anim.json\"", html);
+            Assert.Contains("data-mode=\"scroll\"", html);
+            Assert.Contains("data-speed=\"1.5\"", html);
+            Assert.DoesNotContain("data-loop", html);          // loop:false — атрибут не эмитится
+            Assert.DoesNotContain("evil.example", html);       // внешний URL отброшен (place для embed-блока)
+        }
+
         // Stage 8.1: значения/имена стилей и сырой block.css не должны выходить из CSS-правила (})
         // или закрывать <style> (</style>) на серверном publish-пути (он НЕ прогоняет HTML-санитайзер
         // — экранирование рендерера и есть граница безопасности, см. PublishedSiteController).

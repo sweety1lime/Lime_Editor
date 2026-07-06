@@ -115,6 +115,111 @@ namespace Lime.Tests.Services
             Assert.Equal(input, PublishedPageBuilder.StripCustomCode(input));
         }
 
+        // Премиум-слой: рантаймы подключаются строго по маркерам в контенте — страница без
+        // моушна не тащит ни GSAP, ни вендоры (перф-бюджет публикации).
+        [Fact]
+        public void WrapCustomHtml_NoMotionMarkers_NoMotionScripts()
+        {
+            var site = new Site { Name = "Сайт", IdSite = 1 };
+            var html = PublishedPageBuilder.WrapCustomHtml("<div class=\"lime-doc-page\"></div>", site);
+
+            Assert.DoesNotContain("gsap.min.js", html);
+            Assert.DoesNotContain("split-type.min.js", html);
+            Assert.DoesNotContain("lenis.min.js", html);
+            Assert.DoesNotContain("lime-webgl.js", html);
+            Assert.DoesNotContain("lime-loader.js", html);
+            Assert.DoesNotContain("lime-loader-overlay", html);
+            Assert.DoesNotContain("lottie_light.min.js", html);
+            Assert.Contains("lime-polish.js", html); // сигнатурный лоск — всегда
+        }
+
+        [Fact]
+        public void WrapCustomHtml_SplitAnim_IncludesSplitTypeBeforeAnimate()
+        {
+            var site = new Site { Name = "Сайт", IdSite = 1 };
+            var html = PublishedPageBuilder.WrapCustomHtml(
+                "<section class=\"lime-block\" data-anim=\"split-chars\"></section>", site);
+
+            Assert.Contains("gsap.min.js", html);
+            Assert.Contains("split-type.min.js", html);
+            // SplitType раньше lime-animate: defer-скрипты исполняются по порядку документа.
+            Assert.True(html.IndexOf("split-type.min.js") < html.IndexOf("lime-animate.js"));
+        }
+
+        [Fact]
+        public void WrapCustomHtml_PlainAnim_NoSplitType()
+        {
+            var site = new Site { Name = "Сайт", IdSite = 1 };
+            var html = PublishedPageBuilder.WrapCustomHtml(
+                "<section class=\"lime-block\" data-anim=\"fade-up\"></section>", site);
+
+            Assert.Contains("lime-animate.js", html);
+            Assert.DoesNotContain("split-type.min.js", html);
+        }
+
+        [Fact]
+        public void WrapCustomHtml_SmoothMarker_IncludesLenis()
+        {
+            var site = new Site { Name = "Сайт", IdSite = 1 };
+            var html = PublishedPageBuilder.WrapCustomHtml(
+                "<div class=\"lime-doc-page\" data-lime-smooth=\"1\"></div>", site);
+
+            Assert.Contains("lenis.min.js", html);
+        }
+
+        [Theory]
+        [InlineData("<div class=\"lime-block__layer--particles\" data-gl-particles=\"1\"></div>")]
+        [InlineData("<section class=\"lime-block lime-fx-gl-distort\"></section>")]
+        public void WrapCustomHtml_WebGlMarkers_IncludeWebGlRuntime(string content)
+        {
+            var site = new Site { Name = "Сайт", IdSite = 1 };
+            var html = PublishedPageBuilder.WrapCustomHtml(content, site);
+
+            Assert.Contains("lime-webgl.js", html);
+        }
+
+        // Прелоадер: оверлей инжектится сервером в начало <body> (CSP публикаций запрещает
+        // инлайн-скрипты), стиль пробрасывается из data-lime-loader, скрипт подключён.
+        [Theory]
+        [InlineData("counter")]
+        [InlineData("bar")]
+        public void WrapCustomHtml_LoaderMarker_InjectsOverlayAndScript(string style)
+        {
+            var site = new Site { Name = "Сайт", IdSite = 1 };
+            var html = PublishedPageBuilder.WrapCustomHtml(
+                $"<div class=\"lime-doc-page\" data-lime-loader=\"{style}\"></div>", site);
+
+            Assert.Contains("lime-loader.js", html);
+            Assert.Contains("data-lime-loader-overlay", html);
+            Assert.Contains($"data-style=\"{style}\"", html);
+            // Оверлей — в начале body, до контента.
+            Assert.True(html.IndexOf("data-lime-loader-overlay") < html.IndexOf("lime-doc-page"));
+        }
+
+        [Fact]
+        public void WrapCustomHtml_LottieMarker_IncludesPlayerAndRuntime()
+        {
+            var site = new Site { Name = "Сайт", IdSite = 1 };
+            var html = PublishedPageBuilder.WrapCustomHtml(
+                "<div class=\"lime-block__lottie-stage\" data-lime-lottie data-src=\"/media/1/a.json\"></div>", site);
+
+            Assert.Contains("lottie_light.min.js", html);
+            Assert.Contains("lime-lottie.js", html);
+            // Плеер раньше рантайма: defer-скрипты исполняются по порядку документа.
+            Assert.True(html.IndexOf("lottie_light.min.js") < html.IndexOf("lime-lottie.js"));
+        }
+
+        [Fact]
+        public void WrapCustomHtml_LoaderMarkerUnknownStyle_NoOverlay()
+        {
+            var site = new Site { Name = "Сайт", IdSite = 1 };
+            var html = PublishedPageBuilder.WrapCustomHtml(
+                "<div class=\"lime-doc-page\" data-lime-loader=\"evil\"></div>", site);
+
+            Assert.DoesNotContain("lime-loader.js", html);
+            Assert.DoesNotContain("data-lime-loader-overlay", html);
+        }
+
         // Forward-compat (страховка перед schema v2): единственный C#-код, делающий round-trip
         // документа (JObject), ОБЯЗАН сохранять незнакомые поля — иначе v1 и v2 не смогут
         // сосуществовать за feature-flag. Здесь будущее поле v2 переживает strip кастом-кода.

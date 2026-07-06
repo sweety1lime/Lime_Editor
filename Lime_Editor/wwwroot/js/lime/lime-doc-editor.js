@@ -920,6 +920,7 @@
     var setSceneMode = effectsTools.setSceneMode;
     var toggleFx = effectsTools.toggleFx;
     var setSticky = effectsTools.setSticky;
+    var setStagger = effectsTools.setStagger;
     var setMarquee = effectsTools.setMarquee;
     var setMotionParallax = effectsTools.setMotionParallax;
     var setSceneLength = effectsTools.setSceneLength;
@@ -1184,6 +1185,7 @@
         setAnim: setAnim,
         toggleFx: toggleFx,
         setSticky: setSticky,
+        setStagger: setStagger,
         setMarquee: setMarquee,
         setMarqueeSpeed: setMarqueeSpeed,
         setSceneMode: setSceneMode,
@@ -1319,7 +1321,7 @@
     window.__LIME_AI__ = { apply: applyAiCommands, suggest: aiSuggest, adaptMobile: aiAdaptMobile, adaptPackMobile: aiAdaptPackMobile, fillPackText: aiFillPackText, restylePack: aiRestylePack };
 
     // ===== ТЕМА (токены сайта) — модуль lime-editor-theme.js =====
-    EditorTheme.create({
+    var themeTools = EditorTheme.create({
         document: document,
         doc: doc,
         defaultTheme: L.DEFAULT_THEME,
@@ -1348,7 +1350,11 @@
     var themeOpen = document.querySelector("[data-doc-theme-open]");
     var themeModal = document.getElementById("lime-doc-theme-modal");
     if (themeOpen && themeModal) {
-        themeOpen.addEventListener("click", function () { themeModal.classList.add("is-open"); });
+        themeOpen.addEventListener("click", function () {
+            // Синк инпутов с doc.theme: пак/шаблон мог смениться после инициализации панели.
+            themeTools.refreshInputs();
+            themeModal.classList.add("is-open");
+        });
     }
     document.addEventListener("click", function (e) {
         if (themeModal && e.target.closest("[data-doc-theme-close]")) themeModal.classList.remove("is-open");

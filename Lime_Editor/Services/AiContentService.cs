@@ -129,8 +129,11 @@ namespace Lime_Editor.Services
 - setTheme: {key, value} — цвет/шрифт темы сайта (не блока). key ∈ accent|accent2|bg|fg|muted|font;
   value — hex-цвет вида ""#rrggbb"" для цветовых key, CSS font-stack строка для font
 - setBlockProp: {id, prop, value} — motion/анимация уже существующего блока. prop ∈
-  anim|animDelay|animDuration|parallax|marquee|scene|sticky|stickyOffset; anim — строка вида ""fade-up"";
-  animDelay/animDuration — число (сек); parallax — число 0..1; marquee — {speed:число, reverse:bool};
+  anim|animDelay|animDuration|animStagger|parallax|marquee|scene|sticky|stickyOffset;
+  anim ∈ ""fade-up""|""fade-in""|""zoom""|""slide-left""|""slide-right""|""split-lines""|""split-words""|""split-chars""
+  (split-* — премиум-типографика: заголовок блока проявляется по строкам/словам/буквам — хорош для hero);
+  animDelay/animDuration — число (сек); animStagger — число сек (0.06..0.2, только контейнер: дети каскадом);
+  parallax — число 0..1; marquee — {speed:число, reverse:bool};
   scene — {mode:""pin""|""horizontal"", length:число}; sticky — bool; stickyOffset — число
 
 Правила: для правок меняй ТОЛЬКО блоки с id из контекста, не выдумывай id; для новой секции используй insertBlock

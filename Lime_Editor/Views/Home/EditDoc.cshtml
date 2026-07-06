@@ -208,6 +208,7 @@
                         <button type="button" class="lime-block-tile" data-doc-add="carousel"><span class="lime-block-tile__icon"><svg class="lime-ico"><use href="#i-carousel"/></svg></span><span>Слайдер</span></button>
                         <button type="button" class="lime-block-tile" data-doc-add="lightbox"><span class="lime-block-tile__icon"><svg class="lime-ico"><use href="#i-lightbox"/></svg></span><span>Лайтбокс</span></button>
                         <button type="button" class="lime-block-tile" data-doc-add="video"><span class="lime-block-tile__icon"><svg class="lime-ico"><use href="#i-video"/></svg></span><span>Видео</span></button>
+                        <button type="button" class="lime-block-tile" data-doc-add="lottie"><span class="lime-block-tile__icon">🎞️</span><span>Lottie</span></button>
                         <button type="button" class="lime-block-tile" data-doc-add="embed"><span class="lime-block-tile__icon"><svg class="lime-ico"><use href="#i-embed"/></svg></span><span>3D / Embed</span></button>
                     </div>
                 </details>
@@ -354,6 +355,38 @@
                     <option value="system-ui, -apple-system, sans-serif">Системный</option>
                     <option value="Georgia, 'Times New Roman', serif">Georgia</option>
                 </select>
+                <div style="height:1px; background: var(--line); margin: var(--space-3) 0;"></div>
+                <label class="lime-field-label">Свои шрифты</label>
+                <p class="lime-text-muted" style="font-size: var(--text-xs); margin-bottom: var(--space-2);">
+                    Загрузи .woff2/.woff — шрифт появится в списке ниже и в выборе шрифта сайта.
+                </p>
+                <div id="lime-theme-customfonts"></div>
+                <input type="file" id="lime-theme-font-file" accept=".woff2,.woff" style="display:none;">
+                <div class="lime-flex lime-items-center lime-gap-2" style="margin-bottom: var(--space-3);">
+                    <button type="button" class="lime-btn lime-btn--soft lime-btn--sm" id="lime-theme-font-upload">＋ Загрузить шрифт</button>
+                    <span id="lime-theme-font-status" class="lime-text-muted" style="font-size: var(--text-xs);"></span>
+                </div>
+                <div style="height:1px; background: var(--line); margin: var(--space-3) 0;"></div>
+                <label class="lime-field-label">Моушн сайта</label>
+                <p class="lime-text-muted" style="font-size: var(--text-xs); margin-bottom: var(--space-2);">
+                    Премиум-ощущение опубликованной страницы. Эффекты видны на публикации; уважают reduced-motion и не включаются на тач-устройствах.
+                </p>
+                <label class="lime-flex lime-items-center" style="justify-content: space-between; margin-bottom: var(--space-2); cursor: pointer;">
+                    <span class="lime-text-muted" style="font-size: var(--text-sm);">Инерционный скролл</span>
+                    <input type="checkbox" id="lime-theme-motion-smooth">
+                </label>
+                <label class="lime-flex lime-items-center" style="justify-content: space-between; margin-bottom: var(--space-2); cursor: pointer;">
+                    <span class="lime-text-muted" style="font-size: var(--text-sm);">Кастомный курсор</span>
+                    <input type="checkbox" id="lime-theme-motion-cursor">
+                </label>
+                <div class="lime-flex lime-items-center" style="justify-content: space-between; margin-bottom: var(--space-2);">
+                    <span class="lime-text-muted" style="font-size: var(--text-sm);">Прелоадер</span>
+                    <select id="lime-theme-motion-loader" class="lime-select" style="width: 150px;">
+                        <option value="">Нет</option>
+                        <option value="bar">Полоса</option>
+                        <option value="counter">Счётчик %</option>
+                    </select>
+                </div>
                 <div class="lime-flex lime-gap-2" style="justify-content:flex-end; margin-top: var(--space-3);">
                     <button type="button" class="lime-btn lime-btn--primary lime-btn--sm" data-doc-theme-close>Готово</button>
                 </div>
@@ -437,7 +470,7 @@
                 <h3 style="margin:0;">Выбери изображение</h3>
                 <div class="lime-flex lime-gap-2 lime-items-center">
                     <label for="lime-media-upload" class="lime-btn lime-btn--soft lime-btn--sm" style="cursor:pointer;">+ Загрузить</label>
-                    <input id="lime-media-upload" type="file" accept=".jpg,.jpeg,.png,.gif,.webp" style="display:none;">
+                    <input id="lime-media-upload" type="file" accept=".jpg,.jpeg,.png,.gif,.webp,.svg" style="display:none;">
                     <button type="button" class="lime-modal__close" data-lime-modal-close aria-label="Закрыть">×</button>
                 </div>
             </div>

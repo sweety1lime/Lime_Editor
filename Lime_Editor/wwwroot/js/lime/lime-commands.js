@@ -173,7 +173,7 @@
         // чтобы command API оставался валидируемым и не превратился в обход схемы.
         setBlockProp: function (doc, c) {
             var allowed = {
-                anim: 1, animDelay: 1, animDuration: 1, sticky: 1, stickyOffset: 1,
+                anim: 1, animDelay: 1, animDuration: 1, animStagger: 1, sticky: 1, stickyOffset: 1,
                 marquee: 1, scene: 1, fx: 1, layers: 1, parallax: 1
             };
             if (!allowed[c.prop]) return [];

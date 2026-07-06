@@ -49,7 +49,9 @@
 
     // Белый список универсальных эффектов (Фаза 6.3): только эти ключи превращаются
     // в классы lime-fx-* на секции — защита от инъекции произвольных классов из документа.
-    var FX_KEYS = { glass: 1, glow: 1, "neon-border": 1, "gradient-text": 1, tilt: 1 };
+    // grain — зерно-оверлей (CSS), magnetic — «магнитные» кнопки (lime-polish.js),
+    // gl-distort — WebGL-искажение картинок по ховеру (lime-webgl.js, с graceful fallback).
+    var FX_KEYS = { glass: 1, glow: 1, "neon-border": 1, "gradient-text": 1, tilt: 1, grain: 1, magnetic: 1, "gl-distort": 1 };
 
     // Тема сайта — токены как CSS-переменные (--lt-*, чтобы не конфликтовать с чужими).
     // Меняешь токен один раз → обновляется везде, где блоки на него ссылаются (var(--lt-...)).
@@ -78,6 +80,26 @@
         return Object.keys(scale).map(function (k) { return "--lt-" + prefix + "-" + k + ":" + scale[k] + ";"; }).join("");
     }
 
+    // Кастомные шрифты файлом (медиа-волна): theme.customFonts = [{name, url}] → @font-face.
+    // Документ может быть подделан, а эмитим в <style> без экранирования — поэтому имя и URL
+    // строго по белым спискам: имя — буквы/цифры/пробел/дефис; URL — same-origin путь ("/...",
+    // не "//") или https, без кавычек/скобок/фигурных (не выйти из url() и правила).
+    function customFontFaces(theme) {
+        var list = (theme && theme.customFonts) || [];
+        var css = "";
+        for (var i = 0; i < list.length; i++) {
+            var f = list[i] || {};
+            var name = String(f.name == null ? "" : f.name);
+            var url = String(f.url == null ? "" : f.url).trim();
+            if (!/^[A-Za-z0-9 _-]{1,60}$/.test(name)) continue;
+            if (!/^(?:\/(?!\/)|https:\/\/)[^"'()\s{}<>\\]+$/.test(url)) continue;
+            var fmt = /\.woff2$/i.test(url) ? "woff2" : (/\.woff$/i.test(url) ? "woff" : null);
+            if (!fmt) continue;
+            css += "@font-face{font-family:'" + name + "';src:url('" + url + "') format('" + fmt + "');font-display:swap;}";
+        }
+        return css;
+    }
+
     function themeCss(theme) {
         var t = {};
         Object.assign(t, DEFAULT_THEME, theme || {});
@@ -86,7 +108,7 @@
         if (t.palette && t.palette.length) {
             for (var pi = 0; pi < t.palette.length; pi++) palette += "--lt-c" + (pi + 1) + ":" + t.palette[pi] + ";";
         }
-        return ":root{" +
+        return customFontFaces(theme) + ":root{" +
             "--lt-accent:" + t.accent + ";--lt-accent2:" + t.accent2 + ";" +
             "--lt-bg:" + t.bg + ";--lt-fg:" + t.fg + ";--lt-muted:" + t.muted + ";" +
             "--lt-font:" + t.font + ";" + palette +
@@ -893,6 +915,31 @@
             }
             return '<div class="lime-block__video">' + inner + "</div>";
         },
+        // Нативный Lottie (медиа-волна): проигрывание загруженного .json БЕЗ iframe —
+        // рантайм lime-lottie.js (publish) умеет loop/speed и режимы auto/hover/scroll-scrub.
+        // src строго same-origin (аплоад из медиатеки); внешние URL остаются embed-блоку.
+        lottie: function (b, o) {
+            var c = b.content || {};
+            var editable = o && o.editable;
+            var src = String(c.src == null ? "" : c.src).trim();
+            var safe = src && src.charAt(0) === "/" && src.indexOf("//") !== 0 ? src : "";
+            var aspect = safeEmbedAspect(c.aspect, "lottie"); // дефолт 1/1
+            var inner = "";
+            if (safe) {
+                var speed = parseFloat(c.speed);
+                inner = '<div class="lime-block__lottie-stage" data-lime-lottie data-src="' + escAttr(safe) + '"' +
+                    (c.loop === false || c.loop === "0" ? "" : ' data-loop="1"') +
+                    (isNaN(speed) || speed === 1 ? "" : ' data-speed="' + escAttr(speed) + '"') +
+                    (c.mode === "hover" || c.mode === "scroll" ? ' data-mode="' + escAttr(c.mode) + '"' : "") +
+                    ' style="aspect-ratio:' + escAttr(aspect) + ';">' +
+                    (editable ? '<div class="lime-block__lottie-hint">🎞️ Lottie — играет на публикации</div>' : "") +
+                    "</div>" +
+                    (editable ? '<button type="button" class="lime-doc-media-swap" data-doc-pick="src" data-doc-pick-kind="lottie">Заменить JSON</button>' : "");
+            } else if (editable) {
+                inner = '<div class="lime-block__video-placeholder" data-doc-pick="src" data-doc-pick-kind="lottie">🎞️ Выбрать Lottie (.json из медиатеки)</div>';
+            }
+            return '<div class="lime-block__lottie">' + inner + "</div>";
+        },
         // Embed/3D (Фаза 8.1): готовая сцена по https-ссылке в sandbox-iframe (Spline/Rive/Lottie/iframe).
         // Принимаем ТОЛЬКО https И только доверенные хосты (allowlist) — защита от javascript:/data:,
         // подмешивания протокола и произвольных iframe. Проверка живёт в общем рендере, поэтому
@@ -1010,6 +1057,7 @@
         image: { src: "", alt: "", caption: "" },
         gallery: { items: [{ src: "", alt: "" }, { src: "", alt: "" }, { src: "", alt: "" }] },
         video: { youtubeId: "" },
+        lottie: { src: "", loop: true, speed: 1, mode: "auto", aspect: "1/1" },
         embed: { embedUrl: "", provider: "", aspect: "16/9", poster: "", fallbackTitle: "", fallbackText: "" },
         collectionList: { collection: "", layout: "cards", limit: 12, sortField: "", sortDir: "desc", filterField: "", filterValue: "", titleField: "", imageField: "", descField: "" },
         tabs: { items: [{ label: "Вкладка 1", text: "Контент первой вкладки." }, { label: "Вкладка 2", text: "Контент второй вкладки." }] },
@@ -1077,6 +1125,20 @@
         var out = '<div class="lime-block__layers">';
         for (var i = 0; i < ls.length; i++) {
             var l = ls[i] || {};
+            // Частицы (WebGL, lime-webgl.js): слой растянут на всю секцию, параметры — data-атрибуты.
+            // Числа санитизируются parseFloat'ом ещё тут, чтобы в HTML не утёк мусор из документа.
+            if (l.kind === "particles") {
+                var pst = "inset:0;width:100%;height:100%;";
+                if (l.z != null) pst += "z-index:" + l.z + ";";
+                if (l.opacity != null) pst += "opacity:" + l.opacity + ";";
+                var pAttrs = ' data-gl-particles="1"' +
+                    ' data-gl-count="' + (parseFloat(l.count) || 80) + '"' +
+                    ' data-gl-speed="' + (parseFloat(l.speed) || 1) + '"' +
+                    (l.color ? ' data-gl-color="' + escAttr(l.color) + '"' : "");
+                var plid = (opts && opts.editable) ? ' data-layer-id="' + escAttr(l.id) + '"' : "";
+                out += '<div class="lime-block__layer lime-block__layer--particles" style="' + escAttr(pst) + '"' + pAttrs + plid + "></div>";
+                continue;
+            }
             var st = "left:" + (l.x || 0) + "%;top:" + (l.y || 0) + "%;width:" + (l.w || 120) + "px;";
             if (l.z != null) st += "z-index:" + l.z + ";";
             if (l.opacity != null) st += "opacity:" + l.opacity + ";";
@@ -1115,6 +1177,9 @@
             if (block.animDelay) anim += ' data-anim-delay="' + escAttr(block.animDelay) + '"';
             if (block.animDuration) anim += ' data-anim-duration="' + escAttr(block.animDuration) + '"';
         }
+        // Каскад (stagger): дети контейнера проявляются одной timeline с шагом animStagger (сек).
+        // Живёт отдельно от block.anim — контейнер может каскадить детей, не анимируясь сам.
+        if (block.animStagger) anim += ' data-anim-stagger="' + escAttr(block.animStagger) + '"';
         // Движение секции (этап 2): параллакс + sticky. Marquee живёт на children-обёртке
         // (ниже), а не на секции — чтобы reveal-анимация и бегущая строка не дрались за transform.
         var motion = "";
@@ -1220,7 +1285,7 @@
             var styles = styleOverride ? mergeDesign(c.styles || {}, styleOverride) : c.styles;
             return {
                 id: block.id, type: c.type, content: content, styles: styles, css: c.css,
-                anim: c.anim, animDelay: c.animDelay, animDuration: c.animDuration,
+                anim: c.anim, animDelay: c.animDelay, animDuration: c.animDuration, animStagger: c.animStagger,
                 parallax: c.parallax, sticky: c.sticky, stickyOffset: c.stickyOffset,
                 marquee: c.marquee, scene: c.scene, layers: c.layers, fx: c.fx,
                 classes: c.classes, children: c.children, name: block.name || c.name,
@@ -1279,6 +1344,18 @@
         return { css: css, html: html, body: '<style data-lime-doc-css>' + css + "</style>\n" + html };
     }
 
+    // Сайтовые моушн-настройки темы → data-атрибуты корня публикации. По ним PublishedPageBuilder
+    // решает, какие рантаймы подключить, а рантаймы (lime-polish/lime-loader) — включаться ли.
+    // theme.motion = { smooth:bool, cursor:bool, loader:""|"bar"|"counter" }. Только whitelist-значения.
+    function motionAttrs(theme) {
+        var m = (theme && theme.motion) || {};
+        var out = "";
+        if (m.smooth) out += ' data-lime-smooth="1"';
+        if (m.cursor) out += ' data-lime-cursor="1"';
+        if (m.loader === "bar" || m.loader === "counter") out += ' data-lime-loader="' + m.loader + '"';
+        return out;
+    }
+
     // Список страниц (с обратной совместимостью: старый doc.blocks → одна страница).
     function pagesOf(doc) {
         if (doc && doc.pages && doc.pages.length) return doc.pages;
@@ -1318,7 +1395,7 @@
         return {
             title: page.title || "",
             body: '<style data-lime-doc-css>' + css + "</style>\n" + nav +
-                '<div class="lime-doc-page">' + r.html + "</div>"
+                '<div class="lime-doc-page"' + motionAttrs(doc.theme) + ">" + r.html + "</div>"
         };
     }
 
@@ -1332,7 +1409,7 @@
         if (pages.length <= 1) {
             var one = renderBlocks(pages[0] ? pages[0].blocks : [], comps, {});
             var css1 = themeCss(doc.theme) + "\n" + classesCss(doc.theme) + "\n" + one.css + customCssOf(doc);
-            return '<style data-lime-doc-css>' + css1 + "</style>\n<div class=\"lime-doc-page\">" + one.html + "</div>";
+            return '<style data-lime-doc-css>' + css1 + "</style>\n<div class=\"lime-doc-page\"" + motionAttrs(doc.theme) + ">" + one.html + "</div>";
         }
 
         var cssParts = [themeCss(doc.theme), classesCss(doc.theme)];
@@ -1346,7 +1423,7 @@
             return '<div class="lime-doc-page lime-doc-page-wrap" data-lime-page="' + escAttr(p.slug) + '"' + (i > 0 ? " hidden" : "") + ">" + r.html + "</div>";
         }).join("\n");
         return '<style data-lime-doc-css>' + cssParts.join("\n") + "</style>\n" +
-            '<div data-lime-pages>' + nav + wraps + "</div>";
+            '<div data-lime-pages' + motionAttrs(doc.theme) + ">" + nav + wraps + "</div>";
     }
 
     // Весь CSS документа одним куском (тема + стили всех блоков всех страниц, рекурсивно) —

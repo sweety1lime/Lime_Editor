@@ -71,6 +71,7 @@
         var setAnim = options.setAnim || noop;
         var toggleFx = options.toggleFx || noop;
         var setSticky = options.setSticky || noop;
+        var setStagger = options.setStagger || noop;
         var setMarquee = options.setMarquee || noop;
         var setMarqueeSpeed = options.setMarqueeSpeed || noop;
         var setSceneMode = options.setSceneMode || noop;
@@ -361,9 +362,24 @@
                 if ((el = e.target.closest("[data-doc-width]"))) { setContentFlag("width", el.dataset.docWidth === "boxed" ? "boxed" : null); return; }
                 if ((el = e.target.closest("[data-doc-bento]"))) { setContentFlag("layout", el.dataset.docBento === "on" ? "bento" : null); return; }
                 if ((el = e.target.closest("[data-doc-cl-layout]"))) { setContentFlag("layout", el.dataset.docClLayout === "cards" ? null : el.dataset.docClLayout); refreshInspector(); return; }
+                // Нативный Lottie (медиа-волна): дефолты (auto/loop/×1) не персистятся — null убирает поле.
+                if ((el = e.target.closest("[data-doc-lottie]"))) {
+                    var lProp = el.dataset.docLottie;
+                    var lVal = el.dataset.val;
+                    if (lProp === "loop") setContentFlag("loop", lVal === "0" ? false : null);
+                    else if (lProp === "mode") setContentFlag("mode", lVal === "auto" ? null : lVal);
+                    else if (lProp === "speed") { var lSp = parseFloat(lVal); setContentFlag("speed", lSp === 1 ? null : lSp); }
+                    refreshInspector();
+                    return;
+                }
                 // ----- движение -----
                 if ((el = e.target.closest("[data-doc-sticky]"))) {
                     setSticky(el.dataset.docSticky === "1");
+                    return;
+                }
+                if ((el = e.target.closest("[data-doc-stagger]"))) {
+                    setStagger(el.dataset.docStagger);
+                    refreshInspector();
                     return;
                 }
                 if ((el = e.target.closest("[data-doc-marquee]"))) {

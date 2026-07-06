@@ -2601,8 +2601,128 @@ html {
 .lime-fx-tilt { transition: transform 0.15s ease; transform-style: preserve-3d; will-change: transform; }
 @media (prefers-reduced-motion: reduce) { .lime-fx-neon-border::before { animation: none; } }
 
+/* ============================================================
+   Премиум-слой (ChainZoku-волна): grain, магнитные кнопки,
+   кастомный курсор, прелоадер, шторка переходов, split-типографика,
+   WebGL-канвасы. JS-рантаймы: lime-polish/lime-loader/lime-pages/lime-webgl.
+   ============================================================ */
+/* Зерно-оверлей: SVG-шум data-URI поверх секции, не ловит клики. */
+.lime-fx-grain { position: relative; }
+.lime-fx-grain::after {
+    content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 3;
+    opacity: 0.14; mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.6'/%3E%3C/svg%3E");
+}
+/* Магнитные кнопки: transform ведёт JS (lime-polish), CSS даёт пружину возврата. */
+.lime-fx-magnetic a, .lime-fx-magnetic button {
+    transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1); will-change: transform;
+}
+
+/* Кастомный курсор (data-lime-cursor): точка + кольцо с лагом. Активен только когда
+   мышь реально движется (html[data-lime-cursor-on] ставит lime-polish). */
+html[data-lime-cursor-on] .lime-published, html[data-lime-cursor-on] .lime-published a,
+html[data-lime-cursor-on] .lime-published button { cursor: none; }
+.lime-cursor-dot, .lime-cursor-ring {
+    position: fixed; top: 0; left: 0; pointer-events: none; z-index: 10000;
+    opacity: 0; border-radius: 50%;
+}
+html[data-lime-cursor-on] .lime-cursor-dot, html[data-lime-cursor-on] .lime-cursor-ring { opacity: 1; }
+.lime-cursor-dot { width: 6px; height: 6px; margin: -3px 0 0 -3px; background: var(--lt-accent, #84cc16); }
+.lime-cursor-dot.is-hot { transform-origin: center; }
+.lime-cursor-ring {
+    width: 34px; height: 34px; margin: -17px 0 0 -17px;
+    border: 1.5px solid var(--lt-accent, #84cc16); opacity: 0;
+    transition: width 0.25s ease, height 0.25s ease, margin 0.25s ease, opacity 0.3s ease, border-color 0.25s ease;
+}
+.lime-cursor-ring.is-hot { width: 56px; height: 56px; margin: -28px 0 0 -28px; border-color: var(--lt-accent2, #a78bfa); }
+@media (hover: none) { .lime-cursor-dot, .lime-cursor-ring { display: none; } }
+
+/* Прелоадер: оверлей инжектит сервер (PublishedPageBuilder), ведёт lime-loader.js.
+   Без JS шторку снимает чистый CSS (autohide) — посетитель не остаётся взаперти. */
+.lime-loader {
+    position: fixed; inset: 0; z-index: 10001; display: flex; align-items: center; justify-content: center;
+    background: var(--lt-bg, #0b0e0a);
+    transition: transform 0.8s cubic-bezier(0.76, 0, 0.24, 1);
+    animation: lime-loader-autohide 0.5s ease 5s forwards;
+}
+.lime-loader.is-done { transform: translateY(-101%); animation: none; }
+.lime-loader__inner { display: flex; flex-direction: column; align-items: center; gap: 18px; }
+.lime-loader__count {
+    font-size: clamp(48px, 9vw, 96px); font-weight: 800; line-height: 1;
+    color: var(--lt-fg, #eef1ea); font-variant-numeric: tabular-nums;
+}
+.lime-loader__count::after { content: "%"; font-size: 0.4em; opacity: 0.5; margin-left: 4px; }
+.lime-loader[data-style="bar"] .lime-loader__count { display: none; }
+.lime-loader__bar { width: min(280px, 60vw); height: 2px; background: color-mix(in srgb, var(--lt-fg, #eef1ea) 15%, transparent); overflow: hidden; }
+.lime-loader__bar i {
+    display: block; height: 100%; transform: scaleX(0); transform-origin: 0 50%;
+    background: linear-gradient(90deg, var(--lt-accent, #84cc16), var(--lt-accent2, #a78bfa));
+}
+@keyframes lime-loader-autohide { to { opacity: 0; visibility: hidden; } }
+@media (prefers-reduced-motion: reduce) { .lime-loader { display: none; } }
+
+/* Шторка перехода между страницами (lime-pages.js): base — под экраном, is-cover — накрыла,
+   is-exit — уехала вверх. Цвета темы. */
+.lime-page-transition {
+    position: fixed; inset: 0; z-index: 10001; pointer-events: none;
+    background: var(--lt-bg, #0b0e0a); border-top: 3px solid var(--lt-accent, #84cc16);
+    transform: translateY(101%);
+    transition: transform 0.4s cubic-bezier(0.76, 0, 0.24, 1);
+}
+.lime-page-transition.is-cover { transform: translateY(0); }
+.lime-page-transition.is-cover.is-exit { transform: translateY(-101%); }
+
+/* Split-типографика: осколки — inline-block (SplitType сам проставляет), строкам — клип,
+   чтобы yPercent-подъезд читался как «выход из-под маски». */
+.lime-split .line { overflow: hidden; }
+.lime-split .word, .lime-split .char { will-change: transform; }
+
+/* Инерционный скролл: рекомендация Lenis — глушим CSS smooth, высоту не фиксируем. */
+html.lenis, html.lenis body { height: auto; }
+.lenis.lenis-smooth { scroll-behavior: auto !important; }
+
+/* WebGL-канвасы (lime-webgl.js): частицы растянуты в слое, дисторт — поверх картинки. */
+.lime-gl-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.lime-block__layer--particles { pointer-events: none; }
+.lime-gl-imgwrap { position: relative; display: block; }
+.lime-gl-imgwrap .lime-gl-canvas { opacity: 0; transition: opacity 0.2s ease; pointer-events: none; }
+/* В редакторе частицы не рендерятся (рантайм не грузится) — лёгкий плейсхолдер, чтобы слой был виден.
+   pointer-events глушим и в редакторе: слой на всю секцию перехватывал бы клики по контенту
+   (общий .lime-block__layer[data-layer-id] включает drag, частицам он не нужен). */
+.lime-editor .lime-block__layer--particles {
+    background: radial-gradient(circle at 30% 40%, color-mix(in srgb, var(--lt-accent, #84cc16) 18%, transparent) 0 2px, transparent 3px) 0 0/56px 56px,
+        radial-gradient(circle at 70% 65%, color-mix(in srgb, var(--lt-accent, #84cc16) 14%, transparent) 0 1.5px, transparent 2.5px) 12px 20px/44px 44px;
+}
+.lime-editor .lime-block__layer--particles[data-layer-id] { pointer-events: none; cursor: default; }
+
 /* Перенос строки для сегментированных чипов с большим числом опций (fx-эффекты). */
 .lime-segmented--wrap { flex-wrap: wrap; }
+
+/* ============================================================
+   Нативный Lottie (медиа-волна): стейдж с aspect-ratio, svg плеера
+   растянут; в редакторе — плашка-подсказка (рантайм не грузится).
+   ============================================================ */
+.lime-block__lottie { position: relative; max-width: 560px; margin: 0 auto; }
+.lime-block__lottie-stage { position: relative; width: 100%; overflow: hidden; }
+.lime-block__lottie-stage svg { display: block; width: 100%; height: 100%; }
+.lime-block__lottie-hint {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    font-size: var(--text-sm); color: var(--fg-muted);
+    background: var(--glass); border: 1px dashed var(--line); border-radius: var(--radius-lg);
+}
+.lime-block__lottie .lime-doc-media-swap { margin-top: 6px; }
+/* Карточка-файл в медиа-пикере (lottie-json — превью-картинки нет). */
+.lime-picker-item--file {
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+    min-height: 90px; border: 1px solid var(--line); border-radius: var(--radius-md); cursor: pointer;
+    background: var(--glass); padding: 10px;
+}
+.lime-picker-item--file:hover { border-color: var(--accent); }
+.lime-picker-item__icon { font-size: 26px; }
+.lime-picker-item__name {
+    font-size: var(--text-xs); color: var(--fg-muted); max-width: 100%;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
 
 /* ============================================================
    Фаза 8 — embed/3D + scrollytelling.

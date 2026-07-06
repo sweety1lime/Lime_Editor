@@ -22,7 +22,7 @@
                 { slot: "logo", label: "Логотип", hint: "SVG/PNG, прозрачный фон" },
                 { slot: "customizer-scene", label: "Сцена кастомайзера", hint: "Embed демо со сменой сцены" }
             ],
-            motionProfile: ["reveal", "horizontal-scene", "parallax-layers"]
+            motionProfile: ["reveal", "horizontal-scene", "parallax-layers", "split-typography", "webgl-particles", "smooth-scroll", "custom-cursor", "preloader"]
         },
         {
             key: "studio-folio",
@@ -34,7 +34,7 @@
                 { slot: "reel-embed", label: "Демо-рил", hint: "YouTube/Vimeo embed URL — короткое видео с примерами работ" },
                 { slot: "logo", label: "Логотип", hint: "SVG/PNG, прозрачный фон, для навбара" }
             ],
-            motionProfile: ["reveal", "marquee-strip", "parallax-layers"]
+            motionProfile: ["reveal", "marquee-strip", "parallax-layers", "split-typography", "webgl-distort", "smooth-scroll", "preloader"]
         }
     ];
 

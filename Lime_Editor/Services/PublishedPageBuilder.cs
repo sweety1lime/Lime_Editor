@@ -69,11 +69,31 @@ namespace Lime_Editor.Services
                 innerHtml.Contains("data-sticky") ||
                 innerHtml.Contains("data-marquee") ||
                 innerHtml.Contains("data-scene"));
+            // Split-типографика (anim="split-*") тянет SplitType ПЕРЕД lime-animate (defer выполняется по порядку).
+            var hasSplit = innerHtml != null && innerHtml.Contains("data-anim=\"split");
             var animScripts = hasMotion
                 ? "<script src=\"/js/vendor/gsap.min.js\" defer></script>\n" +
                   "<script src=\"/js/vendor/ScrollTrigger.min.js\" defer></script>\n" +
+                  (hasSplit ? "<script src=\"/js/vendor/split-type.min.js\" defer></script>\n" : string.Empty) +
                   "<script src=\"/js/lime/lime-animate.js\" defer></script>\n"
                 : string.Empty;
+            // Инерционный скролл (theme.motion.smooth → data-lime-smooth): Lenis до lime-polish,
+            // который его инициализирует (и синхронизирует со ScrollTrigger при его наличии).
+            if (innerHtml != null && innerHtml.Contains("data-lime-smooth"))
+            {
+                animScripts += "<script src=\"/js/vendor/lenis.min.js\" defer></script>\n";
+            }
+            // Курируемые WebGL-эффекты: частицы-слой и/или дисторт картинок.
+            if (innerHtml != null && (innerHtml.Contains("data-gl-particles") || innerHtml.Contains("lime-fx-gl-")))
+            {
+                animScripts += "<script src=\"/js/lime/lime-webgl.js\" defer></script>\n";
+            }
+            // Нативный Lottie (медиа-волна): self-hosted плеер + рантайм режимов (auto/hover/scroll).
+            if (innerHtml != null && innerHtml.Contains("data-lime-lottie"))
+            {
+                animScripts += "<script src=\"/js/vendor/lottie_light.min.js\" defer></script>\n" +
+                               "<script src=\"/js/lime/lime-lottie.js\" defer></script>\n";
+            }
             // Рантайм hash-роутинга — только для многостраничных сайтов (движок B).
             if (innerHtml != null && innerHtml.Contains("data-lime-pages"))
             {
@@ -84,6 +104,23 @@ namespace Lime_Editor.Services
                 innerHtml.Contains("data-lime-lightbox") || innerHtml.Contains("data-lime-countdown") || innerHtml.Contains("data-lime-modal")))
             {
                 animScripts += "<script src=\"/js/lime/lime-interactions.js\" defer></script>\n";
+            }
+            // Прелоадер (theme.motion.loader → data-lime-loader="bar|counter"): оверлей инжектим
+            // СЕРВЕРОМ в начало <body> — инлайн-скрипты запрещены CSP, а вставка из defer-скрипта
+            // мигала бы контентом. Прогресс и снятие ведёт lime-loader.js; без JS шторку прячет CSS.
+            var loaderOverlay = string.Empty;
+            var loaderMatch = innerHtml != null
+                ? System.Text.RegularExpressions.Regex.Match(innerHtml, "data-lime-loader=\"(bar|counter)\"")
+                : System.Text.RegularExpressions.Match.Empty;
+            if (loaderMatch.Success)
+            {
+                animScripts += "<script src=\"/js/lime/lime-loader.js\" defer></script>\n";
+                loaderOverlay =
+                    $"<div class=\"lime-loader\" data-lime-loader-overlay data-style=\"{loaderMatch.Groups[1].Value}\">" +
+                    "<div class=\"lime-loader__inner\">" +
+                    "<div class=\"lime-loader__count\">0</div>" +
+                    "<div class=\"lime-loader__bar\"><i></i></div>" +
+                    "</div></div>\n";
             }
             // Кастомный <head>-код владельца (этап 0.2): meta/link/style после санитайза.
             var customHead = PublishedHtmlSanitizer.SanitizeHead(ExtractDocHead(documentJson));
@@ -106,6 +143,7 @@ namespace Lime_Editor.Services
                    "<script src=\"/js/lime/lime-polish.js\" defer></script>\n" +
                    customHead +
                    "</head>\n<body class=\"lime-published\">\n" +
+                   loaderOverlay +
                    (innerHtml ?? string.Empty) + "\n" +
                    MadeWithBadge +
                    "</body>\n</html>";
