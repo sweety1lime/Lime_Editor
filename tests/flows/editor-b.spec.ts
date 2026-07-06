@@ -1651,9 +1651,14 @@ test.describe("editor-b save/reopen (свежий пользователь)", ()
   // Пустой контейнер показывает подсказку-дропзону
   await expect(page.locator(".lime-doc-drop-hint")).toBeVisible();
 
-  // Сохраняем (новый сайт) → MySites
+  // Кнопка нового сайта «Опубликовать» — одношаговая: сохраняет И публикует → MySites
   await page.locator("[data-doc-save]").click();
   await page.waitForURL(/\/Home\/MySites/);
+
+  // Публикация случилась в один шаг: success-баннер со ссылкой + бейдж «Опубликован» на карточке.
+  await expect(page.locator(".lime-alert--success")).toContainText("опубликован");
+  await expect(page.locator('.lime-alert--success a:has-text("Открыть сайт")')).toBeVisible();
+  await expect(page.locator(".lime-site .lime-badge--success").first()).toContainText("Опубликован");
 
   // У свежего юзера ровно один сайт — наш. Редизайн MySites: ссылка «Движок B»
   // переехала в меню «Ещё» (details.lime-action-menu) карточки.

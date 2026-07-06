@@ -33,6 +33,7 @@ const SCREENS: Screen[] = [
   {
     name: "signup",
     path: "/Home/SignUp",
+    anonymousOnly: true, // залогиненного SignUp теперь уводит на MySites (как SignIn)
     assert: async (p) => {
       await expect(p.locator('input[name="Email"]')).toBeVisible();
     },

@@ -25,6 +25,19 @@
         </div>
     </div>
 
+    @if (TempData["PublishedMessage"] is string pubMessage)
+    {
+        var pubUrl = TempData["PublishedUrl"] as string;
+        <div class="lime-alert lime-alert--success lime-mb-4">
+            @pubMessage
+            @if (!string.IsNullOrEmpty(pubUrl))
+            {
+                <span class="lime-alert__links">
+                    <a href="@pubUrl" target="_blank" rel="noopener">Открыть сайт</a>
+                </span>
+            }
+        </div>
+    }
     @if (TempData["GitHubDeployError"] is string ghError)
     {
         <div class="lime-alert lime-alert--danger lime-mb-4">@ghError</div>

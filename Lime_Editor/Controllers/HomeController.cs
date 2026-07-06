@@ -218,8 +218,45 @@ namespace Lime_Editor.Controllers
             created.Folder = WrapCustomHtml(html, created);
             created.DraftFolder = created.Folder;
             db.Sites.Add(created);
+
+            if (auto)
+            {
+                await db.SaveChangesAsync();
+                return Json(new { version = created.UpdatedAt.Value.Ticks });
+            }
+
+            // Кнопка нового сайта в редакторе называется «Опубликовать» — она обязана публиковать,
+            // а не только сохранять (раньше пользователю приходилось жать «Опубликовать» второй
+            // раз на карточке MySites). Один SaveChanges на создание+публикацию.
+            await PublishCoreAsync(created, userId);
             await db.SaveChangesAsync();
-            return auto ? Json(new { version = created.UpdatedAt.Value.Ticks }) : RedirectToAction(nameof(MySites));
+            TempData["PublishedMessage"] = $"Сайт «{created.Name}» опубликован.";
+            TempData["PublishedUrl"] = $"/u/{User.Identity?.Name}/{created.Slug}";
+            return Json(new { version = created.UpdatedAt.Value.Ticks, publicUrl = TempData.Peek("PublishedUrl") });
+        }
+
+        // Ядро публикации: слаг, снапшот документа (с гейтом кастомного кода по тарифу),
+        // серверная компиляция HTML, флаги. SaveChanges — на вызывающем.
+        private async Task PublishCoreAsync(Site target, int userId)
+        {
+            if (string.IsNullOrEmpty(target.Slug))
+            {
+                target.Slug = await _sites.GenerateUniqueSlugAsync(userId, target.Name);
+            }
+
+            if (!string.IsNullOrEmpty(target.DocumentJson))
+            {
+                var plan = await _entitlements.ResolvePlanAsync(OwnerRef.ForUser(userId));
+                target.PublishedDocumentJson = plan.AllowCustomCode
+                    ? target.DocumentJson
+                    : PublishedPageBuilder.StripCustomCode(target.DocumentJson);
+                var body = _docRenderer.RenderSite(target.PublishedDocumentJson);
+                target.Folder = PublishedPageBuilder.WrapCustomHtml(body, target, target.PublishedDocumentJson);
+            }
+
+            target.IsPublished = true;
+            target.PublishedAt = DateTime.UtcNow;
+            target.ShowInGallery = true;
         }
 
         [Authorize]
@@ -270,24 +307,7 @@ namespace Lime_Editor.Controllers
                 return Forbid();
             }
 
-            if (string.IsNullOrEmpty(target.Slug))
-            {
-                target.Slug = await _sites.GenerateUniqueSlugAsync(userId, target.Name);
-            }
-
-            if (!string.IsNullOrEmpty(target.DocumentJson))
-            {
-                var plan = await _entitlements.ResolvePlanAsync(OwnerRef.ForUser(userId));
-                target.PublishedDocumentJson = plan.AllowCustomCode
-                    ? target.DocumentJson
-                    : PublishedPageBuilder.StripCustomCode(target.DocumentJson);
-                var body = _docRenderer.RenderSite(target.PublishedDocumentJson);
-                target.Folder = PublishedPageBuilder.WrapCustomHtml(body, target, target.PublishedDocumentJson);
-            }
-
-            target.IsPublished = true;
-            target.PublishedAt = DateTime.UtcNow;
-            target.ShowInGallery = true;
+            await PublishCoreAsync(target, userId);
             await db.SaveChangesAsync();
             return RedirectToAction(nameof(MySites));
         }
