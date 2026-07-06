@@ -1,0 +1,82 @@
+@{
+    ViewData["Title"] = "Для AI-агентов";
+}
+
+<section class="lime-container lime-band">
+    <div class="reveal">
+        <div class="lime-eyebrow">MCP API</div>
+        <h1 class="display">Твой AI-агент редактирует твой сайт</h1>
+        <p style="max-width:640px;">
+            Lime говорит на Model Context Protocol. Подключи Claude Code, Claude Desktop или любой
+            MCP-совместимый агент — и правь опубликованные сайты командами из чата, скриптом или
+            пайплайном. Тот же безопасный конвейер команд, что и у встроенного AI: allowlist,
+            валидация структуры, оптимистическая блокировка версий.
+        </p>
+    </div>
+</section>
+
+<section class="lime-container" style="padding:10px 0 24px;">
+    <div class="reveal lime-card lime-card--padded lime-mb-6">
+        <div class="lime-eyebrow">Подключение — 3 шага</div>
+        <ol style="margin:12px 0 0;padding-left:1.2em;line-height:2;">
+            <li>Выпусти персональный токен на странице <a href="/Home/ApiTokens">API-токены</a> (нужен аккаунт Lime).</li>
+            <li>Endpoint: <code class="lime-mono">POST /mcp</code> c заголовком <code class="lime-mono">Authorization: Bearer &lt;токен&gt;</code>.</li>
+            <li>Добавь сервер в своего агента — примеры конфигов ниже.</li>
+        </ol>
+    </div>
+
+    <div class="reveal lime-card lime-card--padded lime-mb-6">
+        <div class="lime-eyebrow">Инструменты</div>
+        <table style="width:100%;border-collapse:collapse;margin-top:12px;font-size:.925rem;">
+            <thead>
+                <tr style="text-align:left;color:var(--muted);">
+                    <th style="padding:6px 16px 6px 0;">Инструмент</th>
+                    <th style="padding:6px 0;">Что делает</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td style="padding:8px 16px 8px 0;"><code class="lime-mono">list_sites</code></td>
+                    <td style="padding:8px 0;">Список твоих сайтов: id, имя, slug, статус публикации.</td>
+                </tr>
+                <tr>
+                    <td style="padding:8px 16px 8px 0;"><code class="lime-mono">get_site_document</code></td>
+                    <td style="padding:8px 0;">JSON-документ сайта + версия (для безопасной обратной записи).</td>
+                </tr>
+                <tr>
+                    <td style="padding:8px 16px 8px 0;"><code class="lime-mono">apply_commands</code></td>
+                    <td style="padding:8px 0;">Применить пачку команд (setContent, setStyle, insertBlock…) — тот же allowlist-конвейер, что у встроенного AI; конфликт версий вернёт ошибку, а не затрёт чужие правки.</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="reveal lime-card lime-card--padded lime-mb-6">
+        <div class="lime-eyebrow">Claude Code</div>
+        <pre class="lime-mono" style="margin:12px 0 0;padding:14px;border-radius:10px;background:var(--ink-2,#0c0f0a);overflow-x:auto;font-size:.85rem;">claude mcp add --transport http lime https://ТВОЙ-ДОМЕН/mcp \
+  --header "Authorization: Bearer lime_xxxxxxxx"</pre>
+    </div>
+
+    <div class="reveal lime-card lime-card--padded lime-mb-6">
+        <div class="lime-eyebrow">Любой MCP-клиент (JSON-конфиг)</div>
+        <pre class="lime-mono" style="margin:12px 0 0;padding:14px;border-radius:10px;background:var(--ink-2,#0c0f0a);overflow-x:auto;font-size:.85rem;">{
+  "mcpServers": {
+    "lime": {
+      "type": "http",
+      "url": "https://ТВОЙ-ДОМЕН/mcp",
+      "headers": { "Authorization": "Bearer lime_xxxxxxxx" }
+    }
+  }
+}</pre>
+    </div>
+
+    <div class="reveal lime-card lime-card--padded">
+        <div class="lime-eyebrow">Безопасность</div>
+        <ul style="margin:12px 0 0;padding-left:1.2em;line-height:1.9;">
+            <li>Токен — только для твоих сайтов: изоляция арендаторов проверяется на каждом вызове.</li>
+            <li>Хранится как SHA-256 хэш; отозвать можно в любой момент на странице токенов.</li>
+            <li>Команды проходят тот же allowlist и валидацию, что и встроенный AI — произвольный HTML/JS агент вставить не может.</li>
+            <li>Троттлинг 30 запросов в минуту на пользователя.</li>
+        </ul>
+    </div>
+</section>

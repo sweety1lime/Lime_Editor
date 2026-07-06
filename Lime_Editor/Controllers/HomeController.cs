@@ -59,6 +59,13 @@ namespace Lime_Editor.Controllers
             return View(templates);
         }
 
+        // Публичный лендинг MCP API (Wave 1 п.5): фича есть, но без страницы о ней никто не узнает.
+        [HttpGet("/agents")]
+        public IActionResult Agents()
+        {
+            return View();
+        }
+
         [Authorize]
         public async Task<IActionResult> MySites()
         {

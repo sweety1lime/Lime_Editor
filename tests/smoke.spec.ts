@@ -23,6 +23,14 @@ const SCREENS: Screen[] = [
     },
   },
   {
+    name: "agents",
+    path: "/agents", // публичный MCP-лендинг — доступен и анониму, и залогиненному
+    assert: async (p) => {
+      await expect(p.locator("h1")).toContainText("AI-агент");
+      await expect(p.locator('a[href="/Home/ApiTokens"]')).toBeVisible();
+    },
+  },
+  {
     name: "signin",
     path: "/Home/SignIn",
     anonymousOnly: true,
