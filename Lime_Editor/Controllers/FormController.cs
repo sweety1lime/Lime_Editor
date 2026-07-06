@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
@@ -27,11 +28,19 @@ namespace Lime_Editor.Controllers
 
         private readonly LimeEditorContext db;
         private readonly UserManager<ApplicationUser> _userManager;
+        private readonly IEmailSender _email;
+        private readonly ILogger<FormController> _logger;
 
-        public FormController(LimeEditorContext context, UserManager<ApplicationUser> userManager)
+        public FormController(
+            LimeEditorContext context,
+            UserManager<ApplicationUser> userManager,
+            IEmailSender email,
+            ILogger<FormController> logger)
         {
             db = context;
             _userManager = userManager;
+            _email = email;
+            _logger = logger;
         }
 
         private int CurrentUserId => int.Parse(_userManager.GetUserId(User));
@@ -57,11 +66,13 @@ namespace Lime_Editor.Controllers
                 return BadRequest();
             }
             // Публичный приём формы: проверяем чужой опубликованный сайт — обходим tenant-фильтр.
-            var siteExists = await db.Sites
+            var site = await db.Sites
                 .AsNoTracking()
                 .IgnoreQueryFilters()
-                .AnyAsync(s => s.IdSite == siteId && s.IsPublished);
-            if (!siteExists)
+                .Where(s => s.IdSite == siteId && s.IsPublished)
+                .Select(s => new { s.Name, s.UserId })
+                .FirstOrDefaultAsync();
+            if (site == null)
             {
                 return NotFound();
             }
@@ -122,7 +133,42 @@ namespace Lime_Editor.Controllers
             });
             await db.SaveChangesAsync();
 
+            await NotifyOwnerAsync(siteId, site.Name, site.UserId, data);
+
             return BackToSite(form, sent: true);
+        }
+
+        // Письмо владельцу о новой заявке. Без SMTP IEmailSender работает в лог-режиме, с ним —
+        // шлёт реально; сбой почты НЕ роняет приём заявки (она уже в инбоксе). Значения полей —
+        // пользовательский ввод с публичной формы, поэтому HTML-энкодим (иначе HTML-инъекция в письмо).
+        private async Task NotifyOwnerAsync(int siteId, string siteName, int ownerId, Dictionary<string, string> data)
+        {
+            try
+            {
+                var ownerEmail = await db.Users.AsNoTracking()
+                    .Where(u => u.Id == ownerId)
+                    .Select(u => u.Email)
+                    .FirstOrDefaultAsync();
+                if (string.IsNullOrWhiteSpace(ownerEmail))
+                {
+                    return;
+                }
+
+                static string Enc(string v) => System.Net.WebUtility.HtmlEncode(v ?? "");
+                var rows = string.Join("", data.Select(kv =>
+                    $"<tr><td style=\"padding:4px 12px 4px 0;color:#666;\">{Enc(kv.Key)}</td><td style=\"padding:4px 0;\">{Enc(kv.Value)}</td></tr>"));
+                var inboxUrl = $"{Request.Scheme}://{Request.Host}/Form/Inbox?siteId={siteId}";
+                var body =
+                    $"<p>Новая заявка на сайте «{Enc(siteName)}»:</p>" +
+                    $"<table style=\"border-collapse:collapse;font-size:14px;\">{rows}</table>" +
+                    $"<p><a href=\"{inboxUrl}\">Открыть входящие заявки</a></p>";
+
+                await _email.SendAsync(ownerEmail, $"Новая заявка — {siteName}", body, HttpContext.RequestAborted);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogWarning(ex, "Не удалось отправить уведомление о заявке для сайта {SiteId}", siteId);
+            }
         }
 
         // Возврат посетителя обратно на страницу сайта (по Referer). Если Referer нет —
