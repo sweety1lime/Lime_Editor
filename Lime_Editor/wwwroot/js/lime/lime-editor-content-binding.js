@@ -151,6 +151,26 @@
                     '<label class="lime-v2-field"><span>Дата окончания</span><input type="datetime-local" class="lime-input" data-doc-cd-target value="' + escapeText(cdTarget) + '"></label>' +
                     '<div class="lime-inspector__hint" style="margin-top:6px;">Таймер обнулится в эту дату. Подпись правится прямо в блоке.</div>');
             }
+            // Нативный Lottie (медиа-волна): режим/цикл/скорость. Сам JSON выбирается в блоке
+            // (плейсхолдер/«Заменить JSON» открывают медиатеку с фильтром .json).
+            if (t.type === "lottie") {
+                var lc = t.content || {};
+                var lmode = lc.mode === "hover" || lc.mode === "scroll" ? lc.mode : "auto";
+                var lloop = (lc.loop === false || lc.loop === "0") ? "0" : "1";
+                var lspeed = parseFloat(lc.speed);
+                if (isNaN(lspeed)) lspeed = 1;
+                var lBtn = function (attr, val, cur, label) {
+                    return '<button type="button" class="' + (String(cur) === String(val) ? "is-active" : "") + '" data-doc-lottie="' + attr + '" data-val="' + val + '">' + label + "</button>";
+                };
+                return slotHtml + sec("Lottie",
+                    '<div class="lime-inspector__hint" style="margin:2px 0;">Режим</div>' +
+                    '<div class="lime-segmented">' + lBtn("mode", "auto", lmode, "Авто") + lBtn("mode", "hover", lmode, "Ховер") + lBtn("mode", "scroll", lmode, "Скролл") + "</div>" +
+                    '<div class="lime-inspector__hint" style="margin:8px 0 2px;">Цикл</div>' +
+                    '<div class="lime-segmented">' + lBtn("loop", "1", lloop, "Да") + lBtn("loop", "0", lloop, "Нет") + "</div>" +
+                    '<div class="lime-inspector__hint" style="margin:8px 0 2px;">Скорость</div>' +
+                    '<div class="lime-segmented">' + [0.5, 1, 1.5, 2].map(function (s) { return lBtn("speed", s, lspeed, "×" + s); }).join("") + "</div>" +
+                    '<div class="lime-inspector__hint" style="margin-top:6px;">Играет на опубликованной странице. «Скролл» листает кадры по прогрессу секции.</div>');
+            }
             if (t.type !== "form" && t.type !== "collectionList") return slotHtml;
             var colSelect = '<select class="lime-select" data-doc-collection style="width:100%;"><option value="">— нет —</option></select>';
             if (t.type === "form") {

@@ -43,9 +43,10 @@
             return sec ? byId(sec.getAttribute("data-block-id")) : null;
         }
 
-        function openMediaPicker(blockId, field, target) {
+        function openMediaPicker(blockId, field, target, kind) {
             if (!mediaPicker || !mediaPicker.open) return;
-            mediaPicker.open({ blockId: blockId, field: field, target: target || "content" });
+            // kind: "image" (дефолт) | "lottie" — фильтр медиатеки в пикере (медиа-волна).
+            mediaPicker.open({ blockId: blockId, field: field, target: target || "content", kind: kind || "image" });
         }
 
         function applyPickedMedia(pickCtx, url) {
@@ -196,7 +197,7 @@
                 }
                 if ((el = e.target.closest("[data-doc-pick]"))) {
                     var b3 = blockOf(el);
-                    if (b3) openMediaPicker(b3.id, el.getAttribute("data-doc-pick"));
+                    if (b3) openMediaPicker(b3.id, el.getAttribute("data-doc-pick"), null, el.getAttribute("data-doc-pick-kind"));
                     return;
                 }
                 if ((el = e.target.closest("[data-doc-video]"))) {

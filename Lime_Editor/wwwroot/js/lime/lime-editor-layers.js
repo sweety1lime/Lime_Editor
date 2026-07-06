@@ -11,7 +11,7 @@
         heading: "Заголовок", text: "Текст", cover: "Обложка", cta: "Призыв", buttonGroup: "Кнопки",
         stats: "Цифры", features: "Фичи", navbar: "Навбар", footer: "Подвал", accordion: "FAQ",
         pricing: "Тарифы", testimonials: "Отзывы", logos: "Логотипы", steps: "Шаги", imageText: "Картинка+текст",
-        socials: "Соцсети", form: "Форма", image: "Картинка", gallery: "Галерея", video: "Видео", embed: "Embed",
+        socials: "Соцсети", form: "Форма", image: "Картинка", gallery: "Галерея", video: "Видео", embed: "Embed", lottie: "Lottie",
         tabs: "Вкладки", carousel: "Слайдер", lightbox: "Лайтбокс", countdown: "Отсчёт", modal: "Окно",
         collectionList: "Список", container: "Контейнер", columns: "Колонки", group: "Group", divider: "Разделитель", spacer: "Отступ"
     };

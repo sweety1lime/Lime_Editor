@@ -21,8 +21,8 @@
     <form asp-action="Upload" method="post" enctype="multipart/form-data" class="lime-uploader" id="media-uploader">
         <div style="font-size: 32px; margin-bottom: var(--space-2);">📤</div>
         <div style="font-size: var(--text-lg); font-weight: 600; margin-bottom: var(--space-2);">Перетащи или выбери файл</div>
-        <p class="lime-uploader__hint">jpg, png, gif, webp · до 5 МБ · автоматическое сжатие до 1920px</p>
-        <input type="file" name="file" id="media-file" accept=".jpg,.jpeg,.png,.gif,.webp" required style="display:none;">
+        <p class="lime-uploader__hint">jpg, png, gif, webp, svg, woff2/woff (шрифты), json (Lottie) · до 5 МБ · картинки сжимаются до 1920px</p>
+        <input type="file" name="file" id="media-file" accept=".jpg,.jpeg,.png,.gif,.webp,.svg,.woff2,.woff,.json" required style="display:none;">
         <div class="lime-flex lime-gap-2 lime-justify-center">
             <label for="media-file" class="lime-btn lime-btn--primary" style="cursor:pointer;">Выбрать файл</label>
             <button type="submit" class="lime-btn lime-btn--ghost" id="media-submit" disabled>Загрузить</button>
@@ -44,9 +44,20 @@
             @foreach (var m in Model)
             {
                 var url = MediaStorage.PublicUrl(userId, m.StoredFileName);
+                var isImage = m.ContentType != null && m.ContentType.StartsWith("image/");
+                var typeIcon = m.ContentType != null && m.ContentType.StartsWith("font/") ? "🔤"
+                    : m.ContentType == "application/json" ? "🎞️" : "📄";
                 <div class="lime-media-card">
                     <a href="@url" target="_blank" rel="noopener">
-                        <img class="lime-media-card__img" src="@url" alt="@m.OriginalName" loading="lazy">
+                        @if (isImage)
+                        {
+                            <img class="lime-media-card__img" src="@url" alt="@m.OriginalName" loading="lazy">
+                        }
+                        else
+                        {
+                            @* Шрифты/Lottie-JSON: превью-картинки нет — типовая плашка. *@
+                            <div class="lime-media-card__img" style="display:flex;align-items:center;justify-content:center;font-size:40px;background:var(--glass);">@typeIcon</div>
+                        }
                     </a>
                     <div class="lime-media-card__body">
                         <div class="lime-media-card__name" title="@m.OriginalName">@m.OriginalName</div>

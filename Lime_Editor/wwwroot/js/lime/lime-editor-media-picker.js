@@ -38,6 +38,15 @@
             pickCtx = null;
         }
 
+        // Фильтр медиатеки по контексту выбора (медиа-волна): image-контексты показывают
+        // картинки (включая SVG), lottie-контекст — только .json (карточкой, превью-img нет).
+        // Шрифты в пикере не показываются никогда (их место — модалка темы).
+        function matchesKind(it, kind) {
+            var ct = String(it.contentType || "");
+            if (kind === "lottie") return ct === "application/json";
+            return ct.indexOf("image/") === 0;
+        }
+
         function loadMediaList() {
             var grid = gridEl();
             if (!grid) return;
@@ -45,17 +54,25 @@
                 grid.innerHTML = '<div class="lime-picker-empty">Ошибка загрузки.</div>';
                 return;
             }
+            var kind = (pickCtx && pickCtx.kind) || "image";
             grid.innerHTML = '<div class="lime-text-muted">Загрузка...</div>';
             fetchImpl("/Media/ApiList", { credentials: "same-origin" })
                 .then(function (r) { return r.json(); })
                 .then(function (items) {
-                    if (!items || items.length === 0) {
-                        grid.innerHTML = '<div class="lime-picker-empty">Пусто. Загрузи изображения в <a href="/Media/Index" target="_blank" class="lime-text-accent">Медиа</a>.</div>';
+                    items = (items || []).filter(function (it) { return matchesKind(it, kind); });
+                    if (items.length === 0) {
+                        grid.innerHTML = '<div class="lime-picker-empty">' +
+                            (kind === "lottie" ? "Нет Lottie-анимаций. Загрузи .json" : "Пусто. Загрузи изображения") +
+                            ' в <a href="/Media/Index" target="_blank" class="lime-text-accent">Медиа</a>.</div>';
                         return;
                     }
                     grid.innerHTML = items.map(function (it) {
                         var url = attr(it.url);
                         var name = attr(it.name || "");
+                        if (kind === "lottie") {
+                            return '<div class="lime-picker-item lime-picker-item--file" data-url="' + url + '" title="' + name + '">' +
+                                '<span class="lime-picker-item__icon">🎞️</span><span class="lime-picker-item__name">' + name + '</span></div>';
+                        }
                         return '<div class="lime-picker-item" data-url="' + url + '" title="' + name + '">' +
                             '<img src="' + url + '" alt="' + name + '" loading="lazy">' +
                             '</div>';
@@ -156,11 +173,15 @@
             pickCtx = {
                 blockId: ctx.blockId,
                 field: ctx.field,
-                target: ctx.target || "content"
+                target: ctx.target || "content",
+                kind: ctx.kind || "image"
             };
             var modal = byId("lime-media-modal");
             if (!modal) return;
             modal.classList.add("is-open");
+            // accept аплоада под контекст: картинки+svg или lottie-json.
+            var upload = byId("lime-media-upload");
+            if (upload) upload.setAttribute("accept", pickCtx.kind === "lottie" ? ".json" : ".jpg,.jpeg,.png,.gif,.webp,.svg");
             resetMediaTabs();
             loadMediaList();
             wireMediaUpload();

@@ -146,79 +146,178 @@ namespace Lime_Editor.Controllers
         [EnableRateLimiting("upload")]
         public async Task<IActionResult> Upload(IFormFile file)
         {
+            var (error, _) = await UploadCoreAsync(file);
+            if (error != null)
+            {
+                TempData["Error"] = error;
+            }
+            return RedirectToAction(nameof(Index));
+        }
+
+        // JSON-вариант того же аплоада — для XHR из конструктора (кастомные шрифты в модалке
+        // темы, Lottie-JSON из инспектора). Общая логика — UploadCoreAsync, ответ { ok, url, ... }.
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [RequestSizeLimit(MediaUploadSecurity.MaxUploadRequestBytes)]
+        [EnableRateLimiting("upload")]
+        [Produces("application/json")]
+        public async Task<IActionResult> ApiUpload(IFormFile file)
+        {
+            var (error, asset) = await UploadCoreAsync(file);
+            if (error != null)
+            {
+                return BadRequest(new { ok = false, error });
+            }
+            return Json(new
+            {
+                ok = true,
+                id = asset.Id,
+                url = _storage.PublicUrl(asset.UserId, asset.StoredFileName),
+                name = asset.OriginalName,
+                contentType = asset.ContentType,
+                sizeBytes = asset.SizeBytes,
+            });
+        }
+
+        // Единый пайплайн аплоада: гейты (размер/расширение/MIME/тариф) → ветка по виду файла
+        // (картинка → ImageSharp; SVG → санитайзер; шрифт/Lottie → структурная проверка,
+        // сохранение как есть) → хранилище + запись MediaAsset. Возвращает (error, asset).
+        private async Task<(string error, MediaAsset asset)> UploadCoreAsync(IFormFile file)
+        {
             if (file == null || file.Length == 0)
             {
-                TempData["Error"] = "Файл не выбран.";
-                return RedirectToAction(nameof(Index));
+                return ("Файл не выбран.", null);
             }
 
             // Размер + MIME + расширение — три уровня проверки.
             if (file.Length > MaxBytes)
             {
-                TempData["Error"] = $"Файл больше {MaxBytes / 1024 / 1024} МБ.";
-                return RedirectToAction(nameof(Index));
+                return ($"Файл больше {MaxBytes / 1024 / 1024} МБ.", null);
             }
             var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
-            if (!AllowedExtensions.Contains(ext))
+            var kind = MediaUploadSecurity.Classify(ext);
+            if (kind == null)
             {
-                TempData["Error"] = "Допустимы только " + string.Join(", ", AllowedExtensions);
-                return RedirectToAction(nameof(Index));
+                return ("Допустимы только " + string.Join(", ", AllowedExtensions), null);
             }
             if (!MediaUploadSecurity.IsAllowedContentType(ext, file.ContentType))
             {
-                TempData["Error"] = "Файл должен быть изображением.";
-                return RedirectToAction(nameof(Index));
+                return ("Тип файла не совпадает с расширением.", null);
             }
 
             // Лимит хранилища по тарифу (этап 3.4). file.Length — верхняя оценка (после сжатия меньше).
             if (!await _entitlements.CanUploadAsync(OwnerRef.ForUser(CurrentUserId), file.Length))
             {
-                TempData["Error"] = "Достигнут лимит хранилища по вашему тарифу.";
-                return RedirectToAction(nameof(Index));
+                return ("Достигнут лимит хранилища по вашему тарифу.", null);
             }
 
-            // Сжимаем сервером: ресайз до 1920px, JPEG q82 (либо сохраняем PNG/WebP/GIF в их формате).
-            // В буфер сначала, потом через процессор, потом на диск — иначе нельзя гарантировать
-            // что Content-Length формы соответствует реальному файлу.
-            ProcessedImage processed;
-            try
+            await using var memory = new MemoryStream();
+            await file.CopyToAsync(memory);
+            var uploadedBytes = memory.ToArray();
+
+            byte[] finalBytes;
+            string finalExtension;
+            string finalContentType;
+
+            switch (kind.Value)
             {
-                await using var memory = new MemoryStream();
-                await file.CopyToAsync(memory);
-                var uploadedBytes = memory.ToArray();
-                var signatureLength = Math.Min(uploadedBytes.Length, MediaUploadSecurity.SignatureLength);
-                if (!MediaUploadSecurity.HasAllowedSignature(ext, uploadedBytes.AsSpan(0, signatureLength)))
+                case MediaKind.Image:
                 {
-                    TempData["Error"] = "Формат файла не совпадает с расширением.";
-                    return RedirectToAction(nameof(Index));
+                    var signatureLength = Math.Min(uploadedBytes.Length, MediaUploadSecurity.SignatureLength);
+                    if (!MediaUploadSecurity.HasAllowedSignature(ext, uploadedBytes.AsSpan(0, signatureLength)))
+                    {
+                        return ("Формат файла не совпадает с расширением.", null);
+                    }
+                    // Сжимаем сервером: ресайз до 1920px, JPEG q82 (либо сохраняем PNG/WebP/GIF в их формате).
+                    ProcessedImage processed;
+                    try
+                    {
+                        using var imageInput = new MemoryStream(uploadedBytes, writable: false);
+                        processed = await _imageProcessor.ProcessAsync(imageInput, ext);
+                    }
+                    catch (Exception ex) when (ex is InvalidDataException || ex is UnknownImageFormatException || ex is ImageFormatException)
+                    {
+                        return ("Не удалось обработать изображение: " + ex.Message, null);
+                    }
+                    finalBytes = processed.Bytes;
+                    finalExtension = processed.Extension;
+                    finalContentType = processed.ContentType;
+                    break;
                 }
-
-                using var imageInput = new MemoryStream(uploadedBytes, writable: false);
-                processed = await _imageProcessor.ProcessAsync(imageInput, ext);
-            }
-            catch (Exception ex) when (ex is InvalidDataException || ex is UnknownImageFormatException || ex is ImageFormatException)
-            {
-                TempData["Error"] = "Не удалось обработать изображение: " + ex.Message;
-                return RedirectToAction(nameof(Index));
+                case MediaKind.Svg:
+                {
+                    if (!MediaUploadSecurity.LooksLikeSvg(uploadedBytes))
+                    {
+                        return ("Файл не похож на SVG.", null);
+                    }
+                    // Санитайзер: XML-парс без DTD + вычистка скриптоспособного (см. SvgSanitizer).
+                    var sanitized = SvgSanitizer.Sanitize(System.Text.Encoding.UTF8.GetString(uploadedBytes));
+                    if (sanitized == null)
+                    {
+                        return ("SVG не удалось разобрать (битый XML?).", null);
+                    }
+                    finalBytes = System.Text.Encoding.UTF8.GetBytes(sanitized);
+                    finalExtension = ".svg";
+                    finalContentType = "image/svg+xml";
+                    break;
+                }
+                case MediaKind.Font:
+                {
+                    var signatureLength = Math.Min(uploadedBytes.Length, MediaUploadSecurity.SignatureLength);
+                    if (!MediaUploadSecurity.HasAllowedSignature(ext, uploadedBytes.AsSpan(0, signatureLength)))
+                    {
+                        return ("Файл не похож на WOFF/WOFF2-шрифт.", null);
+                    }
+                    finalBytes = uploadedBytes;
+                    finalExtension = ext;
+                    finalContentType = ext == ".woff2" ? "font/woff2" : "font/woff";
+                    break;
+                }
+                case MediaKind.LottieJson:
+                default:
+                {
+                    if (!MediaUploadSecurity.LooksLikeJson(uploadedBytes))
+                    {
+                        return ("Файл не похож на JSON.", null);
+                    }
+                    // Честный парс + признаки Lottie (версия и слои) — чтобы /media не превращался
+                    // в хостинг произвольных JSON.
+                    try
+                    {
+                        var json = Newtonsoft.Json.Linq.JObject.Parse(System.Text.Encoding.UTF8.GetString(uploadedBytes));
+                        if (json["v"] == null || json["layers"] is not Newtonsoft.Json.Linq.JArray)
+                        {
+                            return ("JSON не похож на Lottie-анимацию (нет v/layers).", null);
+                        }
+                    }
+                    catch (Newtonsoft.Json.JsonException)
+                    {
+                        return ("JSON не удалось разобрать.", null);
+                    }
+                    finalBytes = uploadedBytes;
+                    finalExtension = ".json";
+                    finalContentType = "application/json";
+                    break;
+                }
             }
 
             var userId = CurrentUserId;
-            // Имя в хранилище — Guid + расширение от процессора (может отличаться от исходного, напр. .jpeg → .jpg).
-            var storedName = Guid.NewGuid().ToString("N") + processed.Extension;
-            await _storage.SaveAsync(userId, storedName, processed.Bytes);
+            // Имя в хранилище — Guid + расширение (у картинок может отличаться от исходного, напр. .jpeg → .jpg).
+            var storedName = Guid.NewGuid().ToString("N") + finalExtension;
+            await _storage.SaveAsync(userId, storedName, finalBytes);
 
-            db.MediaAssets.Add(new MediaAsset
+            var asset = new MediaAsset
             {
                 UserId = userId,
                 OriginalName = Path.GetFileName(file.FileName),
                 StoredFileName = storedName,
-                ContentType = processed.ContentType,
-                SizeBytes = processed.Bytes.LongLength,
+                ContentType = finalContentType,
+                SizeBytes = finalBytes.LongLength,
                 UploadedAt = DateTime.UtcNow,
-            });
+            };
+            db.MediaAssets.Add(asset);
             await db.SaveChangesAsync();
-
-            return RedirectToAction(nameof(Index));
+            return (null, asset);
         }
 
 

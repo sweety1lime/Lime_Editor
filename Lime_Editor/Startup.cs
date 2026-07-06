@@ -341,6 +341,13 @@ namespace Lime_Editor
                     if (ctx.Context.Request.Path.StartsWithSegments("/" + MediaController.MediaFolder))
                     {
                         ctx.Context.Response.Headers["Cache-Control"] = "public, max-age=31536000, immutable";
+                        // Пользовательский SVG — XML-документ: при прямом открытии по URL мог бы
+                        // исполнить скрипт на нашем origin. Первый эшелон — SvgSanitizer на аплоаде,
+                        // этот CSP — второй (defence in depth даже для файлов, попавших в обход).
+                        if (ctx.File.Name.EndsWith(".svg", StringComparison.OrdinalIgnoreCase))
+                        {
+                            ctx.Context.Response.Headers["Content-Security-Policy"] = "script-src 'none'; object-src 'none'";
+                        }
                     }
                 }
             });
