@@ -1601,7 +1601,28 @@ test("editor-v2 rollout: new editor is default, ?classic=1 falls back (@flow)", 
   await expect(page.locator(".lime-editor__canvas.is-v2-viewport")).toHaveCount(0);
 });
 
-test("editor-b: blocks + container nesting + undo + save/reopen (@flow)", async ({ page }) => {
+// Save/reopen создаёт НОВЫЙ сайт: шаред-юзер спека давно упёрся в лимит Free-тарифа
+// (MaxSites=3), из-за чего сейв не создавал сайт. Тест идёт под свежим уникальным юзером.
+test.describe("editor-b save/reopen (свежий пользователь)", () => {
+  test.use({ storageState: { cookies: [], origins: [] } });
+
+  test("editor-b: blocks + container nesting + undo + save/reopen (@flow)", async ({ page }) => {
+  const id = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+  const user = `savereopen_${id}`.slice(0, 32);
+  await page.goto("/Home/SignUp", { waitUntil: "domcontentloaded" });
+  await page.fill('input[name="Email"]', `${user}@test.local`);
+  await page.fill('input[name="Login"]', user);
+  await page.fill('input[name="Password"]', "PlaywrightSave1!");
+  await page.fill("#signup-confirm", "PlaywrightSave1!");
+  await page.locator('button[type="submit"]').click();
+  await page.waitForURL(/\/Home\/(MySites|SignIn)/);
+  if (/SignIn/.test(page.url())) {
+    await page.fill('input[name="Login"]', user);
+    await page.fill('input[name="Password"]', "PlaywrightSave1!");
+    await page.locator('button[type="submit"]').click();
+    await page.waitForURL(/\/Home\/MySites/);
+  }
+
   await page.goto("/Home/EditDoc?classic=1");
   await expect(page.locator("#lime-doc-workspace")).toBeVisible();
   await expect(page.locator(".lime-workspace__placeholder")).toBeVisible();
@@ -1634,13 +1655,17 @@ test("editor-b: blocks + container nesting + undo + save/reopen (@flow)", async 
   await page.locator("[data-doc-save]").click();
   await page.waitForURL(/\/Home\/MySites/);
 
-  // Последняя карточка — наш сайт движка B, открываем через «✦ Движок B»
-  const lastCard = page.locator(".lime-site-card").last();
-  await lastCard.locator('a:has-text("Движок B")').click();
+  // У свежего юзера ровно один сайт — наш. Редизайн MySites: ссылка «Движок B»
+  // переехала в меню «Ещё» (details.lime-action-menu) карточки.
+  const card = page.locator(".lime-site:not(.lime-site--new)");
+  await expect(card).toHaveCount(1);
+  await card.locator(".lime-action-menu summary").click();
+  await card.locator('.lime-action-menu__item:has-text("Движок B")').click();
   await page.waitForURL(/\/Home\/EditDoc\?siteId=/);
 
   // Блоки на месте после переоткрытия
   await expect(page.locator(topBlocks)).toHaveCount(3);
+  });
 });
 
 test("editor-b: breakpoint switcher changes preview device (@flow)", async ({ page }) => {
@@ -1704,10 +1729,16 @@ test("editor-b: AI modal opens and reports quota/config status (@flow)", async (
 
 test("editor-b: media block shows picker placeholder (@flow)", async ({ page }) => {
   await page.goto("/Home/EditDoc?classic=1");
+  // Тайл «Картинка» лежит в свёрнутой группе палитры — раскрываем (как в тесте 1.2 ниже).
+  await page.evaluate(() => document.querySelectorAll(".lime-tile-group").forEach((d: any) => { d.open = true; }));
   await page.locator('[data-doc-add="image"]').click();
-  // Пустой image-блок рендерит кликабельный плейсхолдер выбора изображения
-  await expect(page.locator("[data-doc-pick]")).toBeVisible();
-  await page.locator("[data-doc-pick]").click();
+  // Пустой image-блок рендерит кликабельный плейсхолдер выбора изображения.
+  // scrollIntoView Playwright-а ставит цель под sticky-топбар — приподнимаем страницу.
+  const pick = page.locator("[data-doc-pick]");
+  await expect(pick).toBeVisible();
+  await pick.scrollIntoViewIfNeeded();
+  await page.evaluate(() => window.scrollBy(0, -120));
+  await pick.click();
   // Открылась медиа-модалка (та же, что в legacy: /Media/ApiList)
   await expect(page.locator("#lime-media-modal")).toHaveClass(/is-open/);
   await page.locator("[data-lime-modal-close]").click();

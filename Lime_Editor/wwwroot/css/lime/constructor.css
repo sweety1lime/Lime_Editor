@@ -1,5 +1,11 @@
 /* Конструктор. Полноэкранный редактор: top bar + left sidebar + workspace. */
 
+/* Топбар — sticky (56px) поверх страничного скролла: без scroll-padding браузерный
+   scrollIntoView (клавиатурная навигация, якоря, автотесты) прячет цель под баром. */
+html {
+    scroll-padding-top: 72px;
+}
+
 .lime-editor {
     min-height: 100vh;
     display: grid;

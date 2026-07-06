@@ -80,6 +80,10 @@
                     savedSeq = editSeq;
                     clearDraft();
                     win.location.href = "/Home/MySites";
+                } else if (xhr.status === 403 && /site_limit/.test(xhr.responseText || "")) {
+                    // Лимит сайтов тарифа: сервер сайт НЕ создал. Драфт не трогаем.
+                    setStatus("Лимит сайтов тарифа", "lime-text-danger");
+                    if (win.alert) win.alert("Достигнут лимит сайтов текущего тарифа - сайт не сохранён на сервере.\nЧерновик остался в этой вкладке. Удали ненужный сайт в «Мои сайты» или загляни в «Тарифы».");
                 } else {
                     setStatus("Не удалось сохранить", "lime-text-danger");
                     if (win.alert) win.alert("Не удалось сохранить (код " + xhr.status + "). Изменения сохранены локально в этой вкладке - проверь подключение и попробуй ещё раз.");

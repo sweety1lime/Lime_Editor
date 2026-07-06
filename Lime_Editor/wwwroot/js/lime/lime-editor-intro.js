@@ -34,6 +34,12 @@
             if (introEl) introEl.classList.remove("is-on");
         }
 
+        // Документ перестал быть пустым мимо intro (палитра/DnD/командная палитра/шаблон) —
+        // оверлей обязан уйти сам, иначе холст с новым блоком остаётся накрыт.
+        function maybeHide() {
+            if (introEl && introEl.classList.contains("is-on") && totalBlocks() > 0) hide();
+        }
+
         if (introEl) {
             var introPrompt = doc.getElementById("lime-doc-intro-prompt");
             var introMsg = doc.getElementById("lime-doc-intro-msg");
@@ -88,7 +94,7 @@
             }
         }
 
-        return { hide: hide, dismiss: dismiss };
+        return { hide: hide, dismiss: dismiss, maybeHide: maybeHide };
     }
 
     return { create: create };

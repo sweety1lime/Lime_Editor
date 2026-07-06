@@ -525,13 +525,21 @@
         perfNow: perfNow,
         perfRec: perfRec
     });
-    function render() { renderPipeline.render(); }
+    function render() {
+        renderPipeline.render();
+        // Первый блок мог появиться мимо intro-оверлея (палитра/DnD/команды) — гасим его.
+        if (intro && intro.maybeHide) intro.maybeHide();
+    }
     function scheduleLayersRefresh() { renderPipeline.scheduleLayersRefresh(); }
     function patchBlockDom(id, opts) { return renderPipeline.patchBlockDom(id, opts); }
     function insertBlockDom(block, parentId, index, opts) { return renderPipeline.insertBlockDom(block, parentId, index, opts); }
     function removeBlockDom(id) { return renderPipeline.removeBlockDom(id); }
     function removeBlocksDom(ids) { return renderPipeline.removeBlocksDom(ids); }
-    function finishInsert(block, parentId, index, commandApplied) { renderPipeline.finishInsert(block, parentId, index, commandApplied); }
+    function finishInsert(block, parentId, index, commandApplied) {
+        renderPipeline.finishInsert(block, parentId, index, commandApplied);
+        // Инкрементальная вставка (Stage 7) минует полный render() — intro гасим и здесь.
+        if (intro && intro.maybeHide) intro.maybeHide();
+    }
     function finishRemove(id, commandApplied) { renderPipeline.finishRemove(id, commandApplied); }
     function finishMove(id, parentId, index, commandApplied) { renderPipeline.finishMove(id, parentId, index, commandApplied); }
     function applyPreviewStyles() { renderPipeline.applyPreviewStyles(); }

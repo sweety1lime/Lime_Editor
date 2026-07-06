@@ -195,7 +195,10 @@ namespace Lime_Editor.Controllers
 
             if (!await _entitlements.CanCreateSiteAsync(OwnerRef.ForUser(userId)))
             {
-                return auto ? StatusCode(403, new { error = "site_limit" }) : RedirectToAction("Index", "Billing");
+                // Интерактивный save приходит тем же XHR, что и автосейв. Прежний RedirectToAction
+                // на Billing после follow превращался у клиента в 200 → «успех»: драфт стирался,
+                // документ молча терялся. Отдаём 403 всегда — клиент показывает честную ошибку.
+                return StatusCode(403, new { error = "site_limit" });
             }
 
             var name = "Новый сайт";
