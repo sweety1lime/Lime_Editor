@@ -19,19 +19,22 @@ namespace Lime_Editor.Controllers
         private readonly IDocumentRenderer _docRenderer;
         private readonly IEntitlementService _entitlements;
         private readonly ISiteService _sites;
+        private readonly SitePreviewQueue _previews;
 
         public HomeController(
             LimeEditorContext context,
             UserManager<ApplicationUser> userManager,
             IDocumentRenderer docRenderer,
             IEntitlementService entitlements,
-            ISiteService sites)
+            ISiteService sites,
+            SitePreviewQueue previews)
         {
             db = context;
             _userManager = userManager;
             _docRenderer = docRenderer;
             _entitlements = entitlements;
             _sites = sites;
+            _previews = previews;
         }
 
         private int CurrentUserId => int.Parse(_userManager.GetUserId(User));
@@ -232,6 +235,7 @@ namespace Lime_Editor.Controllers
             // раз на карточке MySites). Один SaveChanges на создание+публикацию.
             await PublishCoreAsync(created, userId);
             await db.SaveChangesAsync();
+            _previews.Enqueue(created.IdSite ?? 0); // скриншот-превью — фоном, публикация не ждёт
             TempData["PublishedMessage"] = $"Сайт «{created.Name}» опубликован.";
             TempData["PublishedUrl"] = $"/u/{User.Identity?.Name}/{created.Slug}";
             return Json(new { version = created.UpdatedAt.Value.Ticks, publicUrl = TempData.Peek("PublishedUrl") });
@@ -311,6 +315,7 @@ namespace Lime_Editor.Controllers
 
             await PublishCoreAsync(target, userId);
             await db.SaveChangesAsync();
+            _previews.Enqueue(idSite); // скриншот-превью — фоном
             return RedirectToAction(nameof(MySites));
         }
 

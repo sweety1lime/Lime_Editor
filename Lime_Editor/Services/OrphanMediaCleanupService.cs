@@ -93,6 +93,11 @@ namespace Lime_Editor.Services
             foreach (var userDir in Directory.EnumerateDirectories(mediaRoot))
             {
                 var userId = Path.GetFileName(userDir);
+                // Резервная папка авто-превью публикаций — не user-медиа, записей в MediaAssets нет.
+                if (string.Equals(userId, SitePreviewService.PreviewsFolder, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
                 foreach (var file in Directory.EnumerateFiles(userDir))
                 {
                     ct.ThrowIfCancellationRequested();

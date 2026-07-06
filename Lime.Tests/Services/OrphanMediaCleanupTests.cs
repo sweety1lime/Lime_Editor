@@ -44,6 +44,24 @@ namespace Lime.Tests.Services
         }
 
         [Fact]
+        public async Task Cleanup_SkipsPreviewsFolder()
+        {
+            // Авто-превью публикаций живут в /media/previews без записей в MediaAssets —
+            // чистильщик обязан обходить папку стороной, иначе снёс бы все превью через час.
+            var previewsDir = Path.Combine(_mediaRoot, SitePreviewService.PreviewsFolder);
+            Directory.CreateDirectory(previewsDir);
+            var file = Path.Combine(previewsDir, "42.png");
+            File.WriteAllText(file, "png");
+            File.SetLastWriteTimeUtc(file, DateTime.UtcNow.AddDays(-30));
+            using var db = NewDb();
+
+            var deleted = await OrphanMediaCleanupService.CleanupAsync(db, _mediaRoot, TimeSpan.FromHours(1));
+
+            Assert.Equal(0, deleted);
+            Assert.True(File.Exists(file));
+        }
+
+        [Fact]
         public async Task Cleanup_DeletesOrphanFile_OlderThanMinAge()
         {
             CreateUserFile(1, "orphan.jpg", DateTime.UtcNow.AddHours(-2));

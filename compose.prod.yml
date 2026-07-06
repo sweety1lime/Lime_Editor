@@ -55,6 +55,11 @@ services:
       # Бета-режим: Free получает лимиты Pro (экспорт/GitHub-деплой/кастом-код/AI-квота).
       # Выключить при разморозке биллинга (M3). Платные подписки флаг не трогает.
       Entitlements__BetaUnlockPro: ${BETA_UNLOCK_PRO:-true}
+      # Скриншот-превью публикаций (карточки + og:image). Текущий образ БЕЗ Chromium —
+      # рендер самовыключится с warning в логе; выставь true только после добавления
+      # Chromium в образ (playwright install --with-deps chromium, ~+400МБ).
+      Preview__Enabled: ${PREVIEW_ENABLED:-false}
+      Preview__BaseUrl: http://localhost:8080
     expose:
       - "8080"
     volumes:

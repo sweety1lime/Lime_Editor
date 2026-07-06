@@ -86,7 +86,8 @@
     <div class="lime-sites" style="padding-bottom:80px;">
         @foreach (var site in sites)
         {
-            var previewSrc = site.TemplateInfo?.FolderPreview;
+            @* Скриншот-превью публикации (OgImage) в приоритете; для шаблонных сайтов — обложка шаблона. *@
+            var previewSrc = !string.IsNullOrEmpty(site.OgImage) ? site.OgImage : site.TemplateInfo?.FolderPreview;
             var jsonEdit = Newtonsoft.Json.JsonConvert.SerializeObject(site);
             var unreadLeads = (leadCounts != null && site.IdSite.HasValue && leadCounts.ContainsKey(site.IdSite.Value))
                 ? leadCounts[site.IdSite.Value] : 0;

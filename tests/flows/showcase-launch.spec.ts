@@ -79,24 +79,19 @@ test("showcase launch: empty canvas -> pack -> media swap -> mobile/motion -> pu
   await page.locator('[data-doc-bp="mobile"]').click();
   await expect(page.locator("#lime-doc-workspace")).toHaveAttribute("data-device", "mobile");
 
+  // Одношаговая публикация: «Опубликовать» в редакторе сохраняет И публикует —
+  // на MySites сайт уже живой (success-баннер + карточка с Unpublish в меню «Ещё»).
   await page.locator("[data-doc-save]").click();
   await page.waitForURL(/\/Home\/MySites/, { timeout: 15_000 });
-
-  const siteCard = page.locator(".lime-site").filter({
-    has: page.locator('form[action="/Home/Publish"] input[name="idSite"]'),
-  }).first();
-  await expect(siteCard).toBeVisible();
-
-  const siteId = await siteCard.locator('form[action="/Home/Publish"] input[name="idSite"]').getAttribute("value");
-  expect(siteId).toMatch(/^\d+$/);
-
-  await siteCard.locator('form[action="/Home/Publish"] button[type="submit"]').click();
-  await page.waitForURL(/\/Home\/MySites/, { timeout: 15_000 });
+  await expect(page.locator(".lime-alert--success")).toContainText("опубликован");
 
   const publishedCard = page.locator(".lime-site").filter({
-    has: page.locator(`form[action="/Home/Unpublish"] input[name="idSite"][value="${siteId}"]`),
+    has: page.locator('form[action="/Home/Unpublish"] input[name="idSite"]'),
   }).first();
   await expect(publishedCard).toBeVisible();
+
+  const siteId = await publishedCard.locator('form[action="/Home/Unpublish"] input[name="idSite"]').getAttribute("value");
+  expect(siteId).toMatch(/^\d+$/);
 
   const publicHref = await publishedCard.locator(".lime-site__url").getAttribute("href");
   expect(publicHref).toMatch(/^\/u\/[^/]+\/[^/]+$/);

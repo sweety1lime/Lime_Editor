@@ -168,6 +168,13 @@ namespace Lime_Editor
             // в Pexels, отдаёт фронту тот же формат, что /Media/ApiList.
             services.AddHttpClient("stock", c => c.Timeout = TimeSpan.FromSeconds(20));
             services.AddHostedService<OrphanMediaCleanupService>();
+            // Превью публикаций: publish кладёт siteId в очередь, воркер рендерит headless-Chromium
+            // скриншот /u/... → /media/previews/{id}.png → Site.OgImage (карточки + og:image).
+            // Без Chromium в окружении рендер самовыключается — фича деградирует мягко.
+            services.AddSingleton<ISitePreviewRenderer, PlaywrightPreviewRenderer>();
+            services.AddSingleton<SitePreviewQueue>();
+            services.AddScoped<SitePreviewService>();
+            services.AddHostedService<SitePreviewWorker>();
             services.AddHealthChecks()
                 .AddDbContextCheck<LimeEditorContext>("database");
 
