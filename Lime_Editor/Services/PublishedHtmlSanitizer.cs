@@ -115,14 +115,21 @@ namespace Lime_Editor.Services
                 return false;
             }
 
-            if (Uri.TryCreate(value, UriKind.Absolute, out var uri))
-            {
-                return uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps;
-            }
-
+            // Есть ли у значения ЯВНАЯ схема? Схема — это ':' раньше любого '/', '?' или '#'.
+            // Определяем вручную, а не через Uri.TryCreate(Absolute): на Unix путь, начинающийся с '/'
+            // (например "/css/site.css"), парсится как абсолютный file://-URI, из-за чего корневые
+            // относительные ссылки ошибочно считались небезопасными и вырезались (баг только на Linux).
             var firstSpecial = value.IndexOfAny(new[] { '/', '?', '#' });
             var firstColon = value.IndexOf(':');
-            return firstColon < 0 || (firstSpecial >= 0 && firstColon > firstSpecial);
+            var hasScheme = firstColon >= 0 && (firstSpecial < 0 || firstColon < firstSpecial);
+            if (!hasScheme)
+            {
+                return true; // относительный URL (в т.ч. корневой "/...") — безопасен на всех ОС
+            }
+
+            // Явная схема — допускаем только http/https (javascript:/data:/file: и прочее отсекаем).
+            return Uri.TryCreate(value, UriKind.Absolute, out var uri) &&
+                   (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps);
         }
 
         public static string SanitizeHead(string headHtml)
