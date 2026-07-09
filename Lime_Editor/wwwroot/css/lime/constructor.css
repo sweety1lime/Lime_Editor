@@ -367,6 +367,22 @@ html {
 .lime-workspace[data-device="tablet"] { max-width: 768px !important; width: 768px; }
 .lime-workspace[data-device="desktop"] { max-width: 100% !important; }
 
+/* Достоверное превью мобильного брейкпоинта. Статические content-@media(max-width:640px)
+   ниже (галерея/two-col/img-text/data-cols/footer/bento) меряются по вьюпорту браузера и НЕ
+   срабатывают, когда холст лишь сужается через [data-device] до 375px. Зеркалим их через
+   ancestor-scope .lime-workspace[data-device="mobile"] — редактор показывает реальный мобильный
+   коллапс (BREAKPOINTS.mobile=640 > симулируемых 375px). Только редактор: на публикации
+   [data-device] нет, там работают настоящие @media. tablet(768px>640) порог не пересекает,
+   а стили/дизайн блоков по брейкпоинту уже инлайнятся per-bp (styleBlockEl/compilePreviewDesignCss). */
+.lime-workspace[data-device="mobile"] .lime-block__gallery { grid-template-columns: 1fr 1fr; }
+.lime-workspace[data-device="mobile"] .lime-block__two-col { grid-template-columns: 1fr; }
+.lime-workspace[data-device="mobile"] .lime-block__img-text { grid-template-columns: 1fr; }
+.lime-workspace[data-device="mobile"] .lime-block__footer,
+.lime-workspace[data-device="mobile"] .lime-block__imagetext { grid-template-columns: 1fr; }
+.lime-workspace[data-device="mobile"] .lime-block[data-cols] > .lime-block__inner > .lime-block__children { grid-template-columns: 1fr; }
+.lime-workspace[data-device="mobile"] .lime-block[data-bento] > .lime-block__inner > .lime-block__children { grid-template-columns: 1fr; }
+.lime-workspace[data-device="mobile"] .lime-block[data-bento] > .lime-block__inner > .lime-block__children > .lime-block { grid-column: auto !important; grid-row: auto !important; }
+
 /* Editor V2 viewport: неактивный wrapper прозрачен для legacy layout. */
 .lime-canvas-viewport { display: contents; }
 .lime-editor__canvas.is-v2-viewport {

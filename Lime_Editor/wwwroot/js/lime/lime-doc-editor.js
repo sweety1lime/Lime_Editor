@@ -224,19 +224,13 @@
         presetTools.applyTemplateByKey(window.__LIME_TEMPLATE__);
     }
 
-    // ===== HISTORY (этап 0.4: undo/redo на снапшотах JSON-документа) =====
-    var HIST_MAX = 50;
-    var hist = [];
-    var histPos = -1;
-
-    // Раскатка Editor V2 (этап «релиз»): новый редактор (command-history + canvas) включён ПО
-    // УМОЛЧАНИЮ (сервер-конфиг Editor:V2Default → window.__LIME_V2_DEFAULT__). Старый редактор —
-    // fallback по ?classic=1. Явные ?cmd=1/?canvas=1 по-прежнему форсят V2 (для тестов/ссылок).
-    var v2Default = window.__LIME_V2_DEFAULT__ !== false && !/[?&]classic=1\b/.test(location.search);
-    var cmdOn = !/[?&]cmd=0\b/.test(location.search) && (/[?&]cmd=1\b/.test(location.search) || window.__LIME_CMD__ || v2Default) && !!window.LimeCommands;
-    var canvasOn = !/[?&]canvas=0\b/.test(location.search) && (/[?&]canvas=1\b/.test(location.search) || v2Default);
-    var calmCanvasOn = !/[?&]classic=1\b/.test(location.search);
-    var cmdStore = cmdOn ? window.LimeCommands.createStore(doc) : null;
+    // ===== HISTORY (command-store: op-based undo/redo — единственный путь) =====
+    // Editor V2 — единственный редактор: command-history включён безусловно (старый classic-
+    // fallback по ?classic=1 / серверный Editor:V2Default удалён). ?canvas=0 остаётся служебным
+    // под-режимом V2 без zoom-вьюпорта (клики по реальным canvas-кнопкам без overlay — в тестах).
+    var canvasOn = !/[?&]canvas=0\b/.test(location.search);
+    var calmCanvasOn = true;
+    var cmdStore = window.LimeCommands.createStore(doc);
 
     function syncInspectorShell(hasSelection) {
         var hidden = calmCanvasOn && !hasSelection;
@@ -257,31 +251,18 @@
         render: render,
         patchBlockDom: patchBlockDom,
         resetCommandStore: function () {
-            if (cmdStore && window.LimeCommands) {
-                cmdStore = window.LimeCommands.createStore(doc);
-                cmdPrev = JSON.stringify(doc);
-            }
+            cmdStore = window.LimeCommands.createStore(doc);
+            cmdPrev = JSON.stringify(doc);
         }
     });
     function perfNow() { return perfTools.now(); }
     function perfRec(kind, t0) { perfTools.record(kind, t0); }
-    var cmdPrev = cmdStore ? JSON.stringify(doc) : null; // doc-снапшот предыдущей точки истории
+    var cmdPrev = JSON.stringify(doc); // doc-снапшот предыдущей точки истории
 
-    function snapshot() { return JSON.stringify({ doc: doc, active: active }); }
     function pushHistory() {
-        if (cmdStore) {
-            var after = JSON.stringify(doc);
-            cmdStore.recordState(cmdPrev, after); // before===after (в т.ч. после undo) → no-op, без петли
-            cmdPrev = after;
-            updateHistButtons();
-            return;
-        }
-        var snap = snapshot();
-        if (histPos >= 0 && hist[histPos] === snap) return; // состояние не изменилось
-        hist = hist.slice(0, histPos + 1);
-        hist.push(snap);
-        if (hist.length > HIST_MAX) hist.shift();
-        histPos = hist.length - 1;
+        var after = JSON.stringify(doc);
+        cmdStore.recordState(cmdPrev, after); // before===after (в т.ч. после undo) → no-op, без петли
+        cmdPrev = after;
         updateHistButtons();
     }
     // Выполнить точечную команду, если command-store активен и понимает эту структуру.
@@ -296,13 +277,12 @@
     // Барьер ОБЯЗАН вызываться до изменения doc: иначе открытый debounce-жест и следующая
     // snapshot-мутация меняют один объект, а их записи попадают в history в обратном порядке.
     function beginCheckpointMutation() {
-        if (!cmdStore) return;
         commitPendingCommandEdits();
         cmdPrev = JSON.stringify(doc);
     }
     function runCommand(type, payload) {
         commitPendingCommandEdits();
-        if (!cmdStore || !cmdStore.dispatch(type, payload)) return false;
+        if (!cmdStore.dispatch(type, payload)) return false;
         doc = cmdStore.getDoc();
         cmdPrev = JSON.stringify(doc);
         updateHistButtons();
@@ -310,7 +290,6 @@
     }
     function runCommands(items, label) {
         commitPendingCommandEdits();
-        if (!cmdStore) return false;
         cmdStore.begin(label || "batch");
         var changed = false;
         for (var i = 0; i < items.length; i++) {
@@ -339,7 +318,7 @@
         }
         var target = targetBlock(source);
         if (!target) return false;
-        if (cmdStore && target === source) {
+        if (target === source) {
             var changed = runCommand("setContent", {
                 id: source.id, field: field, value: value, remove: !!remove
             });
@@ -357,7 +336,7 @@
     function setBlockValue(source, prop, value, remove) {
         var target = targetBlock(source);
         if (!target) return false;
-        if (cmdStore && target === source) {
+        if (target === source) {
             var changed = runCommand("setBlockProp", {
                 id: source.id, prop: prop, value: value, remove: !!remove
             });
@@ -375,7 +354,7 @@
     function setDesignValue(source, breakpoint, field, value, remove) {
         var target = designTarget(source, field);
         if (!target) return false;
-        if (cmdStore && target === source) {
+        if (target === source) {
             var changed = runCommand("setDesign", {
                 id: source.id, breakpoint: breakpoint, field: field, value: value, remove: !!remove
             });
@@ -396,16 +375,6 @@
         render();
         if (commandApplied) scheduleAutosave();
         else markDirty();
-    }
-    function restoreSnapshot(snap) {
-        clearInlineEditPending();
-        var s = JSON.parse(snap);
-        doc = s.doc;
-        active = Math.min(s.active, doc.pages.length - 1);
-        selectedId = null;
-        refreshPages(); refreshComponents(); render();
-        if (window.__LIME_SELECTION__) window.__LIME_SELECTION__.clear();
-        markDirty(); // откат — тоже изменение, его надо автосохранить
     }
     // Постпроцесс восстановления документа из command-store (D2): rebind doc + перерисовка.
     function afterCmdRestore() {
@@ -433,32 +402,19 @@
         commitInlineEdit();
         commitStyleEdit();
         commitBlockEdit();
-        if (cmdStore) { if (cmdStore.undo()) afterCmdRestore(); return; }
-        if (histPos <= 0) return;
-        histPos--;
-        restoreSnapshot(hist[histPos]);
-        updateHistButtons();
+        if (cmdStore.undo()) afterCmdRestore();
     }
     function redo() {
         commitInlineEdit();
         commitStyleEdit();
         commitBlockEdit();
-        if (cmdStore) { if (cmdStore.redo()) afterCmdRestore(); return; }
-        if (histPos >= hist.length - 1) return;
-        histPos++;
-        restoreSnapshot(hist[histPos]);
-        updateHistButtons();
+        if (cmdStore.redo()) afterCmdRestore();
     }
     function updateHistButtons() {
         var u = document.querySelector("[data-doc-undo]");
         var r = document.querySelector("[data-doc-redo]");
-        if (cmdStore) {
-            if (u) u.disabled = !cmdStore.canUndo();
-            if (r) r.disabled = !cmdStore.canRedo();
-            return;
-        }
-        if (u) u.disabled = histPos <= 0;
-        if (r) r.disabled = histPos >= hist.length - 1;
+        if (u) u.disabled = !cmdStore.canUndo();
+        if (r) r.disabled = !cmdStore.canRedo();
     }
     var undoBtn = document.querySelector("[data-doc-undo]");
     var redoBtn = document.querySelector("[data-doc-redo]");
@@ -955,6 +911,7 @@
         window: window,
         L: L,
         ws: ws,
+        isCanvasOn: function () { return canvasOn; },
         getDoc: function () { return doc; },
         getPageBlocks: pageBlocks,
         getSelectedId: function () { return selectedId; },

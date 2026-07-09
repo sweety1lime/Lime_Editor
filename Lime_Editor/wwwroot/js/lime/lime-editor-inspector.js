@@ -170,8 +170,7 @@
             var currentBp = getCurrentBp();
             var currentInspectorTab = getCurrentInspectorTab();
             var b = selectedId ? byId(selectedId) : null;
-            // редизайн: в V2 инспектор скрыт, пока ничего не выбрано — холст шире, меньше шума.
-            // В legacy (?classic=1) инспектор остаётся постоянным.
+            // редизайн: инспектор скрыт, пока ничего не выбрано — холст шире, меньше шума.
             syncInspectorShell(!!b);
             if (!b) {
                 inspectorEl.innerHTML = '<div class="lime-inspector__empty">' + ico("cta") +

@@ -7,9 +7,9 @@
 
     function create(options) {
         options = options || {};
-        var win = options.window || (typeof window !== "undefined" ? window : {});
         var L = options.L || {};
         var ws = options.ws || null;
+        var isCanvasOn = options.isCanvasOn || function () { return false; };
         var getDoc = options.getDoc || function () { return {}; };
         var getPageBlocks = options.getPageBlocks || function () { return []; };
         var getSelectedId = options.getSelectedId || function () { return null; };
@@ -47,7 +47,7 @@
         }
 
         function v2CanvasEnabled() {
-            return /[?&]canvas=1\b/.test((win.location && win.location.search) || "") && !!L.resolvedDesign;
+            return isCanvasOn() && !!L.resolvedDesign;
         }
 
         function ownDesignField(source, field) {

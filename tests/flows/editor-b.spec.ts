@@ -1587,18 +1587,46 @@ test("editor-v2 Stage 6.1: group and ungroup siblings through command history (@
   await expect(page.locator(topBlocks).first()).toHaveAttribute("data-block-type", "group");
 });
 
-test("editor-v2 rollout: new editor is default, ?classic=1 falls back (@flow)", async ({ page }) => {
-  // Раскатка: плоский /Home/EditDoc грузит Editor V2 (канвас-контролы видны).
-  await page.goto("/Home/EditDoc");
+test("editor-v2 rollout: classic removed — inert ?classic=1 loads V2 (@flow)", async ({ page }) => {
+  // Старый редактор удалён: инертный ?classic=1 грузит тот же Editor V2 (канвас-контролы + V2-вьюпорт).
+  await page.goto("/Home/EditDoc?classic=1");
   if (await page.locator("#lime-doc-intro-skip").isVisible()) await page.locator("#lime-doc-intro-skip").click();
   await expect(page.locator("[data-canvas-controls]")).toBeVisible();
   await expect(page.locator(".lime-editor__canvas.is-v2-viewport")).toHaveCount(1);
+});
 
-  // ?classic=1 возвращает старый редактор (канвас-контролы скрыты, нет V2-вьюпорта).
-  await page.goto("/Home/EditDoc?classic=1");
+test("editor-v2 1a: layout inspector shows by default without ?canvas=1 (@flow)", async ({ page }) => {
+  // Регресс-гард: панель Layout·V2 (stack/grid/free) была задушена буквальным ?canvas=1 в URL;
+  // теперь v2CanvasEnabled следует за рантайм-canvasOn и панель видна на дефолтной загрузке.
+  await page.goto("/Home/EditDoc");
   if (await page.locator("#lime-doc-intro-skip").isVisible()) await page.locator("#lime-doc-intro-skip").click();
-  await expect(page.locator("[data-canvas-controls]")).toBeHidden();
-  await expect(page.locator(".lime-editor__canvas.is-v2-viewport")).toHaveCount(0);
+  await page.locator('[data-doc-add="container"]').click();
+  const containerId = await page.locator(topBlocks).last().getAttribute("data-block-id");
+  expect(containerId).toBeTruthy();
+  await page.evaluate(id => (window as any).__LIME_SELECTION__.select(id), containerId);
+  await expect(page.locator('[data-v2-layout-mode="stack"]')).toBeVisible();
+});
+
+test("editor-v2 1b: mobile breakpoint preview collapses responsive grids (@flow)", async ({ page }) => {
+  // Регресс-гард (Фаза 1b): статические content-@media(max-width:640px) не срабатывают при
+  // сужении холста через [data-device]; редактор-only правила [data-device="mobile"] их зеркалят.
+  await page.goto("/Home/EditDoc");
+  if (await page.locator("#lime-doc-intro-skip").isVisible()) await page.locator("#lime-doc-intro-skip").click();
+  await page.evaluate(() => document.querySelectorAll(".lime-tile-group").forEach((d: any) => { d.open = true; }));
+  await page.locator('[data-doc-add="columns"]').click();
+  await expect(page.locator('.lime-block[data-cols]')).toHaveCount(1);
+  // getComputedStyle работает и на нулевой-высоты гриде — видимость не нужна.
+  const grid = page.locator('.lime-block[data-cols] > .lime-block__inner > .lime-block__children').first();
+  const cols = () => grid.evaluate(el => getComputedStyle(el).gridTemplateColumns.trim().split(/\s+/).length);
+  // Десктоп: 2+ дорожки (repeat через data-cols CSS).
+  const desktopCols = await cols();
+  expect(desktopCols).toBeGreaterThan(1);
+  // Мобильный брейкпоинт: холст сужается + грид сворачивается в 1 колонку прямо в превью.
+  await page.locator('[data-doc-bp="mobile"]').click();
+  await expect(page.locator("#lime-doc-workspace")).toHaveAttribute("data-device", "mobile");
+  const mobileCols = await cols();
+  expect(mobileCols).toBe(1);
+  expect(desktopCols).toBeGreaterThan(mobileCols);
 });
 
 // Save/reopen создаёт НОВЫЙ сайт: шаред-юзер спека давно упёрся в лимит Free-тарифа
@@ -1623,7 +1651,7 @@ test.describe("editor-b save/reopen (свежий пользователь)", ()
     await page.waitForURL(/\/Home\/MySites/);
   }
 
-  await page.goto("/Home/EditDoc?classic=1");
+  await page.goto("/Home/EditDoc?canvas=0");
   await expect(page.locator("#lime-doc-workspace")).toBeVisible();
   await expect(page.locator(".lime-workspace__placeholder")).toBeVisible();
 
@@ -1674,7 +1702,7 @@ test.describe("editor-b save/reopen (свежий пользователь)", ()
 });
 
 test("editor-b: breakpoint switcher changes preview device (@flow)", async ({ page }) => {
-  await page.goto("/Home/EditDoc?classic=1");
+  await page.goto("/Home/EditDoc?canvas=0");
   await page.locator('[data-doc-add="heading"]').click();
 
   await page.locator('[data-doc-bp="mobile"]').click();
@@ -1720,7 +1748,7 @@ test("editor-v2 redesign: inspector, command palette and rail stay discoverable 
 });
 
 test("editor-b: AI modal opens and reports quota/config status (@flow)", async ({ page }) => {
-  await page.goto("/Home/EditDoc?classic=1");
+  await page.goto("/Home/EditDoc?canvas=0");
   // редизайн: «AI заново» теперь в overflow-меню «⋯» — сначала раскрываем его.
   await page.locator("[data-topbar-more-toggle]").click();
   await page.locator("[data-doc-ai-open]").click();
@@ -1733,7 +1761,7 @@ test("editor-b: AI modal opens and reports quota/config status (@flow)", async (
 });
 
 test("editor-b: media block shows picker placeholder (@flow)", async ({ page }) => {
-  await page.goto("/Home/EditDoc?classic=1");
+  await page.goto("/Home/EditDoc?canvas=0");
   // Тайл «Картинка» лежит в свёрнутой группе палитры — раскрываем (как в тесте 1.2 ниже).
   await page.evaluate(() => document.querySelectorAll(".lime-tile-group").forEach((d: any) => { d.open = true; }));
   await page.locator('[data-doc-add="image"]').click();

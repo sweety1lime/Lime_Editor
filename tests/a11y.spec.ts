@@ -14,8 +14,7 @@ const PAGES = [
   { name: "mysites", path: "/Home/MySites" },
   { name: "templates", path: "/Home/Templates" },
   { name: "profile", path: "/Home/Profile" },
-  // Классический редактор (fallback) + V2-дефолт (с интро-оверлеем) — оба пути публичны.
-  { name: "editor-classic", path: "/Home/EditDoc?classic=1" },
+  // Редактор V2 (с интро-оверлеем на пустом документе).
   { name: "editor-v2", path: "/Home/EditDoc" },
   { name: "community", path: "/Community/Index" },
   { name: "media", path: "/Media/Index" },

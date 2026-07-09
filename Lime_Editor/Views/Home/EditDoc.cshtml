@@ -1,5 +1,4 @@
 @inject Microsoft.AspNetCore.Antiforgery.IAntiforgery Antiforgery
-@inject Microsoft.Extensions.Configuration.IConfiguration Config
 @model ConstructorViewModel
 @{
     Layout = null;
@@ -10,9 +9,6 @@
     // Стартовый шаблон (Фаза 3.2) — только для нового документа; ключ санитайзим.
     var templateKey = isEdit ? "" : System.Text.RegularExpressions.Regex.Replace(
         Context.Request.Query["template"].ToString() ?? "", "[^a-zA-Z0-9_-]", "");
-    // Раскатка Editor V2: дефолт нового редактора (Editor:V2Default, по умолчанию true).
-    var v2DefaultCfg = Config["Editor:V2Default"];
-    var v2Default = v2DefaultCfg == null || !v2DefaultCfg.Equals("false", StringComparison.OrdinalIgnoreCase);
 }<!DOCTYPE html>
 <html lang="ru" data-theme="dark">
 <head>
@@ -32,8 +28,6 @@
         window.__LIME_DOC__ = @Html.Raw(seedJson);
         window.__LIME_DOC_VERSION__ = @Model.DocVersion; // Site.UpdatedAt.Ticks — optimistic concurrency
         window.__LIME_TEMPLATE__ = @Html.Raw(string.IsNullOrEmpty(templateKey) ? "null" : "\"" + templateKey + "\"");
-        // Раскатка Editor V2: дефолт нового редактора задаётся сервером (Editor:V2Default).
-        window.__LIME_V2_DEFAULT__ = @(v2Default ? "true" : "false");
     </script>
 </head>
 <body>

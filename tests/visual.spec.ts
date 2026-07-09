@@ -19,13 +19,10 @@ const PAGES = [
   { name: "mysites", path: "/Home/MySites" },
   { name: "templates", path: "/Home/Templates" },
   { name: "profile", path: "/Home/Profile" },
-  // Классический редактор (fallback ?classic=1); V2-дефолт снимается ниже отдельными тестами.
-  { name: "editor-b", path: "/Home/EditDoc?classic=1" },
   { name: "community", path: "/Community/Index" },
   { name: "media", path: "/Media/Index" },
 ];
-// editor-b и community добавлены 2026-06-11 — baseline создаётся первым
-// прогоном `npx playwright test visual --update-snapshots`.
+// V2-редактор снимается отдельными тестами ниже (editor-v2-intro / -canvas).
 
 // Стабилизация: остановить анимации, скрыть динамику
 async function stabilize(page: import("@playwright/test").Page) {

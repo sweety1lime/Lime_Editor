@@ -41,7 +41,7 @@ test("showcase progressive UI: Basic stays focused, Motion/Pro reveal advanced c
     sessionStorage.setItem("lime-ui-level-cleaned", "1");
   });
 
-  await page.goto("/Home/EditDoc?classic=1&template=neo-lore-drop", { waitUntil: "domcontentloaded" });
+  await page.goto("/Home/EditDoc?canvas=0&template=neo-lore-drop", { waitUntil: "domcontentloaded" });
   await expect(page.locator("#lime-doc-workspace")).toBeVisible();
   await expect(page.locator(TOP_BLOCKS).first()).toBeVisible();
 
