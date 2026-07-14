@@ -1,0 +1,34 @@
+# graphify: что НЕ индексировать в граф знаний.
+# Цель графа — наш код: C#-сервисы/контроллеры + JS-модули редактора/движка + тесты.
+
+# Сборочное/служебное
+**/bin/
+**/obj/
+node_modules/
+test-results/
+TestResults/
+playwright/
+graphify-out/
+.github/
+
+# Вендорные минифицированные библиотеки — не наш код, только шум
+Lime_Editor/wwwroot/js/vendor/
+**/*.min.js
+
+# EF-миграции: автоген + Designer-снапшоты, в графе бесполезны
+Lime_Editor/Migrations/
+
+# Статика/медиа
+Lime_Editor/wwwroot/images/
+Lime_Editor/wwwroot/media/
+Lime_Editor/wwwroot/css/
+
+# Лок-файлы и конфиги-JSON (tree-sitter-json их парсит — не надо)
+package-lock.json
+**/*.lock
+Lime_Editor/appsettings*.json
+Lime_Editor/libman.json
+# Конфиги/фикстуры без структуры для графа (давали zero-node warning'и)
+**/dotnet-tools.json
+**/launchSettings.json
+tests/fixtures/

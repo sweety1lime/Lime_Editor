@@ -393,3 +393,6 @@ Lime_Editor/wwwroot/media/
 
 # VS Code (локальные настройки редактора)
 .vscode/
+
+# graphify: генерируемый граф знаний (пересобирается graphify update .)
+graphify-out/
