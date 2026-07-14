@@ -906,12 +906,22 @@
             var c = b.content || {};
             var editable = o && o.editable;
             var inner = "";
-            if (c.youtubeId) {
+            // Своё видео из медиатеки (медиа-волна): нативный <video>, только same-origin путь.
+            var ownSrc = String(c.videoSrc == null ? "" : c.videoSrc).trim();
+            var ownSafe = ownSrc && ownSrc.charAt(0) === "/" && ownSrc.indexOf("//") !== 0 ? ownSrc : "";
+            if (ownSafe) {
+                inner = '<video class="lime-block__video-el" controls playsinline preload="metadata"' +
+                    (c.poster ? ' poster="' + escAttr(safeEmbedPoster(c.poster)) + '"' : "") + ">" +
+                    '<source src="' + escAttr(ownSafe) + '"></video>' +
+                    (editable ? '<button type="button" class="lime-doc-media-swap" data-doc-pick="videoSrc" data-doc-pick-kind="video">Заменить видео</button>' : "");
+            } else if (c.youtubeId) {
                 inner = '<iframe src="https://www.youtube.com/embed/' + escAttr(c.youtubeId) +
                     '" title="Видео" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>' +
                     (editable ? '<button type="button" class="lime-doc-media-swap" data-doc-video>Заменить</button>' : "");
             } else if (editable) {
-                inner = '<div class="lime-block__video-placeholder" data-doc-video>▶ Вставить YouTube-видео</div>';
+                inner = '<div class="lime-block__video-placeholder">' +
+                    '<span data-doc-video>▶ YouTube-видео</span><span class="lime-block__video-or">или</span>' +
+                    '<span data-doc-pick="videoSrc" data-doc-pick-kind="video">📁 файл из медиатеки</span></div>';
             }
             return '<div class="lime-block__video">' + inner + "</div>";
         },
@@ -1056,7 +1066,7 @@
         spacer: {},
         image: { src: "", alt: "", caption: "" },
         gallery: { items: [{ src: "", alt: "" }, { src: "", alt: "" }, { src: "", alt: "" }] },
-        video: { youtubeId: "" },
+        video: { youtubeId: "", videoSrc: "" },
         lottie: { src: "", loop: true, speed: 1, mode: "auto", aspect: "1/1" },
         embed: { embedUrl: "", provider: "", aspect: "16/9", poster: "", fallbackTitle: "", fallbackText: "" },
         collectionList: { collection: "", layout: "cards", limit: 12, sortField: "", sortDir: "desc", filterField: "", filterValue: "", titleField: "", imageField: "", descField: "" },

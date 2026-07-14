@@ -39,11 +39,12 @@
         }
 
         // Фильтр медиатеки по контексту выбора (медиа-волна): image-контексты показывают
-        // картинки (включая SVG), lottie-контекст — только .json (карточкой, превью-img нет).
+        // картинки (включая SVG), lottie — только .json, video — только видео (карточками).
         // Шрифты в пикере не показываются никогда (их место — модалка темы).
         function matchesKind(it, kind) {
             var ct = String(it.contentType || "");
             if (kind === "lottie") return ct === "application/json";
+            if (kind === "video") return ct.indexOf("video/") === 0;
             return ct.indexOf("image/") === 0;
         }
 
@@ -62,16 +63,17 @@
                     items = (items || []).filter(function (it) { return matchesKind(it, kind); });
                     if (items.length === 0) {
                         grid.innerHTML = '<div class="lime-picker-empty">' +
-                            (kind === "lottie" ? "Нет Lottie-анимаций. Загрузи .json" : "Пусто. Загрузи изображения") +
+                            (kind === "lottie" ? "Нет Lottie-анимаций. Загрузи .json" :
+                                kind === "video" ? "Нет видео. Загрузи .mp4/.webm" : "Пусто. Загрузи изображения") +
                             ' в <a href="/Media/Index" target="_blank" class="lime-text-accent">Медиа</a>.</div>';
                         return;
                     }
                     grid.innerHTML = items.map(function (it) {
                         var url = attr(it.url);
                         var name = attr(it.name || "");
-                        if (kind === "lottie") {
+                        if (kind === "lottie" || kind === "video") {
                             return '<div class="lime-picker-item lime-picker-item--file" data-url="' + url + '" title="' + name + '">' +
-                                '<span class="lime-picker-item__icon">🎞️</span><span class="lime-picker-item__name">' + name + '</span></div>';
+                                '<span class="lime-picker-item__icon">' + (kind === "video" ? "🎬" : "🎞️") + '</span><span class="lime-picker-item__name">' + name + '</span></div>';
                         }
                         return '<div class="lime-picker-item" data-url="' + url + '" title="' + name + '">' +
                             '<img src="' + url + '" alt="' + name + '" loading="lazy">' +
@@ -179,9 +181,11 @@
             var modal = byId("lime-media-modal");
             if (!modal) return;
             modal.classList.add("is-open");
-            // accept аплоада под контекст: картинки+svg или lottie-json.
+            // accept аплоада под контекст: картинки+svg, lottie-json или видео.
             var upload = byId("lime-media-upload");
-            if (upload) upload.setAttribute("accept", pickCtx.kind === "lottie" ? ".json" : ".jpg,.jpeg,.png,.gif,.webp,.svg");
+            if (upload) upload.setAttribute("accept",
+                pickCtx.kind === "lottie" ? ".json" :
+                pickCtx.kind === "video" ? ".mp4,.webm" : ".jpg,.jpeg,.png,.gif,.webp,.svg");
             resetMediaTabs();
             loadMediaList();
             wireMediaUpload();

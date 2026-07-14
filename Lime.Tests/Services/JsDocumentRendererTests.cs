@@ -267,6 +267,27 @@ namespace Lime.Tests.Services
             Assert.DoesNotContain("evil.example", html);       // внешний URL отброшен (place для embed-блока)
         }
 
+        // Медиа-волна: свой видео-файл из медиатеки — нативный <video>, src строго same-origin
+        // (внешние URL остаются YouTube/embed-путям).
+        [Fact]
+        public void RenderSite_NativeVideoBlock_SameOriginOnly()
+        {
+            var renderer = new JsDocumentRenderer(EnginePath());
+            var doc = /*lang=json*/ @"{
+                ""version"": 1,
+                ""blocks"": [
+                    { ""id"": ""v1"", ""type"": ""video"", ""content"": { ""videoSrc"": ""/media/7/clip.mp4"" } },
+                    { ""id"": ""v2"", ""type"": ""video"", ""content"": { ""videoSrc"": ""https://evil.example/x.mp4"", ""youtubeId"": ""dQw4w9WgXcQ"" } }
+                ]
+            }";
+            var html = renderer.RenderSite(doc);
+
+            Assert.Contains("<video class=\"lime-block__video-el\"", html);
+            Assert.Contains("src=\"/media/7/clip.mp4\"", html);
+            Assert.DoesNotContain("evil.example", html);            // внешний videoSrc отброшен…
+            Assert.Contains("youtube.com/embed/dQw4w9WgXcQ", html); // …и блок откатился на YouTube
+        }
+
         // Stage 8.1: значения/имена стилей и сырой block.css не должны выходить из CSS-правила (})
         // или закрывать <style> (</style>) на серверном publish-пути (он НЕ прогоняет HTML-санитайзер
         // — экранирование рендерера и есть граница безопасности, см. PublishedSiteController).

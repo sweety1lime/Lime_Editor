@@ -14,12 +14,16 @@ namespace Lime_Editor.Services
         Svg,
         Font,
         LottieJson,
+        Video,
     }
 
     public static class MediaUploadSecurity
     {
         public const long MaxFileBytes = 5 * 1024 * 1024;
-        public const long MaxUploadRequestBytes = MaxFileBytes + 64 * 1024;
+        // Видео живёт по своему потолку: 5 МБ — ни о чём, 50 МБ хватает на hero-ролик.
+        // Реальный расход всё равно ограничен MaxStorageMb тарифа (EntitlementService).
+        public const long MaxVideoBytes = 50 * 1024 * 1024;
+        public const long MaxUploadRequestBytes = MaxVideoBytes + 64 * 1024;
         public const int SignatureLength = 12;
 
         // Растровые изображения — исторический список, идёт через ImageSharp-процессор.
@@ -28,10 +32,15 @@ namespace Lime_Editor.Services
         public static readonly string[] SvgExtensions = { ".svg" };
         public static readonly string[] FontExtensions = { ".woff2", ".woff" };
         public static readonly string[] LottieExtensions = { ".json" };
+        // Видео-файлы (видео-блок и видео-фон секции) — только веб-нативные контейнеры.
+        public static readonly string[] VideoExtensions = { ".mp4", ".webm" };
 
         // Полный белый список для гейта контроллера (и сообщений об ошибке).
         public static readonly string[] AllowedExtensions =
-            ImageExtensions.Concat(SvgExtensions).Concat(FontExtensions).Concat(LottieExtensions).ToArray();
+            ImageExtensions.Concat(SvgExtensions).Concat(FontExtensions).Concat(LottieExtensions).Concat(VideoExtensions).ToArray();
+
+        // Потолок размера для вида файла (гейт в UploadCoreAsync).
+        public static long MaxBytesFor(MediaKind kind) => kind == MediaKind.Video ? MaxVideoBytes : MaxFileBytes;
 
         private static readonly Dictionary<string, string[]> ContentTypes = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase)
         {
@@ -46,6 +55,8 @@ namespace Lime_Editor.Services
             [".woff2"] = new[] { "font/woff2", "application/font-woff2", "application/octet-stream" },
             [".woff"] = new[] { "font/woff", "application/font-woff", "application/x-font-woff", "application/octet-stream" },
             [".json"] = new[] { "application/json", "text/plain", "application/octet-stream" },
+            [".mp4"] = new[] { "video/mp4", "application/octet-stream" },
+            [".webm"] = new[] { "video/webm", "application/octet-stream" },
         };
 
         public static MediaKind? Classify(string extension)
@@ -55,6 +66,7 @@ namespace Lime_Editor.Services
             if (SvgExtensions.Contains(ext)) return MediaKind.Svg;
             if (FontExtensions.Contains(ext)) return MediaKind.Font;
             if (LottieExtensions.Contains(ext)) return MediaKind.LottieJson;
+            if (VideoExtensions.Contains(ext)) return MediaKind.Video;
             return null;
         }
 
@@ -103,6 +115,16 @@ namespace Lime_Editor.Services
                     return StartsWithAscii(header, "wOF2");
                 case ".woff":
                     return StartsWithAscii(header, "wOFF");
+                case ".mp4":
+                    // ISO BMFF: [4 байта размера бокса] + "ftyp".
+                    return header.Length >= 8 &&
+                           header[4] == (byte)'f' && header[5] == (byte)'t' &&
+                           header[6] == (byte)'y' && header[7] == (byte)'p';
+                case ".webm":
+                    // EBML-магия (Matroska/WebM).
+                    return header.Length >= 4 &&
+                           header[0] == 0x1A && header[1] == 0x45 &&
+                           header[2] == 0xDF && header[3] == 0xA3;
                 default:
                     return false;
             }

@@ -1767,7 +1767,8 @@ test("editor-b: media block shows picker placeholder (@flow)", async ({ page }) 
   await page.locator('[data-doc-add="image"]').click();
   // Пустой image-блок рендерит кликабельный плейсхолдер выбора изображения.
   // scrollIntoView Playwright-а ставит цель под sticky-топбар — приподнимаем страницу.
-  const pick = page.locator("[data-doc-pick]");
+  // Скоуп до холста: в инспекторе теперь тоже есть [data-doc-pick] (видео-фон из медиатеки).
+  const pick = page.locator("#lime-doc-workspace [data-doc-pick]");
   await expect(pick).toBeVisible();
   await pick.scrollIntoViewIfNeeded();
   await page.evaluate(() => window.scrollBy(0, -120));

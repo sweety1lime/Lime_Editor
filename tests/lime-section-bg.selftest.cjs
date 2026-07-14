@@ -63,7 +63,10 @@ var block = { content: {} };
     var grad = api.bgInspector(block, { backgroundImage: "linear-gradient(135deg, #a78bfa, #38bdf8)" });
     check("gradient-режим: угол + 2 цвета", grad.indexOf('data-doc-grad="angle"') >= 0 && grad.indexOf('data-doc-grad="c1"') >= 0);
     check("любой режим: видео-фон доступен", grad.indexOf('data-doc-bg-video') >= 0);
-    check("видео-фон честно помечен как ссылка, не загрузка (Milestone 4)", grad.indexOf("загрузка файла пока не поддерживается") >= 0);
+    // Медиа-волна: загрузка видео-файлов появилась — кнопка пикера с точечным путём bg.videoSrc
+    // (старую пометку «загрузка не поддерживается» сменил реальный аплоад .mp4/.webm).
+    check("видео-фон: кнопка выбора из медиатеки (kind=video)",
+        grad.indexOf('data-doc-pick="bg.videoSrc"') >= 0 && grad.indexOf('data-doc-pick-kind="video"') >= 0);
 }
 
 if (failed) {

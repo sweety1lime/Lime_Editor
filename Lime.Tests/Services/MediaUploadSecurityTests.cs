@@ -94,6 +94,28 @@ namespace Lime.Tests.Services
             Assert.False(MediaUploadSecurity.LooksLikeSvg(new byte[] { 0xFF, 0xD8, 0xFF }));
         }
 
+        // ===== Видео (mp4/webm): свой потолок размера + сигнатуры контейнеров =====
+
+        [Fact]
+        public void Video_ClassifiedWithOwnSizeCap()
+        {
+            Assert.Equal(MediaKind.Video, MediaUploadSecurity.Classify(".mp4"));
+            Assert.Equal(MediaKind.Video, MediaUploadSecurity.Classify(".webm"));
+            Assert.Equal(MediaUploadSecurity.MaxVideoBytes, MediaUploadSecurity.MaxBytesFor(MediaKind.Video));
+            Assert.Equal(MediaUploadSecurity.MaxFileBytes, MediaUploadSecurity.MaxBytesFor(MediaKind.Image));
+            Assert.True(MediaUploadSecurity.MaxUploadRequestBytes > MediaUploadSecurity.MaxVideoBytes);
+        }
+
+        [Fact]
+        public void HasAllowedSignature_AcceptsVideoContainers()
+        {
+            // mp4: [размер бокса] + "ftyp"; webm: EBML-магия.
+            Assert.True(MediaUploadSecurity.HasAllowedSignature(".mp4", new byte[] { 0, 0, 0, 0x18, (byte)'f', (byte)'t', (byte)'y', (byte)'p', (byte)'m', (byte)'p', (byte)'4', (byte)'2' }));
+            Assert.True(MediaUploadSecurity.HasAllowedSignature(".webm", new byte[] { 0x1A, 0x45, 0xDF, 0xA3, 0x01, 0x00 }));
+            Assert.False(MediaUploadSecurity.HasAllowedSignature(".mp4", "GIF89a xxxx"u8.ToArray()));
+            Assert.False(MediaUploadSecurity.HasAllowedSignature(".webm", "wOF2xxxx"u8.ToArray()));
+        }
+
         [Fact]
         public void LooksLikeJson_RequiresLeadingBrace()
         {

@@ -2727,7 +2727,14 @@ html.lenis, html.lenis body { height: auto; }
     background: var(--glass); border: 1px dashed var(--line); border-radius: var(--radius-lg);
 }
 .lime-block__lottie .lime-doc-media-swap { margin-top: 6px; }
-/* Карточка-файл в медиа-пикере (lottie-json — превью-картинки нет). */
+
+/* Нативный видео-блок (файл из медиатеки, медиа-волна). */
+.lime-block__video-el { display: block; width: 100%; border-radius: var(--radius-lg); background: #000; }
+.lime-block__video-placeholder .lime-block__video-or { opacity: .5; margin: 0 8px; }
+.lime-block__video-placeholder [data-doc-video],
+.lime-block__video-placeholder [data-doc-pick] { cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+
+/* Карточка-файл в медиа-пикере (lottie-json/видео — превью-картинки нет). */
 .lime-picker-item--file {
     display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
     min-height: 90px; border: 1px solid var(--line); border-radius: var(--radius-md); cursor: pointer;

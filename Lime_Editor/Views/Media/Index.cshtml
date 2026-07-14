@@ -21,8 +21,8 @@
     <form asp-action="Upload" method="post" enctype="multipart/form-data" class="lime-uploader" id="media-uploader">
         <div style="font-size: 32px; margin-bottom: var(--space-2);">📤</div>
         <div style="font-size: var(--text-lg); font-weight: 600; margin-bottom: var(--space-2);">Перетащи или выбери файл</div>
-        <p class="lime-uploader__hint">jpg, png, gif, webp, svg, woff2/woff (шрифты), json (Lottie) · до 5 МБ · картинки сжимаются до 1920px</p>
-        <input type="file" name="file" id="media-file" accept=".jpg,.jpeg,.png,.gif,.webp,.svg,.woff2,.woff,.json" required style="display:none;">
+        <p class="lime-uploader__hint">jpg, png, gif, webp, svg, woff2/woff (шрифты), json (Lottie) · до 5 МБ · mp4/webm (видео) · до 50 МБ · картинки сжимаются до 1920px</p>
+        <input type="file" name="file" id="media-file" accept=".jpg,.jpeg,.png,.gif,.webp,.svg,.woff2,.woff,.json,.mp4,.webm" required style="display:none;">
         <div class="lime-flex lime-gap-2 lime-justify-center">
             <label for="media-file" class="lime-btn lime-btn--primary" style="cursor:pointer;">Выбрать файл</label>
             <button type="submit" class="lime-btn lime-btn--ghost" id="media-submit" disabled>Загрузить</button>
@@ -46,6 +46,7 @@
                 var url = MediaStorage.PublicUrl(userId, m.StoredFileName);
                 var isImage = m.ContentType != null && m.ContentType.StartsWith("image/");
                 var typeIcon = m.ContentType != null && m.ContentType.StartsWith("font/") ? "🔤"
+                    : m.ContentType != null && m.ContentType.StartsWith("video/") ? "🎬"
                     : m.ContentType == "application/json" ? "🎞️" : "📄";
                 <div class="lime-media-card">
                     <a href="@url" target="_blank" rel="noopener">

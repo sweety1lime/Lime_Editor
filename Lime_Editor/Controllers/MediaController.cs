@@ -189,16 +189,17 @@ namespace Lime_Editor.Controllers
                 return ("Файл не выбран.", null);
             }
 
-            // Размер + MIME + расширение — три уровня проверки.
-            if (file.Length > MaxBytes)
-            {
-                return ($"Файл больше {MaxBytes / 1024 / 1024} МБ.", null);
-            }
+            // Расширение → вид файла, размер (у видео свой потолок) + MIME — три уровня проверки.
             var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
             var kind = MediaUploadSecurity.Classify(ext);
             if (kind == null)
             {
                 return ("Допустимы только " + string.Join(", ", AllowedExtensions), null);
+            }
+            var maxBytes = MediaUploadSecurity.MaxBytesFor(kind.Value);
+            if (file.Length > maxBytes)
+            {
+                return ($"Файл больше {maxBytes / 1024 / 1024} МБ.", null);
             }
             if (!MediaUploadSecurity.IsAllowedContentType(ext, file.ContentType))
             {
@@ -271,6 +272,18 @@ namespace Lime_Editor.Controllers
                     finalBytes = uploadedBytes;
                     finalExtension = ext;
                     finalContentType = ext == ".woff2" ? "font/woff2" : "font/woff";
+                    break;
+                }
+                case MediaKind.Video:
+                {
+                    var signatureLength = Math.Min(uploadedBytes.Length, MediaUploadSecurity.SignatureLength);
+                    if (!MediaUploadSecurity.HasAllowedSignature(ext, uploadedBytes.AsSpan(0, signatureLength)))
+                    {
+                        return ("Файл не похож на MP4/WebM-видео.", null);
+                    }
+                    finalBytes = uploadedBytes;
+                    finalExtension = ext;
+                    finalContentType = ext == ".mp4" ? "video/mp4" : "video/webm";
                     break;
                 }
                 case MediaKind.LottieJson:

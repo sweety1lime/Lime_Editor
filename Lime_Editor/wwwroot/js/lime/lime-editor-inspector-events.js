@@ -334,6 +334,12 @@
                 }
                 if ((el = e.target.closest("[data-doc-bgmode]"))) { switchBgMode(el.dataset.docBgmode); return; }
                 if (e.target.closest("[data-doc-bg-pick]")) { openMediaPicker(selectedId, "backgroundImage", "bgimage"); return; }
+                // Пикер из инспектора по контентному пути (видео-фон bg.videoSrc и т.п.):
+                // канвасный обработчик data-doc-pick сюда не достаёт (ищет родительский .lime-block).
+                if ((el = e.target.closest("[data-doc-pick]"))) {
+                    openMediaPicker(selectedId, el.getAttribute("data-doc-pick"), null, el.getAttribute("data-doc-pick-kind"));
+                    return;
+                }
                 if (e.target.closest("[data-doc-bg-video]")) { promptBgVideo(); return; }
                 if (e.target.closest("[data-doc-bg-clear-img]")) { setStyle("backgroundImage", ""); refreshInspector(); return; }
                 if ((el = e.target.closest("[data-doc-bg-clear-key]"))) { setBg(el.dataset.docBgClearKey, ""); return; }

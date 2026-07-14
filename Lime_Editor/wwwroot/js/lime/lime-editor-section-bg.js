@@ -168,8 +168,11 @@
                 '<div class="lime-color-row"><input type="color" class="lime-color-input" data-doc-overlay="color" value="' + op.hex + '">' +
                 '<div class="lime-range-row" style="flex:1;margin-left:8px;"><input type="range" class="lime-range" data-doc-overlay="alpha" min="0" max="1" step="0.05" value="' + op.a + '"><span class="lime-range__val">' + Math.round(op.a * 100) + '%</span></div></div>' +
                 (bg.overlay ? '<button type="button" class="lime-btn lime-btn--ghost lime-btn--sm" data-doc-bg-clear-key="overlay" style="width:100%;margin-top:4px;">Убрать затемнение</button>' : "");
-            var videoRow = '<button type="button" class="lime-btn lime-btn--ghost lime-btn--sm" data-doc-bg-video style="width:100%;margin-top:8px;">' + (bg.videoSrc ? "Заменить видео-фон" : "＋ Видео-фон") + '</button>' +
-                '<div class="lime-inspector__hint" style="margin-top:4px;">Только внешняя ссылка на .mp4/.webm — загрузка файла пока не поддерживается.</div>' +
+            // Видео-фон: свой файл из медиатеки (.mp4/.webm, медиа-волна) или внешняя ссылка.
+            // data-doc-pick с точечным путём bg.videoSrc — тот же контентный пайплайн, что у галереи.
+            var videoRow = '<div class="lime-flex lime-gap-2" style="margin-top:8px;">' +
+                '<button type="button" class="lime-btn lime-btn--ghost lime-btn--sm" data-doc-pick="bg.videoSrc" data-doc-pick-kind="video" style="flex:1;">' + (bg.videoSrc ? "Заменить видео-фон" : "＋ Из медиатеки") + '</button>' +
+                '<button type="button" class="lime-btn lime-btn--ghost lime-btn--sm" data-doc-bg-video style="flex:1;" title="Внешняя ссылка на .mp4/.webm">По ссылке</button></div>' +
                 (bg.videoSrc ? '<button type="button" class="lime-btn lime-btn--ghost lime-btn--sm" data-doc-bg-clear-key="videoSrc" style="width:100%;margin-top:4px;">Убрать видео</button>' : "");
             return sec("Фон", tabs + body + overlayRow + videoRow);
         }
