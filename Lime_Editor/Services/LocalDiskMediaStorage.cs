@@ -34,6 +34,7 @@ namespace Lime_Editor.Services
 
         public void Delete(int userId, string storedFileName)
         {
+            // Проверка имени — общая с S3-адаптером (StoredFileNames в S3MediaStorage.cs).
             if (!TrySafeFilePath(userId, storedFileName, out var path))
             {
                 Log.Warning("Rejected unsafe media file name {StoredFileName} for user {UserId}", storedFileName, userId);
@@ -65,7 +66,7 @@ namespace Lime_Editor.Services
 
         public string PublicUrl(int userId, string storedFileName)
         {
-            if (!IsSafeStoredFileName(storedFileName))
+            if (!StoredFileNames.IsSafe(storedFileName))
             {
                 throw new ArgumentException("Stored file name must not contain path segments.", nameof(storedFileName));
             }
@@ -86,7 +87,7 @@ namespace Lime_Editor.Services
         private bool TrySafeFilePath(int userId, string storedFileName, out string path)
         {
             path = null;
-            if (!IsSafeStoredFileName(storedFileName))
+            if (!StoredFileNames.IsSafe(storedFileName))
             {
                 return false;
             }
@@ -104,15 +105,6 @@ namespace Lime_Editor.Services
 
             path = candidate;
             return true;
-        }
-
-        private static bool IsSafeStoredFileName(string storedFileName)
-        {
-            return !string.IsNullOrWhiteSpace(storedFileName) &&
-                   storedFileName.IndexOfAny(Path.GetInvalidFileNameChars()) < 0 &&
-                   storedFileName.IndexOf('/') < 0 &&
-                   storedFileName.IndexOf('\\') < 0 &&
-                   string.Equals(storedFileName, Path.GetFileName(storedFileName), StringComparison.Ordinal);
         }
     }
 }

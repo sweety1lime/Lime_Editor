@@ -128,9 +128,42 @@ namespace Lime_Editor
             services.AddSingleton<ITemplateExportService, TemplateExportService>();
             services.AddSingleton<NextExportService>(); // «eject» в Next.js (Итерация 4)
             services.AddSingleton<IImageProcessor, ImageSharpProcessor>();
-            // Хранилище медиа за абстракцией (Фаза 5): дефолт — локальный диск. Позже здесь
-            // подключится S3/R2 без правок контроллеров. Singleton: зависит только от IWebHostEnvironment.
-            services.AddSingleton<IMediaStorage, LocalDiskMediaStorage>();
+            // Хранилище медиа (медиа-инфраструктура): дефолт — локальный диск; S3/R2 включается
+            // ТОЛЬКО конфигом (MediaStorage:Provider=s3 + бакет/ключи/публичный URL) — код готов,
+            // решение по провайдеру за оператором. ServiceUrl задаётся для R2/MinIO
+            // (https://<account>.r2.cloudflarestorage.com); пустой = родной AWS S3 по Region.
+            var storageProvider = Configuration.GetValue("MediaStorage:Provider", "local");
+            var s3Bucket = Configuration["MediaStorage:S3:Bucket"];
+            var s3PublicBaseUrl = Configuration["MediaStorage:S3:PublicBaseUrl"];
+            var s3AccessKey = Configuration["MediaStorage:S3:AccessKey"] ?? Environment.GetEnvironmentVariable("S3_ACCESS_KEY");
+            var s3SecretKey = Configuration["MediaStorage:S3:SecretKey"] ?? Environment.GetEnvironmentVariable("S3_SECRET_KEY");
+            if (string.Equals(storageProvider, "s3", StringComparison.OrdinalIgnoreCase) &&
+                !string.IsNullOrWhiteSpace(s3Bucket) && !string.IsNullOrWhiteSpace(s3PublicBaseUrl) &&
+                !string.IsNullOrWhiteSpace(s3AccessKey) && !string.IsNullOrWhiteSpace(s3SecretKey))
+            {
+                var s3Config = new Amazon.S3.AmazonS3Config
+                {
+                    // R2/MinIO живут на path-style URL; для родного AWS это тоже валидно.
+                    ForcePathStyle = true,
+                };
+                var serviceUrl = Configuration["MediaStorage:S3:ServiceUrl"];
+                if (!string.IsNullOrWhiteSpace(serviceUrl))
+                {
+                    s3Config.ServiceURL = serviceUrl;
+                }
+                else
+                {
+                    s3Config.RegionEndpoint = Amazon.RegionEndpoint.GetBySystemName(
+                        Configuration.GetValue("MediaStorage:S3:Region", "eu-central-1"));
+                }
+                services.AddSingleton<Amazon.S3.IAmazonS3>(_ => new Amazon.S3.AmazonS3Client(s3AccessKey, s3SecretKey, s3Config));
+                services.AddSingleton<IMediaStorage>(sp => new S3MediaStorage(
+                    sp.GetRequiredService<Amazon.S3.IAmazonS3>(), s3Bucket, s3PublicBaseUrl));
+            }
+            else
+            {
+                services.AddSingleton<IMediaStorage, LocalDiskMediaStorage>();
+            }
             // Транзакционные письма (восстановление пароля). SMTP через env (SMTP_*),
             // без него — лог-режим (см. EmailSender). Singleton: состояние только из env.
             services.AddSingleton<IEmailSender, EmailSender>();
@@ -200,13 +233,17 @@ namespace Lime_Editor
             // эндпоинты. Брутфорс логина (в пару к Identity-lockout), спам публичных форм, burst
             // дорогих AI-вызовов (поверх квоты тарифа). Применяется атрибутом [EnableRateLimiting].
             // IP берётся после ForwardedHeaders → за прокси это реальный клиент, а не прокси.
+            // Лимит auth-политики конфигурируем (RateLimits:AuthPerMinute): прод-дефолт 10/мин,
+            // в Development поднят — E2E-прогоны регистрируют свежего юзера на каждый спек-файл
+            // и упирались в лимитер при повторных запусках подряд.
+            var authPerMinute = Configuration.GetValue("RateLimits:AuthPerMinute", 10);
             services.AddRateLimiter(options =>
             {
                 options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
 
                 options.AddPolicy("auth", ctx => RateLimitPartition.GetFixedWindowLimiter(
                     ClientKey(ctx),
-                    _ => new FixedWindowRateLimiterOptions { PermitLimit = 10, Window = TimeSpan.FromMinutes(1) }));
+                    _ => new FixedWindowRateLimiterOptions { PermitLimit = authPerMinute, Window = TimeSpan.FromMinutes(1) }));
 
                 options.AddPolicy("public-write", ctx => RateLimitPartition.GetFixedWindowLimiter(
                     ClientKey(ctx),

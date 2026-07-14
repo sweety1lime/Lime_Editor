@@ -52,6 +52,17 @@ namespace Lime_Editor
                         "[{Timestamp:HH:mm:ss} {Level:u3}] {RequestId} {Message:lj}{NewLine}{Exception}"))
                 .ConfigureWebHostDefaults(webBuilder =>
                 {
+                    // Sentry — мониторинг ошибок прода (M1). Включается ТОЛЬКО когда задан DSN
+                    // (env SENTRY_DSN или Sentry:Dsn) — без него ни инициализации, ни сети,
+                    // локальная разработка и CI живут как раньше. Код готов, решение за оператором.
+                    var sentryDsn = Environment.GetEnvironmentVariable("SENTRY_DSN");
+                    webBuilder.UseSentry(o =>
+                    {
+                        o.Dsn = sentryDsn ?? ""; // пустой DSN = SDK выключен (документированный no-op)
+                        o.InitializeSdk = !string.IsNullOrWhiteSpace(sentryDsn);
+                        o.TracesSampleRate = 0.1; // лёгкий перф-трейсинг, не заливаем квоту
+                        o.MinimumEventLevel = Microsoft.Extensions.Logging.LogLevel.Error;
+                    });
                     webBuilder.UseStartup<Startup>();
                 });
 
