@@ -529,7 +529,7 @@ html {
     max-width: 92vw;
 }
 .lime-recovery-banner__text { margin-right: 4px; }
-/* AI command preview (этап 10.1) */
+/* AI command preview */
 .lime-ai-preview {
     position: fixed;
     bottom: 22px;
@@ -574,7 +574,7 @@ html {
     outline-offset: 2px;
     transition: outline-color .2s;
 }
-/* Onboarding coachmark tour (этап 9.4) */
+/* Onboarding coachmark tour */
 .lime-tour-card {
     position: fixed;
     bottom: 22px;
@@ -1776,7 +1776,7 @@ html {
     align-self: center;
     padding: 0 6px;
 }
-/* Stage 5: строка «переопределено на брейкпоинте» + сброс override. */
+/* Строка «переопределено на брейкпоинте» + сброс override. */
 .lime-style-override {
     display: flex;
     align-items: center;
@@ -1859,7 +1859,7 @@ html {
 .lime-segmented--wrap { flex-wrap: wrap; }
 .lime-segmented--wrap button { flex: 1 1 30%; min-width: 64px; }
 
-/* ====== Движок B: страницы, компоненты, навигация ====== */
+/* ====== Страницы, компоненты, навигация ====== */
 .lime-doc-pages-bar {
     display: flex;
     gap: var(--space-1, 4px);
@@ -1884,7 +1884,7 @@ html {
 .lime-doc-page-manage { color: var(--fg-muted); }
 .lime-doc-page-manage:hover { color: var(--accent); }
 
-/* Менеджер страниц (этап 0.3) */
+/* Менеджер страниц */
 .lime-input--sm { padding: 6px 8px !important; font-size: var(--text-sm); }
 .lime-doc-page-row {
     display: flex;
@@ -1904,7 +1904,7 @@ html {
 }
 .lime-doc-page-row__open:hover { border-color: var(--accent); }
 
-/* Дерево слоёв (outline-навигатор, этап 0.4) */
+/* Дерево слоёв (outline-навигатор) */
 .lime-doc-layers { max-height: 240px; overflow-y: auto; }
 .lime-doc-layer {
     display: flex;
@@ -1945,7 +1945,7 @@ html {
 .lime-doc-layer__z { min-width: 18px; text-align: center; font-size: 10px; opacity: .7; }
 .lime-editor__canvas.is-v2-viewport .lime-block[data-node-locked="1"] { pointer-events: none; }
 
-/* Контекстное меню блока (ПКМ, этап 0.4) */
+/* Контекстное меню блока (ПКМ) */
 .lime-ctx-menu {
     position: fixed;
     z-index: 1000;
@@ -2001,7 +2001,7 @@ html {
     align-items: flex-start;
 }
 
-/* Переиспользуемые style-классы (этап 0.1): чипы в инспекторе */
+/* Переиспользуемые style-классы: чипы в инспекторе */
 .lime-doc-class-chips {
     display: flex;
     flex-wrap: wrap;
@@ -2117,7 +2117,7 @@ html {
     cursor: pointer;
 }
 
-/* ===== Медиа-блоки движка B (этап 0.5) ===== */
+/* ===== Медиа-блоки ===== */
 .lime-block__image {
     margin: var(--space-4) 0;
     position: relative;
@@ -2183,7 +2183,7 @@ html {
 .lime-doc-gallery-del:hover { background: rgba(220, 60, 60, .85); }
 .lime-doc-gallery-add { border-style: dashed; }
 
-/* ===== Вложенность и колонки (этап 1) ===== */
+/* ===== Вложенность и колонки ===== */
 /* Дети контейнера — вертикальный стек; в колонках — грид (см. data-cols). */
 .lime-block__children {
     display: flex;
@@ -2358,7 +2358,7 @@ html {
 .lime-le-prompt__msg { font-size: 12px; color: var(--muted); margin-top: 12px; min-height: 16px; }
 .lime-le-prompt__msg.is-error { color: var(--rose); }
 
-/* Experience Packs (Milestone 1 experience-builder-plan.md) — вторичная панель intro. */
+/* Experience Packs — вторичная панель intro. */
 .lime-le-packs-divider {
     display: flex; align-items: center; gap: 10px; margin: 22px 0 14px;
     font-size: 11.5px; color: var(--subtle); text-transform: uppercase; letter-spacing: 0.04em;
@@ -2416,7 +2416,7 @@ html {
 .lime-bg-preset:hover { transform: translateY(-2px); border-color: var(--accent); }
 
 /* ============================================================
-   Движение (этап 2): sticky-секции + бегущая строка (marquee).
+   Движение: sticky-секции + бегущая строка (marquee).
    ============================================================ */
 .lime-block[data-sticky] { position: sticky; top: 0; z-index: 5; }
 /* Marquee: обёртка children в ряд; рантайм дублирует контент и крутит transform.
@@ -2429,7 +2429,7 @@ html {
 .lime-block__inner:has(> .lime-block__children--marquee) { overflow: hidden; }
 
 /* ============================================================
-   Декоративные плавающие слои (этап 2): картинки/фигуры поверх или
+   Декоративные плавающие слои: картинки/фигуры поверх или
    за контентом секции. z-index слоя решает порядок относительно
    .lime-block__inner (z-index:1). Контейнер без своего stacking-context.
    ============================================================ */
@@ -2449,7 +2449,7 @@ html {
     padding: var(--space-3); margin-bottom: var(--space-2); background: var(--glass);
 }
 
-/* Рецепты сцен (Milestone 3 experience-builder-plan.md) — кликабельный вариант карточки. */
+/* Рецепты сцен — кликабельный вариант карточки. */
 .lime-recipe-tile {
     display: flex; flex-direction: column; gap: 2px; width: 100%; text-align: left;
     border: 1px solid var(--line); border-radius: var(--radius-md); cursor: pointer;
@@ -2805,7 +2805,7 @@ html.lenis, html.lenis body { height: auto; }
 .lime-insp-tab-btn.is-active { color: var(--accent); border-bottom-color: var(--accent); }
 .lime-insp-panel { display: flex; flex-direction: column; gap: var(--space-5); }
 
-/* Группа «Дополнительно» (редизайн редактора, фаза 2): редкие стиль-секции свёрнуты,
+/* Группа «Дополнительно» (редизайн редактора): редкие стиль-секции свёрнуты,
    чтобы не раздувать инспектор. Контролы остаются, просто прячутся за один клик. */
 .lime-inspector__adv { border-top: 1px solid var(--border-soft); padding-top: var(--space-4); }
 .lime-inspector__adv-summary {
@@ -2892,7 +2892,7 @@ a.lime-cl-card:hover { transform: translateY(-2px); }
 .lime-cl-val { font-size: var(--text-base); }
 
 /* ============================================================
-   Интерактивные блоки (этап 1.2): tabs / carousel / lightbox.
+   Интерактивные блоки: tabs / carousel / lightbox.
    Рендер одинаков в редакторе и на публикации; поведение — lime-interactions.js (publish).
    ============================================================ */
 /* Вкладки */

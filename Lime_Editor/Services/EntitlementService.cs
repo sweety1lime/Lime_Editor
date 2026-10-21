@@ -8,7 +8,7 @@ using Microsoft.Extensions.Configuration;
 
 namespace Lime_Editor.Services
 {
-    // Реализация тарифов/лимитов (этап 3.4). Scoped — использует LimeEditorContext.
+    // Реализация тарифов/лимитов. Scoped — использует LimeEditorContext.
     public class EntitlementService : IEntitlementService
     {
         public const string FreePlanCode = "free";

@@ -61,4 +61,4 @@ if (failed) {
     console.error("\nSNAP-SELFTEST FAILED: " + failed);
     process.exit(1);
 }
-console.log("\nSNAP-OK (Stage 3): move/resize edge-center-grid snapping and guides — зелёные");
+console.log("\nSNAP-OK: move/resize edge-center-grid snapping and guides — зелёные");

@@ -1,5 +1,5 @@
 /*
- * Lime Polish (Фаза 4) — лёгкий «сигнатурный» лоск опубликованной страницы.
+ * Lime Polish — лёгкий «сигнатурный» лоск опубликованной страницы.
  * Без GSAP: подключается на КАЖДОЙ публичной странице (в редакторе не грузится).
  * Сейчас — индикатор прогресса скролла в цветах палитры сайта. Page-load fade,
  * smooth-scroll и hover-lift — чистый CSS (см. constructor.css, scope .lime-published).
@@ -34,7 +34,7 @@
     window.addEventListener("resize", update);
     update();
 
-    // Наклон карточек .lime-fx-tilt по движению мыши (Фаза 6.3). Только указатель с hover,
+    // Наклон карточек .lime-fx-tilt по движению мыши. Только указатель с hover,
     // уважает prefers-reduced-motion. На тач-устройствах эффект не навешивается.
     function mq(q) { return window.matchMedia && window.matchMedia(q).matches; }
     var fancyPointer = !mq("(prefers-reduced-motion: reduce)") && !mq("(hover: none)");

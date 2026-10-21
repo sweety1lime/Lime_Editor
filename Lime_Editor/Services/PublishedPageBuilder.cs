@@ -6,15 +6,15 @@ namespace Lime_Editor.Services
 {
     // Сборка полного publish-HTML вокруг скомпилированного контента Custom-сайта
     // (head с SEO/OG, шрифты, lime-CSS, GSAP/hash-роутинг рантаймы по маркерам).
-    // Вынесено из HomeController (этап 0.2), чтобы Publish и RepublishAll
+    // Вынесено из HomeController, чтобы Publish и RepublishAll
     // в разных контроллерах собирали страницу одинаково.
     public static class PublishedPageBuilder
     {
-        // pageTitle — заголовок конкретной страницы многостраничного сайта (этап 0.3):
+        // pageTitle — заголовок конкретной страницы многостраничного сайта:
         // <title> становится «Страница — Сайт». Для главной/одностраничных не передаётся.
-        // documentJson — JSON движка B: из него берётся doc.head (кастомный <head>-код, этап 0.2),
+        // documentJson — JSON-документ сайта: из него берётся doc.head (кастомный <head>-код),
         // который санитайзится и вставляется в head. customCss уже в body-стиле (его эмитит движок).
-        // canonicalUrl / metaDescription / ogImage / jsonLd — per-page или per-record SEO (этап 3.6):
+        // canonicalUrl / metaDescription / ogImage / jsonLd — per-page или per-record SEO:
         // если переданы, перекрывают site-уровень; null → поведение как раньше (site-уровень).
         // jsonLd — готовая строка JSON-LD (Article/Product) для AEO; вставляется в <script type=ld+json>.
         public static string WrapCustomHtml(string innerHtml, Site site, string documentJson = null, string pageTitle = null,
@@ -94,12 +94,12 @@ namespace Lime_Editor.Services
                 animScripts += "<script src=\"/js/vendor/lottie_light.min.js\" defer></script>\n" +
                                "<script src=\"/js/lime/lime-lottie.js\" defer></script>\n";
             }
-            // Рантайм hash-роутинга — только для многостраничных сайтов (движок B).
+            // Рантайм hash-роутинга — только для многостраничных сайтов.
             if (innerHtml != null && innerHtml.Contains("data-lime-pages"))
             {
                 animScripts += "<script src=\"/js/lime/lime-pages.js\" defer></script>\n";
             }
-            // Интерактивные блоки (этап 1.2): рантайм tabs/carousel/lightbox/countdown/modal — при наличии.
+            // Интерактивные блоки: рантайм tabs/carousel/lightbox/countdown/modal — при наличии.
             if (innerHtml != null && (innerHtml.Contains("data-lime-tabs") || innerHtml.Contains("data-lime-carousel") ||
                 innerHtml.Contains("data-lime-lightbox") || innerHtml.Contains("data-lime-countdown") || innerHtml.Contains("data-lime-modal")))
             {
@@ -122,7 +122,7 @@ namespace Lime_Editor.Services
                     "<div class=\"lime-loader__bar\"><i></i></div>" +
                     "</div></div>\n";
             }
-            // Кастомный <head>-код владельца (этап 0.2): meta/link/style после санитайза.
+            // Кастомный <head>-код владельца: meta/link/style после санитайза.
             var customHead = PublishedHtmlSanitizer.SanitizeHead(ExtractDocHead(documentJson));
             return "<!DOCTYPE html>\n" +
                    "<html lang=\"ru\">\n<head>\n" +
@@ -139,7 +139,7 @@ namespace Lime_Editor.Services
                    "<link rel=\"stylesheet\" href=\"/css/lime/components.css\">\n" +
                    "<link rel=\"stylesheet\" href=\"/css/lime/constructor.css\">\n" +
                    animScripts +
-                   // Лёгкий сигнатурный лоск (Фаза 4): прогресс скролла. Без GSAP, на каждой странице.
+                   // Лёгкий сигнатурный лоск: прогресс скролла. Без GSAP, на каждой странице.
                    "<script src=\"/js/lime/lime-polish.js\" defer></script>\n" +
                    customHead +
                    "</head>\n<body class=\"lime-published\">\n" +
@@ -149,7 +149,7 @@ namespace Lime_Editor.Services
                    "</body>\n</html>";
         }
 
-        // Per-page SEO из документа (этап 3.6): (description, ogImage) страницы со slug. (null,null) — нет.
+        // Per-page SEO из документа: (description, ogImage) страницы со slug. (null,null) — нет.
         public static (string description, string ogImage) PageSeo(string documentJson, string pageSlug)
         {
             try
@@ -178,7 +178,7 @@ namespace Lime_Editor.Services
             "color:#eef2e9;text-decoration:none;border:1px solid rgba(197,242,78,.35);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);\">" +
             "<span style=\"color:#c5f24e;\">&#9679;</span>Сделано в Lime</a>\n";
 
-        // Гейт тарифа (этап 3.4): на планах без AllowCustomCode произвольный CSS/<head> не должен
+        // Гейт тарифа: на планах без AllowCustomCode произвольный CSS/<head> не должен
         // попадать в публикацию. Вырезаем doc.customCss и doc.head из снапшота ПЕРЕД компиляцией —
         // тогда их не эмитит ни движок (customCss), ни сборка head (ExtractDocHead), а republish
         // из снапшота остаётся чистым. Битый/пустой JSON → возвращаем как есть (не ломаем publish).
@@ -248,7 +248,7 @@ namespace Lime_Editor.Services
             ("Space Mono", "Space+Mono:wght@400;700"),
         };
 
-        // Достаёт строковое свойство doc.head из JSON движка B (этап 0.2). Любая ошибка
+        // Достаёт строковое свойство doc.head из JSON-документа. Любая ошибка
         // парсинга/отсутствие поля → пустая строка (кастомного head-кода нет).
         private static string ExtractDocHead(string documentJson)
         {

@@ -105,7 +105,7 @@ namespace Lime.Tests.Integration
             Assert.Contains("blocks.css", ReadEntry(zip, "app/layout.jsx"));
         }
 
-        // Stage 8.3: идиоматичный React-экспорт не теряет паритет с движком — reusable-классы
+        // Идиоматичный React-экспорт не теряет паритет с движком — reusable-классы
         // навешиваются на секцию (их CSS уже в blocks.css), а v2 design-блоки уходят в engine-fallback.
         [Fact]
         public void NextExport_Idiomatic_PreservesClassesAndRoutesDesignToEngine()

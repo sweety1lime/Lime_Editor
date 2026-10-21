@@ -1,5 +1,5 @@
 /*
- * Lime Presets (Фаза 3.1) — курируемые готовые секции «в один клик».
+ * Lime Presets — курируемые готовые секции «в один клик».
  *
  * Каждый пресет — массив блок-спеков (тот же формат, что у AI-materialize):
  *   { type, content, styles, css, anim, animDelay, parallax, marquee, layers, children }
@@ -208,7 +208,7 @@
             { type: "footer", styles: { base: { padding: "56px 32px", backgroundColor: "var(--lt-bg)" } } }
         ],
 
-        // ----- новые секции (Фаза 7): на выделенных блоках 6.1 + макет/эффекты -----
+        // ----- новые секции: на выделенных блоках 6.1 + макет/эффекты -----
         navbar: [
             { type: "navbar", styles: { base: { padding: "16px 32px" } }, sticky: true, fx: ["glass"] }
         ],

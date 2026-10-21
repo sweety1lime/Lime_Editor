@@ -4,7 +4,7 @@ using Xunit;
 
 namespace Lime.Tests.Services
 {
-    // Этап 0.2: сборка publish-страницы вокруг контента — кастомный <head>-код из doc.head
+    // Сборка publish-страницы вокруг контента — кастомный <head>-код из doc.head
     // (санитайзится) и заголовок страницы.
     public class PublishedPageBuilderTests
     {
@@ -48,7 +48,7 @@ namespace Lime.Tests.Services
             Assert.Contains("rel=\"noopener\"", html);
         }
 
-        // Этап 3.6: per-page/record SEO перекрывает site-уровень; canonical/twitter/JSON-LD; AEO-безопасность.
+        // Per-page/record SEO перекрывает site-уровень; canonical/twitter/JSON-LD; AEO-безопасность.
         [Fact]
         public void WrapCustomHtml_PerPageSeoCanonicalTwitterJsonLd()
         {
@@ -82,7 +82,7 @@ namespace Lime.Tests.Services
             Assert.Null(og2);
         }
 
-        // Этап 3.4: гейт тарифа — на планах без AllowCustomCode из снапшота вырезаются
+        // Гейт тарифа — на планах без AllowCustomCode из снапшота вырезаются
         // doc.customCss и doc.head, остальной документ (блоки/тема) сохраняется.
         [Fact]
         public void StripCustomCode_RemovesCustomCssAndHead_KeepsRest()

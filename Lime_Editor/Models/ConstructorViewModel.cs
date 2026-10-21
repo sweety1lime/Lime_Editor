@@ -10,10 +10,10 @@ namespace Lime_Editor.Models
         public string MetaDescription { get; set; }
         public string OgImage { get; set; }
 
-        // JSON-документ движка B — источник правды страницы.
+        // JSON-документ — источник правды страницы.
         public string DocumentJson { get; set; }
 
-        // Версия документа (Site.UpdatedAt.Ticks) для optimistic concurrency (этап 0.4):
+        // Версия документа (Site.UpdatedAt.Ticks) для optimistic concurrency:
         // сохранение со старой версией → 409, второй таб не затрёт правки молча. 0 — новый сайт.
         public long DocVersion { get; set; }
 

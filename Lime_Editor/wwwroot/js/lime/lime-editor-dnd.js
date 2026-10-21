@@ -3,7 +3,7 @@
  *
  * SortableJS на всех уровнях вложенности. Модель — источник правды: Sortable даёт
  * from/to/oldIndex/newIndex, мы переносим блок между массивами документа (command-store
- * reorder/move либо legacy splice-fallback) и обновляем UI. initDnD идемпотентен (Stage 7):
+ * reorder/move либо legacy splice-fallback) и обновляем UI. initDnD идемпотентен:
  * Sortable создаётся только для новых списков, выпавшие из DOM — чистятся; метка __limeDnd
  * на элементе-списке. Изменяемое состояние main (active/selectedId/canvasOn) — через
  * get/set-инъекции; refreshV2SelectionOverlay — thunk (main переприсваивает её при
@@ -91,7 +91,7 @@
             setSelectedId(moved.id);
             // v2 design-блок: CSS frame/size зависит от родителя и живёт в основном <style> → полный render.
             if (moved.design) { finishMutation(commandApplied); return; }
-            // Stage 7: Sortable УЖЕ переместил DOM-узел в нужную позицию, модель синхронна → полная
+            // Sortable УЖЕ переместил DOM-узел в нужную позицию, модель синхронна → полная
             // пересборка не нужна, только вспомогательный UI (design-preview зависит от нового родителя).
             var __dt = perfNow();
             applyPreviewStyles();
@@ -101,7 +101,7 @@
             perfRec("inc", __dt);
             if (commandApplied) scheduleAutosave(); else markDirty();
         }
-        // Идемпотентно (Stage 7): создаёт Sortable только для НОВЫХ списков, выпавшие из DOM — чистит.
+        // Идемпотентно: создаёт Sortable только для НОВЫХ списков, выпавшие из DOM — чистит.
         // Для полного render() поведение прежнее (innerHTML заменил всё → старые списки detached →
         // destroy, новые → create). Для точечных insert/remove пересоздаётся только затронутый список,
         // а не все 500. Метка `__limeDnd` на элементе-списке (не зависим от версии Sortable.get).

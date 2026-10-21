@@ -167,10 +167,10 @@ namespace Lime_Editor
             // Транзакционные письма (восстановление пароля). SMTP через env (SMTP_*),
             // без него — лог-режим (см. EmailSender). Singleton: состояние только из env.
             services.AddSingleton<IEmailSender, EmailSender>();
-            // Серверная компиляция JSON-документов движка B (этап 0.2): singleton кэширует
+            // Серверная компиляция JSON-документов: singleton кэширует
             // исходник lime-doc.js, Jint-движок создаётся на каждый RenderSite.
             services.AddSingleton<IDocumentRenderer, JsDocumentRenderer>();
-            // AI-генерация (этап 2): OpenAI-совместимый агрегатор (доступен из РФ),
+            // AI-генерация: OpenAI-совместимый агрегатор (доступен из РФ),
             // конфиг через env AI_BASE_URL/AI_API_KEY + appsettings Ai:*.
             services.AddHttpClient("ai", c => c.Timeout = TimeSpan.FromSeconds(120));
             services.AddSingleton<IAiProvider, OpenAiCompatibleProvider>();
@@ -191,13 +191,13 @@ namespace Lime_Editor
             });
             services.AddSingleton<GitHubApiClient>();
             services.AddScoped<GitHubDeploymentService>();
-            // Тарифы/лимиты (этап 3.4): scoped — работает с LimeEditorContext.
+            // Тарифы/лимиты: scoped — работает с LimeEditorContext.
             services.AddScoped<IEntitlementService, EntitlementService>();
             services.AddScoped<ISiteService, SiteService>();
             // Платёжный провайдер (пока ручной) + идемпотентный приём вебхуков.
             services.AddSingleton<IPaymentProvider, ManualPaymentProvider>();
             services.AddScoped<IBillingService, BillingService>();
-            // Прокси фотостока (Фаза 1): ключ через env STOCK_PEXELS_KEY. Сервер ходит
+            // Прокси фотостока: ключ через env STOCK_PEXELS_KEY. Сервер ходит
             // в Pexels, отдаёт фронту тот же формат, что /Media/ApiList.
             services.AddHttpClient("stock", c => c.Timeout = TimeSpan.FromSeconds(20));
             services.AddHostedService<OrphanMediaCleanupService>();
@@ -402,8 +402,8 @@ namespace Lime_Editor
                 endpoints.MapHealthChecks("/health");
                 // Публичный хостинг сайтов: /u/{username}/{slug}[/{page}] → PublishedSiteController.Show.
                 // Префикс "u" выбран чтобы не конфликтовать с {controller}/{action}.
-                // {page?} — страница многостраничного сайта движка B (этап 0.3).
-                // SEO/AEO (этап 3.6): карты сайта для поисковиков и AI-краулеров. Литеральные
+                // {page?} — страница многостраничного сайта.
+                // SEO/AEO: карты сайта для поисковиков и AI-краулеров. Литеральные
                 // сегменты — специфичнее {page?}, поэтому регистрируем ПЕРЕД общими маршрутами.
                 endpoints.MapControllerRoute(
                     name: "publishedSitemap",

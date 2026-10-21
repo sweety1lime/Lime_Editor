@@ -1,6 +1,6 @@
 "use strict";
 
-// Самотест inspector view. e2e (Stage 5) проверяет бейджи через UI на паре сценариев —
+// Самотест inspector view. e2e проверяет бейджи через UI на паре сценариев —
 // здесь напрямую: curStyle (класс/hover/bp), sectionSource (own/tablet/base/class/instance-own),
 // ownOverrideProps (пересечение multi), renderStyleSections (core/adv «Дополнительно»),
 // refreshInspector (empty-state, шапка, вкладки, баннер компонента, multi-баннер).

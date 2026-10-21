@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 
 namespace Lime_Editor.Controllers
 {
-    // SEO (Фаза 4): sitemap.xml со всеми опубликованными сайтами + robots.txt.
+    // SEO: sitemap.xml со всеми опубликованными сайтами + robots.txt.
     // Без авторизации — это публичные служебные файлы для поисковиков.
     [AllowAnonymous]
     public class SitemapController : Controller

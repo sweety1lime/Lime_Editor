@@ -44,7 +44,7 @@ namespace Lime.Tests.Integration
             await db.SaveChangesAsync();
         }
 
-        // Многостраничный документ движка B для роутов /u/{user}/{slug}/{page} (этап 0.3).
+        // Многостраничный документ для роутов /u/{user}/{slug}/{page}.
         private const string MultiPageDoc = @"{
             ""version"": 1,
             ""pages"": [
@@ -53,7 +53,7 @@ namespace Lime.Tests.Integration
             ]
         }";
 
-        // Одностраничный документ движка B.
+        // Одностраничный документ.
         private const string SinglePageDoc =
             "{\"version\":1,\"blocks\":[{\"id\":\"x\",\"type\":\"heading\",\"content\":{\"text\":\"Hello\"}}]}";
 
@@ -152,7 +152,7 @@ namespace Lime.Tests.Integration
             Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
         }
 
-        // Фуллстак (B3): блок collectionList на опубликованной странице рендерит реальные
+        // Фуллстак: блок collectionList на опубликованной странице рендерит реальные
         // записи из БД (per-request), которые сервер подаёт через BuildCollectionDataAsync → RenderPage.
         private const string CollectionDoc =
             "{\"version\":1,\"pages\":[{\"slug\":\"\",\"title\":\"Home\",\"blocks\":[" +
@@ -259,7 +259,7 @@ namespace Lime.Tests.Integration
             var recHtml = await recResp.Content.ReadAsStringAsync();
             Assert.Contains("Первый пост", recHtml);
             Assert.Contains("Содержимое поста", recHtml);
-            // SEO/AEO записи (этап 3.6): canonical на детальную, JSON-LD Article, описание из longtext.
+            // SEO/AEO записи: canonical на детальную, JSON-LD Article, описание из longtext.
             Assert.Contains($"<link rel=\"canonical\" href=\"http://localhost/u/blogger/blog/post/{recId}\">", recHtml);
             Assert.Contains("application/ld+json", recHtml);
             Assert.Contains("\"@type\":\"Article\"", recHtml);
@@ -270,7 +270,7 @@ namespace Lime.Tests.Integration
             Assert.Equal(System.Net.HttpStatusCode.NotFound, missing.StatusCode);
         }
 
-        // SEO/AEO (этап 3.6): sitemap.xml и llms.txt перечисляют страницы + записи коллекций-шаблонов.
+        // SEO/AEO: sitemap.xml и llms.txt перечисляют страницы + записи коллекций-шаблонов.
         [Fact]
         public async Task SitemapAndLlms_ListPagesAndRecords()
         {

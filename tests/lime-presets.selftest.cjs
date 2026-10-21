@@ -115,7 +115,7 @@ const swappedDoc = { pages: [{ blocks: page }] };
 doc = swappedDoc;
 check("applyTemplateByKey writes theme into live doc after doc swap", api.applyTemplateByKey("startup") === true && swappedDoc.theme && swappedDoc.theme.accent === "#123456");
 
-// --- Real showcase pack from docs/experience-builder-plan.md: neo-lore-drop ---
+// --- Real showcase pack: neo-lore-drop ---
 {
     const RealLimePresets = require(path.join(__dirname, "..", "Lime_Editor", "wwwroot", "js", "lime", "lime-presets.js"));
     const RealLimeTemplates = require(path.join(__dirname, "..", "Lime_Editor", "wwwroot", "js", "lime", "lime-templates.js"));
@@ -134,7 +134,7 @@ check("applyTemplateByKey writes theme into live doc after doc swap", api.applyT
     const allSectionsExist = tpl && tpl.sections.every(key => RealLimePresets.PRESETS[key] && RealLimePresets.PRESETS[key].length);
     check("neo-lore-drop template registered with existing sections", !!allSectionsExist);
     check("neo-lore-drop applies theme and full page", realApi.applyTemplateByKey("neo-lore-drop") === true && realDoc.theme.accent === "#42ffa3" && realPage.length >= 10);
-    check("neo-lore-drop stamps doc.pack (Milestone 4 asset-slot linkage)", realDoc.pack === "neo-lore-drop");
+    check("neo-lore-drop stamps doc.pack (asset-slot linkage)", realDoc.pack === "neo-lore-drop");
     const json = JSON.stringify(realPage);
     check("neo-lore-drop has embed, scene and decorative layers", json.includes('"type":"embed"') && json.includes('"mode":"horizontal"') && json.includes('"layers"'));
     check("neo-lore-drop hero/customizer embeds carry their asset-slot markers", json.includes('"__slot":"hero-scene"') && json.includes('"__slot":"customizer-scene"'));
@@ -166,7 +166,7 @@ check("applyTemplateByKey writes theme into live doc after doc swap", api.applyT
     const folioSectionsExist = folioTpl && folioTpl.sections.every(key => RealLimePresets.PRESETS[key] && RealLimePresets.PRESETS[key].length);
     check("studio-folio template registered with existing sections", !!folioSectionsExist);
     check("studio-folio applies theme and full page (10 sections)", folioApi.applyTemplateByKey("studio-folio") === true && folioDoc.theme.accent === "#c4531f" && folioPage.length >= 10);
-    check("studio-folio stamps doc.pack (Milestone 4 asset-slot linkage)", folioDoc.pack === "studio-folio");
+    check("studio-folio stamps doc.pack (asset-slot linkage)", folioDoc.pack === "studio-folio");
     const folioJson = JSON.stringify(folioPage);
     check("studio-folio has embed, marquee and decorative layers", folioJson.includes('"type":"embed"') && folioJson.includes('"marquee"') && folioJson.includes('"layers"'));
     check("studio-folio hero/reel embeds carry their asset-slot markers", folioJson.includes('"__slot":"hero-portrait"') && folioJson.includes('"__slot":"reel-embed"'));

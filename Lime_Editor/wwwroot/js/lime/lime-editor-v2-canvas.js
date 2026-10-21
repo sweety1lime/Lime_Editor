@@ -168,7 +168,7 @@
                 box.appendChild(h);
             });
         }
-        // Stage 9.1: плавающая панель действий над выделением (≥2 free-siblings).
+        // Плавающая панель действий над выделением (≥2 free-siblings).
         // Align (6) всегда; distribute (2) — только при ≥3 узлах.
         var ALIGN_OPS = [
             { op: "left", glyph: "⇤", label: "Выровнять по левому краю" },
@@ -222,7 +222,7 @@
             e.preventDefault(); e.stopPropagation();
             alignSelection(btn.getAttribute("data-align-op"));
         });
-        // Stage 9.3: контекстный toolbar быстрых действий над одиночным выбранным блоком.
+        // Контекстный toolbar быстрых действий над одиночным выбранным блоком.
         // Дополняет ПКМ-меню (та же единая точка runBlockOp). Правый край бокса, над ним —
         // не пересекается с центрированными move/rotate-хэндлами.
         function buildBlockToolbar(rect, found) {
@@ -366,7 +366,7 @@
         stage.addEventListener("pointerleave", function () { if (!marqueeDrag) { hoverId = null; refresh(); } });
         stage.addEventListener("pointerdown", function (e) {
             // Интерактивные контролы в холсте (кнопки пустого состояния и т.п.) не должны стартовать
-            // marquee: его e.preventDefault() подавил бы их click (этап 9.4).
+            // marquee: его e.preventDefault() подавил бы их click.
             if (e.button !== 0 || isViewportPanning() || e.target.closest(".lime-block, button, a, input, textarea, select")) return;
             var p = localPoint(e);
             marqueeDrag = { x1: p.x, y1: p.y, x2: p.x, y2: p.y, additive: e.shiftKey };
@@ -1011,7 +1011,7 @@
         refresh();
     }
 
-    // ===== EDITOR V2 VIEWPORT (Stage 2, feature flag ?canvas=1) =====
+    // ===== EDITOR V2 VIEWPORT (feature flag ?canvas=1) =====
     function initV2Viewport() {
         if (!isCanvasOn() || !window.LimeViewport) return;
         var stage = document.getElementById("lime-canvas-viewport");

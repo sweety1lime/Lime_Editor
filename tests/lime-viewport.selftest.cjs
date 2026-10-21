@@ -61,4 +61,4 @@ if (failed) {
     console.error("\nVIEWPORT-SELFTEST FAILED: " + failed);
     process.exit(1);
 }
-console.log("\nVIEWPORT-OK (Stage 2): coordinate math, pan, zoom anchor, fit bounds — зелёные");
+console.log("\nVIEWPORT-OK: coordinate math, pan, zoom anchor, fit bounds — зелёные");

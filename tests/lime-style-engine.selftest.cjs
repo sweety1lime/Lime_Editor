@@ -1,6 +1,6 @@
 "use strict";
 
-// Самотест gesture-движка стилей. editor-v2 покрывает пути через UI (Stage 5 тесты),
+// Самотест gesture-движка стилей. editor-v2 покрывает пути через UI,
 // но не granular-инварианты транзакций — проверяем напрямую: склейку серии правок в один
 // begin/commit, коммит при смене ключа жеста, no-op dispatch без snapshot-fallback,
 // multi-select fan-out (блок + инстанс), reset-транзакцию, запись класса и legacy fallback.

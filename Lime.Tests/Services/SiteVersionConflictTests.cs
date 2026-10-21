@@ -4,7 +4,7 @@ using Xunit;
 
 namespace Lime.Tests.Services
 {
-    // Этап 0.4: правило optimistic concurrency для сохранений из конструктора.
+    // Правило optimistic concurrency для сохранений из конструктора.
     // HomeController.EditTemplatesPost отвечает 409, когда IsVersionConflict == true.
     public class SiteVersionConflictTests
     {

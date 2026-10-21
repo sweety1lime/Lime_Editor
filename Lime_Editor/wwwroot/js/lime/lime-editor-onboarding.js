@@ -1,4 +1,4 @@
-/* Lime editor onboarding coachmark tour (этап 9.4). */
+/* Lime editor onboarding coachmark tour. */
 (function (root, factory) {
     if (typeof module === "object" && module.exports) module.exports = factory();
     else root.LimeEditorOnboarding = factory();

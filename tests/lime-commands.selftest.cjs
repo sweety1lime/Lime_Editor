@@ -186,7 +186,7 @@ const blocks = (s) => s.getDoc().pages[0].blocks;
     check("detach component: undo restores component instance", blocks(s)[3].type === "component" && blocks(s)[3].ref === "hero");
 }
 
-// --- image/gallery content override на инстансе: локально, массив заменяется целиком (Stage 6.5) ---
+// --- image/gallery content override на инстансе: локально, массив заменяется целиком ---
 {
     const doc = freshDoc();
     doc.components.media = { block: { type: "image", content: { src: "/def.jpg", alt: "Def" } } };
@@ -212,7 +212,7 @@ const blocks = (s) => s.getDoc().pages[0].blocks;
     check("gallery override: undo restores definition array", !blocks(s)[5].overrides && L.renderSite(s.getDoc()).includes("/b.jpg"));
 }
 
-// --- style-property override на инстансе: локально, definition не меняется (Stage 6.6) ---
+// --- style-property override на инстансе: локально, definition не меняется ---
 {
     const doc = freshDoc();
     doc.components.card = { block: { type: "text", content: { text: "Shared" }, styles: { base: { color: "#ffffff" } } } };
@@ -238,7 +238,7 @@ const blocks = (s) => s.getDoc().pages[0].blocks;
     check("style override: removing last prop cleans overrides", !blocks(s)[3].overrides);
 }
 
-// --- clearComponentOverrides: сброс ВСЕХ правок инстанса (content+style) к определению (Stage 6.7) ---
+// --- clearComponentOverrides: сброс ВСЕХ правок инстанса (content+style) к определению ---
 {
     const doc = freshDoc();
     doc.components.card = { block: { type: "text", content: { text: "Shared" }, styles: { base: { color: "#ffffff" } } } };
@@ -452,7 +452,7 @@ const blocks = (s) => s.getDoc().pages[0].blocks;
     check("mixed: undo op-записи после state (пути валидны)", blocks(s)[0].content.text === "Один");
 }
 
-// --- AI command pipeline (этап 10.1): валидатор + dry-run ---
+// --- AI command pipeline: валидатор + dry-run ---
 {
     const okList = [
         { type: "setContent", payload: { id: "b1", field: "text", value: "Hello" } },
@@ -489,7 +489,7 @@ const blocks = (s) => s.getDoc().pages[0].blocks;
     check("ai-dryrun: команда по несуществующему id — 0 применений", noop.applied === 0);
 }
 
-// --- setTheme (Milestone 5, Фаза B): мутация doc.theme, не блока — путь абсолютный от корня ---
+// --- setTheme: мутация doc.theme, не блока — путь абсолютный от корня ---
 {
     const s = C.createStore(freshDoc());
     check("setTheme: неизвестный key — no-op", s.dispatch("setTheme", { key: "border", value: "#ffffff" }) === false);

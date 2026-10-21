@@ -1,5 +1,5 @@
 /**
- * Сообщество (этап 3) — полный цикл: публикация → галерея → лайк →
+ * Сообщество — полный цикл: публикация → галерея → лайк →
  * «использовать как шаблон» → скрытие из галереи.
  *
  * Свежий юзер на ФАЙЛ (создаётся один раз в beforeAll, storageState в файл):
@@ -48,7 +48,7 @@ test.describe("community authed flow", () => {
     // и has-text по сырому имени её бы не нашёл.
     const name = `E2E Community ${Date.now()}`;
 
-    // 1. Минимальный сайт на движке B. Кнопка сейва в редакторе — одношаговая
+    // 1. Минимальный сайт в редакторе. Кнопка сейва в редакторе — одношаговая
     // публикация: на MySites сайт приезжает УЖЕ опубликованным.
     await page.goto("/Home/EditDoc");
     if (await page.locator("#lime-doc-intro-skip").isVisible()) await page.locator("#lime-doc-intro-skip").click();
@@ -67,7 +67,7 @@ test.describe("community authed flow", () => {
     await expect(myCard).toBeVisible();
     await expect(myCard.locator(".lime-badge--success")).toContainText(/Опубликован/);
 
-    // 3. Галерея показывает карточку с автором и ✦-бейджем движка B
+    // 3. Галерея показывает карточку с автором и ✦-бейджем
     await page.goto("/Community/Index");
     const galleryCard = page.locator(`.lime-site-card:has-text("${name}")`);
     await expect(galleryCard).toBeVisible();

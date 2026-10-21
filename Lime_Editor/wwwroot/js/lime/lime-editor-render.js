@@ -1,7 +1,7 @@
 /*
  * Lime editor render pipeline (вынос из lime-doc-editor.js).
  *
- * Полный render() активной страницы (empty-state placeholder / L.render) и Stage 7
+ * Полный render() активной страницы (empty-state placeholder / L.render) и
  * инкрементальная машинерия: patchBlockDom (replace одного узла), insertBlockDom /
  * removeBlockDom(s) / moveBlockDom (точечные вставка/удаление/перенос DOM) с safe-gate'ами
  * (drop-зоны детей, компонент-инстанс, v2 design-блок → полный render), finish*-обвязка
@@ -57,7 +57,7 @@
             var __pt = perfNow();
             var doc = getDoc();
             if (pageBlocks().length === 0) {
-                // Этап 9.4: «пустое состояние» с подсказкой и быстрыми действиями вместо голого текста.
+                // «пустое состояние» с подсказкой и быстрыми действиями вместо голого текста.
                 ws.innerHTML = '<div class="lime-workspace__placeholder" data-doc-empty>' +
                     '<div class="lime-workspace__placeholder-icon">✨</div>' +
                     '<div class="lime-workspace__placeholder-title">Страница «' + escapeText(doc.pages[getActive()].title) + '» пуста</div>' +
@@ -79,14 +79,14 @@
                 if (sel) sel.classList.add("is-selected");
             }
             refreshInspector();
-            refreshLayers(); // дерево слоёв синхронно с холстом (этап 0.4)
+            refreshLayers(); // дерево слоёв синхронно с холстом
             initDnD(); // DOM пересобран — пересоздаём sortable-зоны
             initLayerDrag(); // и навешиваем drag на декор-слои
             refreshV2SelectionOverlay();
             perfRec("full", __pt);
         }
 
-        // Отложенный refresh дерева слоёв (Stage 7): серия быстрых правок не перестраивает дерево
+        // Отложенный refresh дерева слоёв: серия быстрых правок не перестраивает дерево
         // на каждую — один rAF на пачку. Имя/тип/видимость в слоях не критичны мгновенно.
         var layersRefreshPending = false;
         function scheduleLayersRefresh() {
@@ -96,7 +96,7 @@
             if (win.requestAnimationFrame) win.requestAnimationFrame(run); else setTimeout(run, 0);
         }
 
-        // Stage 7: точечное обновление DOM одного блока вместо полной пересборки workspace.innerHTML.
+        // Точечное обновление DOM одного блока вместо полной пересборки workspace.innerHTML.
         // Применяется к content-правкам (текст/медиа/props), которые НЕ меняют структуру детей.
         // Безопасный gate: если у блока есть дочерняя drop-зона (контейнер), Sortable пришлось бы
         // пересоздавать — тогда откатываемся на полный render(). Делегированные обработчики (на ws)
@@ -124,7 +124,7 @@
             return true;
         }
 
-        // Stage 7: точечная вставка DOM нового блока в список родителя (или страницы) по индексу.
+        // Точечная вставка DOM нового блока в список родителя (или страницы) по индексу.
         // false → caller делает полный render() (страховка). Модель уже изменена к этому моменту.
         function insertBlockDom(block, parentId, index, opts) {
             opts = opts || {};
@@ -159,7 +159,7 @@
             perfRec("inc", __pt);
             return true;
         }
-        // Stage 7: точечное удаление DOM узла. false → caller делает полный render().
+        // Точечное удаление DOM узла. false → caller делает полный render().
         function removeBlockDom(id) {
             var __pt = perfNow();
             if (pageBlocks().length === 0) return false; // страница опустела → нужен placeholder
@@ -197,7 +197,7 @@
             if (removeBlockDom(id)) refreshInspector(); else render();
             if (commandApplied) scheduleAutosave(); else markDirty();
         }
-        // Stage 7: точечное перемещение СУЩЕСТВУЮЩЕГО DOM-узла в список родителя по индексу (кнопочные
+        // Точечное перемещение СУЩЕСТВУЮЩЕГО DOM-узла в список родителя по индексу (кнопочные
         // move/unwrap; для DnD Sortable уже двигает DOM сам). Поддерево узла переезжает целиком — его
         // вложенные Sortable переживают (списки не пересоздаём). false → caller делает полный render().
         function moveBlockDom(id, parentId, index) {
@@ -266,7 +266,7 @@
             var blocks = ws.querySelectorAll(".lime-block");
             for (var i = 0; i < blocks.length; i++) styleBlockEl(blocks[i]);
         }
-        // Точечная версия для Stage 7 patchBlockDom: стили только для свежего поддерева (content-правка
+        // Точечная версия для patchBlockDom: стили только для свежего поддерева (content-правка
         // не меняет design → перекомпилировать общий design-preview <style> не нужно).
         function applyPreviewStylesScoped(rootEl) {
             styleBlockEl(rootEl);

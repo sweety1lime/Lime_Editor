@@ -84,7 +84,7 @@ const frame = { x: 10, y: 20, width: 100, height: 50, rotation: 15 };
 }
 
 {
-    // Align/distribute (Stage 9.1): три блока разного размера в общем bounding box.
+    // Align/distribute: три блока разного размера в общем bounding box.
     const a = { x: 0, y: 0, width: 40, height: 20 };
     const b = { x: 100, y: 50, width: 60, height: 40 };
     const c = { x: 220, y: 30, width: 20, height: 80 };
@@ -119,4 +119,4 @@ if (failed) {
     console.error("\nLAYOUT-SELFTEST FAILED: " + failed);
     process.exit(1);
 }
-console.log("\nLAYOUT-OK (Stage 3): move, resize, rotate, Shift/Alt, constraints — зелёные");
+console.log("\nLAYOUT-OK: move, resize, rotate, Shift/Alt, constraints — зелёные");

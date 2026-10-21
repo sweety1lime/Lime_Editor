@@ -6,7 +6,7 @@
     var isEdit = Model.SiteId.HasValue;
     // Защита от закрытия </script> в пользовательском контенте при инлайне JSON.
     var seedJson = (Model.DocumentJson ?? "null").Replace("</", "<\\/");
-    // Стартовый шаблон (Фаза 3.2) — только для нового документа; ключ санитайзим.
+    // Стартовый шаблон — только для нового документа; ключ санитайзим.
     var templateKey = isEdit ? "" : System.Text.RegularExpressions.Regex.Replace(
         Context.Request.Query["template"].ToString() ?? "", "[^a-zA-Z0-9_-]", "");
 }<!DOCTYPE html>
@@ -388,7 +388,7 @@
         </div>
     </div>
 
-    <!-- Менеджер страниц (этап 0.3) -->
+    <!-- Менеджер страниц -->
     <div id="lime-doc-pages-modal" class="lime-modal-backdrop">
         <div class="lime-modal" style="max-width: 560px;">
             <div class="lime-modal__head">
@@ -405,7 +405,7 @@
         </div>
     </div>
 
-    <!-- Код сайта (этап 0.2): глобальный CSS + кастомный head -->
+    <!-- Код сайта: глобальный CSS + кастомный head -->
     <div id="lime-doc-code-modal" class="lime-modal-backdrop">
         <div class="lime-modal" style="max-width: 640px;">
             <div class="lime-modal__head">

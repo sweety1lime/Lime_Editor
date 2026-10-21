@@ -26,7 +26,7 @@ namespace Lime_Editor.Controllers
             _docRenderer = docRenderer;
         }
 
-        // Пересборка всех опубликованных сайтов движка B из их JSON-снапшотов (этап 0.2).
+        // Пересборка всех опубликованных сайтов из их JSON-снапшотов.
         // Нужна после правок рендерера/разметки блоков: фиксы доезжают до уже
         // опубликованных страниц без пересохранения каждым пользователем.
         [HttpPost]
@@ -104,7 +104,7 @@ namespace Lime_Editor.Controllers
                 }
             ).ToListAsync();
 
-            // Текущий тариф каждого пользователя (этап 3.4): нет подписки → free.
+            // Текущий тариф каждого пользователя: нет подписки → free.
             var planByUser = await db.Subscriptions
                 .Where(s => s.OwnerKind == OwnerKind.User)
                 .ToDictionaryAsync(s => s.OwnerId, s => s.PlanCode);
@@ -119,7 +119,7 @@ namespace Lime_Editor.Controllers
             return View(new AdminUsersViewModel { Users = rows, PlanCodes = planCodes });
         }
 
-        // Ручная выдача тарифа (этап 3.4). Платежей пока нет — так включаем Pro/Business
+        // Ручная выдача тарифа. Платежей пока нет — так включаем Pro/Business
         // на тест. days=null → бессрочно; иначе период до now+days.
         [HttpPost]
         [ValidateAntiForgeryToken]

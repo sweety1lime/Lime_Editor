@@ -3,7 +3,6 @@ using System.Collections.Generic;
 namespace Lime_Editor.Services
 {
     // Декларативное описание трёх готовых шаблонов и одного "custom" (EditTemplates).
-    // Раньше эта логика была дублем в SaveRuby/SaveSublime/SaveCoomingSoon (по ~70 строк каждый).
     public static class TemplateExportConfigs
     {
         // Совпадает с IdTemplate=4 в LimeEditorContext seed — Site.TemplateId для "Создать сайт"-потока.

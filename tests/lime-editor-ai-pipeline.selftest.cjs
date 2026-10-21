@@ -72,7 +72,7 @@ function check(name, cond) {
     })());
 }
 
-// ---- collectMotionBlocks: pure flattening logic (Milestone 5, Фаза B) ----
+// ---- collectMotionBlocks: pure flattening logic ----
 {
     const L = { isContainer: (t) => t === "container" };
     const tree = [
@@ -108,7 +108,7 @@ function check(name, cond) {
     check("collectMotionBlocks: без L падает мягко на container:false", outNoL[0].container === false);
 }
 
-// ---- collectMobileBlocks: pack-level context for Milestone 5, Phase D ----
+// ---- collectMobileBlocks: pack-level context for the mobile pass ----
 {
     const L = { isContainer: (t) => t === "container" || t === "cover" };
     const tree = [
@@ -162,7 +162,7 @@ function makeHarness(opts) {
         LimeCommands: {
             validateAiCommands: (list, vopts) => { validateCalls.push({ list, vopts }); return { ok: false, reason: "stub-stop", commands: [], rejected: [] }; }
         },
-        // doc.pack штампуется для ЛЮБОГО шаблона (Milestone 4) — resolve() имитирует, что только
+        // doc.pack штампуется для ЛЮБОГО шаблона — resolve() имитирует, что только
         // "neo-lore-drop" — настоящий Experience Pack, а "startup" (или что угодно ещё) — нет.
         LimeExperiencePacks: opts.experiencePacks !== undefined ? opts.experiencePacks : {
             resolve: (key) => (key === "neo-lore-drop" ? { key: key, assetSlots: [] } : null)
@@ -196,8 +196,8 @@ function makeHarness(opts) {
     check("no doc.pack -> friendly alert, no fetch", h.alerts.length === 1 && h.fetchCalls.length === 0);
 }
 {
-    // Реальный баг, найденный при E2E-проверке: doc.pack штампуется для ЛЮБОГО шаблона
-    // (Milestone 4), значит "startup" тоже имеет doc.pack="startup" (truthy!) — guard обязан
+    // Реальный баг, найденный при E2E-проверке: doc.pack штампуется для ЛЮБОГО шаблона,
+    // значит "startup" тоже имеет doc.pack="startup" (truthy!) — guard обязан
     // проверять РЕЗОЛВ через LimeExperiencePacks.resolve(), а не голую truthiness doc.pack.
     const h = makeHarness({ doc: { pack: "startup", theme: {}, pages: [{ blocks: [{ id: "b1", type: "text", content: { text: "x" } }] }] } });
     h.api.aiFillPackText();
@@ -215,7 +215,7 @@ function makeHarness(opts) {
     check("empty brief (dismissed prompt) -> no fetch, no alert", h.alerts.length === 0 && h.fetchCalls.length === 0 && h.prompts.length === 1);
 }
 
-// ---- aiRestylePack: guards + fetch wiring (Milestone 5, Фаза B) ----
+// ---- aiRestylePack: guards + fetch wiring ----
 {
     const h = makeHarness({ cmdStore: null });
     h.api.aiRestylePack();
@@ -233,7 +233,7 @@ function makeHarness(opts) {
     check("restyle: empty brief (dismissed prompt) -> no fetch, no alert", h.alerts.length === 0 && h.fetchCalls.length === 0 && h.prompts.length === 1);
 }
 
-// ---- aiAdaptPackMobile: guards + fetch wiring (Milestone 5, Phase D) ----
+// ---- aiAdaptPackMobile: guards + fetch wiring ----
 {
     const h = makeHarness({ cmdStore: null });
     h.api.aiAdaptPackMobile();
@@ -374,7 +374,7 @@ async function runAsyncChecks() {
         check("network error -> alert", h.alerts.some((a) => a.indexOf("Сетевая") >= 0));
     }
 
-    // ---- aiSuggestAssetPrompt (Milestone 5, Фаза C): не трогает документ, только текст-бриф ----
+    // ---- aiSuggestAssetPrompt: не трогает документ, только текст-бриф ----
     function makeAssetButton() {
         return {
             dataset: { slotLabel: "Hero scene", slotHint: "Spline embed", packName: "Neo Lore Drop", packCategory: "showcase" },

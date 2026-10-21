@@ -24,7 +24,7 @@ namespace Lime.Tests.Services
         [Fact]
         public void SanitizeHead_AllowsSafeTags_StripsScriptsAndHandlers()
         {
-            // Этап 0.2: кастомный <head>-код — whitelist meta/link/style, без script/on*/iframe/base.
+            // Кастомный <head>-код — whitelist meta/link/style, без script/on*/iframe/base.
             var head = "<meta name=\"yandex-verification\" content=\"abc\">" +
                        "<link rel=\"stylesheet\" href=\"https://cdn/x.css\">" +
                        "<style>.x{color:red}</style>" +

@@ -36,13 +36,13 @@
         <form method="post" asp-action="RepublishAll" asp-controller="Admin"
               data-lime-confirm
               data-lime-confirm-title="Пересобрать публикации?"
-              data-lime-confirm-message="Все опубликованные сайты движка B будут пересобраны из JSON-снапшотов."
+              data-lime-confirm-message="Все опубликованные сайты будут пересобраны из JSON-снапшотов."
               data-lime-confirm-action="Пересобрать"
               data-lime-loading
               data-lime-loading-text="Пересобираем...">
             @Html.AntiForgeryToken()
             <button type="submit" class="lime-btn lime-btn--soft" title="После обновления рендерера фиксы доедут до уже опубликованных страниц">
-                ⟳ Пересобрать публикации (движок B)
+                ⟳ Пересобрать публикации
             </button>
         </form>
     </div>

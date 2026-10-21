@@ -39,7 +39,7 @@ namespace Lime_Editor.Controllers
                 return NotFound();
             }
 
-            // Без AsNoTracking: тут же инкрементируем счётчик просмотров (этап 3).
+            // Без AsNoTracking: тут же инкрементируем счётчик просмотров.
             // Публичный показ: отдаём сайт ВЛАДЕЛЬЦА из URL, а не текущего посетителя — обходим tenant-фильтр.
             var site = await db.Sites.IgnoreQueryFilters()
                 .FirstOrDefaultAsync(s => s.UserId == user.Id && s.Slug == slug && s.IsPublished);
@@ -51,7 +51,7 @@ namespace Lime_Editor.Controllers
             site.ViewsCount++;
             await db.SaveChangesAsync();
 
-            // Все сайты — движок B (Движок A удалён): каждая страница — свой URL. Рендерим из
+            // Каждая страница сайта — свой URL. Рендерим из
             // опубликованного JSON-снапшота тем же lime-doc.js, что и клиент; навигация
             // получает реальные ссылки /u/{user}/{slug}/{page}. Контент собирается рендерером
             // с экранированием — санитайзер HTML-блоба тут не нужен.
@@ -70,7 +70,7 @@ namespace Lime_Editor.Controllers
             }
             // Для главной title сайта, для внутренних — «Страница — Сайт».
             var pageTitle = string.IsNullOrEmpty(page) ? null : rendered.Title;
-            // SEO/AEO (этап 3.6): абсолютный canonical + per-page описание/og-картинка из документа.
+            // SEO/AEO: абсолютный canonical + per-page описание/og-картинка из документа.
             var canonical = $"{Request.Scheme}://{Request.Host}" + (string.IsNullOrEmpty(page) ? baseUrl : baseUrl + "/" + page);
             var (pageDesc, pageOg) = PublishedPageBuilder.PageSeo(site.PublishedDocumentJson, page ?? "");
             var html = PublishedPageBuilder.WrapCustomHtml(rendered.Body, site, site.PublishedDocumentJson, pageTitle, canonical, pageDesc, pageOg);
@@ -115,7 +115,7 @@ namespace Lime_Editor.Controllers
             if (rendered == null) return NotFound();
 
             var pageTitle = RecordTitle(col.SchemaJson, rec.DataJson) ?? rendered.Title;
-            // SEO/AEO записи (этап 3.6): абсолютный canonical + описание/og-картинка из полей + JSON-LD Article.
+            // SEO/AEO записи: абсолютный canonical + описание/og-картинка из полей + JSON-LD Article.
             var canonical = $"{Request.Scheme}://{Request.Host}{baseUrl}/{page}/{record}";
             var recDesc = RecordExcerpt(col.SchemaJson, rec.DataJson);
             var recOg = RecordImage(col.SchemaJson, rec.DataJson);
@@ -125,7 +125,7 @@ namespace Lime_Editor.Controllers
             return Content(html, "text/html");
         }
 
-        // sitemap.xml (этап 3.6): страницы + записи коллекций-шаблонов. /u/{user}/{slug}/sitemap.xml
+        // sitemap.xml: страницы + записи коллекций-шаблонов. /u/{user}/{slug}/sitemap.xml
         public async Task<IActionResult> Sitemap(string username, string slug)
         {
             var (site, baseUrl) = await ResolvePublishedAsync(username, slug);
@@ -142,7 +142,7 @@ namespace Lime_Editor.Controllers
             return Content(sb.ToString(), "application/xml");
         }
 
-        // llms.txt (этап 3.6, AEO): человеко/AI-читаемая карта сайта для AI-поисковиков.
+        // llms.txt (AEO): человеко/AI-читаемая карта сайта для AI-поисковиков.
         public async Task<IActionResult> LlmsTxt(string username, string slug)
         {
             var (site, baseUrl) = await ResolvePublishedAsync(username, slug);
@@ -317,7 +317,7 @@ namespace Lime_Editor.Controllers
             return i > 0 && int.TryParse(s.Substring(0, i), out var n) ? n : 0;
         }
 
-        // ===== SEO/AEO записи (этап 3.6) =====
+        // ===== SEO/AEO записи =====
         private static string FirstFieldOfType(string schemaJson, string type)
         {
             try { foreach (var f in JArray.Parse(schemaJson ?? "[]")) if ((string)f["type"] == type) return (string)f["name"]; }

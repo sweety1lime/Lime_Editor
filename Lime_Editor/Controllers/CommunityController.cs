@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 
 namespace Lime_Editor.Controllers
 {
-    // Сообщество (этап 3): публичная галерея опубликованных сайтов, лайки,
+    // Сообщество: публичная галерея опубликованных сайтов, лайки,
     // «использовать как шаблон» (клонирование чужой наработки к себе).
     public class CommunityController : Controller
     {
@@ -133,7 +133,7 @@ namespace Lime_Editor.Controllers
         }
 
         // «Использовать как шаблон»: клонирует сайт из галереи в аккаунт текущего
-        // пользователя как черновик. Для движка B источник правды — опубликованный
+        // пользователя как черновик. Источник правды — опубликованный
         // JSON-снапшот (его и копируем; HTML пересобирает сервер). Legacy — копия блоба.
         [Authorize]
         [HttpPost]
@@ -166,7 +166,7 @@ namespace Lime_Editor.Controllers
 
             if (!string.IsNullOrEmpty(source.PublishedDocumentJson))
             {
-                // Движок B: клонируем снапшот как рабочий документ нового сайта.
+                // Клонируем снапшот как рабочий документ нового сайта.
                 clone.TemplateId = TemplateExportConfigs.CustomTemplateId;
                 clone.DocumentJson = source.PublishedDocumentJson;
                 var body = _docRenderer.RenderSite(clone.DocumentJson);
@@ -181,7 +181,7 @@ namespace Lime_Editor.Controllers
                 clone.DraftFolder = source.Folder;
             }
 
-            // Лимит тарифа на число сайтов (этап 3.4): клон тоже создаёт сайт.
+            // Лимит тарифа на число сайтов: клон тоже создаёт сайт.
             if (!await _entitlements.CanCreateSiteAsync(OwnerRef.ForUser(userId)))
             {
                 return RedirectToAction("Index", "Billing");

@@ -11,7 +11,7 @@ namespace Lime_Editor.Services
         public int Limit { get; set; }
     }
 
-    // Тарифы и лимиты (этап 3.4). Резолвит план владельца (нет подписки → Free),
+    // Тарифы и лимиты. Резолвит план владельца (нет подписки → Free),
     // считает периодические метры (UsageCounter) и абсолютные ресурсы (COUNT/SUM).
     public interface IEntitlementService
     {

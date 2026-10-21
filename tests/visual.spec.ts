@@ -89,7 +89,7 @@ test("visual: editor-v2-canvas (@visual)", async ({ page }) => {
   await expect(page).toHaveScreenshot("editor-v2-canvas.png", { fullPage: true });
 });
 
-// Showcase Experience Pack на канвасе (Test Plan experience-builder-plan.md):
+// Showcase Experience Pack на канвасе:
 // выбор пака через интро-тайл — тот же путь, что у пользователя.
 test("visual: showcase-pack-canvas (@visual)", async ({ page }) => {
   await page.goto("/Home/EditDoc");

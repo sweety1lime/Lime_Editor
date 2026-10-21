@@ -9,7 +9,7 @@ namespace Lime_Editor.Models
         public string Email { get; set; }
         public bool IsAdmin { get; set; }
         public int SitesCount { get; set; }
-        public string PlanCode { get; set; } = "free"; // текущий тариф (этап 3.4)
+        public string PlanCode { get; set; } = "free"; // текущий тариф
     }
 
     public class AdminSiteRow

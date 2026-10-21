@@ -4,7 +4,7 @@ using System;
 
 namespace Lime_Editor.Models
 {
-    // Лайк сайта в галерее сообщества (этап 3). Один пользователь — один лайк на сайт.
+    // Лайк сайта в галерее сообщества. Один пользователь — один лайк на сайт.
     public class SiteLike
     {
         public int Id { get; set; }

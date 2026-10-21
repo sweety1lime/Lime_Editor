@@ -1,5 +1,5 @@
 /*
- * Lime Experience Packs (план experience-builder-plan.md, Milestone 1) — тонкий слой
+ * Lime Experience Packs — тонкий слой
  * поверх `LimeTemplates`: пак хранит ТОЛЬКО новые поля (category/level/assetSlots/
  * motionProfile/preview), а name/theme/sections резолвятся из совпадающего по `key`
  * шаблона в LimeTemplates. Не дублируем данные — улучшил шаблон, улучшился пак.

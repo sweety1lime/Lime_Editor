@@ -100,11 +100,11 @@ namespace Lime_Editor.Services
             return body != null ? body.InnerHtml : doc.DocumentNode.InnerHtml;
         }
 
-        // Кастомный код в <head> (этап 0.2): владелец вставляет верификации, мета-теги, шрифты,
+        // Кастомный код в <head>: владелец вставляет верификации, мета-теги, шрифты,
         // глобальные <style>/<link>. Пока публикации живут на одном origin с Identity-cookie
-        // (отдельный домен публикаций — этап 0.6), произвольный <script> = stored-XSS, поэтому
+        // (отдельного домена для публикаций пока нет), произвольный <script> = stored-XSS, поэтому
         // здесь whitelist БЕЗОПАСНЫХ тегов: meta, link, style. Скрипты/iframe/base и on*-атрибуты
-        // вырезаются. Аналитика-скрипты разблокируются после 0.6.
+        // вырезаются. Скрипты аналитики можно будет разрешить, когда публикации переедут на свой домен.
         private static readonly System.Collections.Generic.HashSet<string> HeadAllowedTags =
             new(System.StringComparer.OrdinalIgnoreCase) { "meta", "link", "style" };
 

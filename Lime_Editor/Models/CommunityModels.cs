@@ -4,7 +4,7 @@ using System.Collections.Generic;
 
 namespace Lime_Editor.Models
 {
-    // Карточка сайта в галерее сообщества (этап 3).
+    // Карточка сайта в галерее сообщества.
     public class CommunityCard
     {
         public int SiteId { get; set; }

@@ -10,7 +10,7 @@ using Xunit;
 
 namespace Lime.Tests.Integration
 {
-    // Этап 3: публичная галерея сообщества.
+    // Публичная галерея сообщества.
     public class CommunityTests : IClassFixture<WebFactory>
     {
         private readonly WebFactory _factory;

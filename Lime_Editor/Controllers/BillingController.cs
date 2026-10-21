@@ -13,7 +13,7 @@ using Microsoft.Extensions.Configuration;
 
 namespace Lime_Editor.Controllers
 {
-    // Тарифы пользователя (этап 3.4). Index — текущий план + использование; Webhook —
+    // Тарифы пользователя. Index — текущий план + использование; Webhook —
     // безопасный приём событий провайдера (подпись + идемпотентность). Реальную оплату
     // подключим позже; планы пока выдаёт админ (AdminController.SetPlan).
     [Authorize]

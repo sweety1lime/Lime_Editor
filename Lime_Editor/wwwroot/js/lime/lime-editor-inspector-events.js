@@ -110,7 +110,7 @@
 
         function bind() {
             if (!inspectorEl) return;
-            // Stage 5 drag-to-adjust: тянешь подпись числового поля → значение скрабится (Shift ×10,
+            // Drag-to-adjust: тянешь подпись числового поля → значение скрабится (Shift ×10,
             // Alt ×0.1). На отпускании шлём один `change` → существующий commit-путь (один undo).
             // Превью блока обновляется на отпускании (live-превью design-полей — отдельный инкремент).
             var scrub = null;
@@ -263,7 +263,7 @@
                     resetV2DesignField(el.dataset.v2DesignReset);
                     return;
                 }
-                if ((el = e.target.closest("[data-doc-style-reset]"))) { // Stage 5: сброс override стиля
+                if ((el = e.target.closest("[data-doc-style-reset]"))) { // Сброс override стиля
                     resetStyleProps(el.getAttribute("data-doc-style-reset").split(","));
                     return;
                 }

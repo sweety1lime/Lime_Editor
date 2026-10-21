@@ -1,4 +1,4 @@
-/* Lime editor AI command pipeline (этап 10.1: безопасное применение списка команд от LLM). */
+/* Lime editor AI command pipeline (безопасное применение списка команд от LLM). */
 (function (root, factory) {
     if (typeof module === "object" && module.exports) module.exports = factory();
     else root.LimeEditorAiPipeline = factory();
@@ -32,7 +32,7 @@
         var leStatus = options.leStatus || function () {};
         var switchBreakpoint = options.switchBreakpoint || function () {};
 
-        // Milestone 5, Фаза A (experience-builder-plan.md): «заполнить секции пака текстом».
+        // «заполнить секции пака текстом».
         // Служебные строковые поля (layout/config/URL) не текст для бренда — не отдаём их AI на
         // переписывание, иначе рискуем сломать embed/CMS-привязку/раскладку. Массивы объектов
         // (testimonials.items, faq.items, navbar.links) разворачиваем в плоские пути "items.0.quote" —
@@ -73,7 +73,7 @@
             return out;
         }
 
-        // Milestone 5, Фаза B: контекст для AI-подбора темы/motion. fx/layers сознательно НЕ
+        // Контекст для AI-подбора темы/motion. fx/layers сознательно НЕ
         // собираем (и не документируем модели) — layers хранит массив декор-фигур, setBlockProp
         // заменяет его целиком, а слепая генерация LLM молча стёрла бы ручную расстановку.
         var MOTION_PROPS = ["anim", "animDelay", "animDuration", "parallax", "marquee", "scene", "sticky", "stickyOffset"];
@@ -172,8 +172,8 @@
             // scratch-скриптом при планировании), а не одно поле выбранного блока.
             var v = win.LimeCommands.validateAiCommands(rawList, { max: 100 });
             if (!v.ok) { leToastMsg("AI прислал некорректную правку — ничего не менял."); return v.reason; }
-            // Новым секциям (insertBlock) выдаём свежие id — чтобы блок был уникален и выбираем
-            // (этап 10.4). reid рекурсивно и для детей.
+            // Новым секциям (insertBlock) выдаём свежие id — чтобы блок был уникален и выбираем.
+            // reid рекурсивно и для детей.
             v.commands.forEach(function (c) {
                 if (c.type === "insertBlock" && c.payload && c.payload.block) reid(c.payload.block);
             });
@@ -249,7 +249,7 @@
             t.classList.add("is-on");
             setTimeout(function () { t.classList.remove("is-on"); }, 3200);
         }
-        // Правка выбранного блока по описанию через серверный LLM→команды (этап 10.2).
+        // Правка выбранного блока по описанию через серверный LLM→команды.
         // Контекст (поддерево + тема) уходит на /Ai/Suggest; ответ-команды идут в applyAiCommands
         // (валидация + preview + один undo). Живой LLM не тестируется e2e — каждое звено покрыто
         // отдельно (серверный парсер xUnit, applyAiCommands Playwright 10.1).
@@ -269,7 +269,7 @@
             var form = new FormData();
             form.append("context", ctx);
             form.append("instruction", instruction);
-            if (opts.breakpoint) form.append("breakpoint", opts.breakpoint); // Responsive-AI (этап 10.5)
+            if (opts.breakpoint) form.append("breakpoint", opts.breakpoint); // Responsive-AI
             leStatus(opts.breakpoint ? "AI адаптирует под мобильные…" : "AI готовит правки…");
             fetch("/Ai/Suggest", { method: "POST", headers: { "X-CSRF-TOKEN": csrfToken() }, body: form, credentials: "same-origin" })
                 .then(function (resp) { return resp.json().then(function (j) { return { status: resp.status, j: j }; }); })
@@ -285,7 +285,7 @@
                 })
                 .catch(function () { leStatus("", { hide: true }); alert("Сетевая ошибка."); });
         }
-        // Responsive-AI «адаптировать мобилку» (этап 10.5): переключаемся на mobile (чтобы видеть результат)
+        // Responsive-AI «адаптировать мобилку»: переключаемся на mobile (чтобы видеть результат)
         // и просим адаптацию — сервер вернёт только setStyle/setDesign на breakpoint=mobile, десктоп не тронут.
         function aiAdaptMobile(blockId) {
             switchBreakpoint("mobile");
@@ -295,7 +295,7 @@
             });
         }
 
-        // Milestone 5, Фаза D: pack-level mobile pass для neo-секций. Это всё ещё Responsive-AI:
+        // Pack-level mobile pass для neo-секций. Это всё ещё Responsive-AI:
         // сервер принимает только setStyle/setDesign на breakpoint=mobile, без новой command surface.
         function aiAdaptPackMobile() {
             if (!getCmdStore()) { alert("AI-правки доступны в режиме команд."); return; }
@@ -340,13 +340,13 @@
                 .catch(function () { leStatus("", { hide: true }); alert("Сетевая ошибка."); });
         }
 
-        // Фаза A Milestone 5: «заполнить секции пака текстом» — тот же /Ai/Suggest и та же
+        // «заполнить секции пака текстом» — тот же /Ai/Suggest и та же
         // applyAiCommands (validate → dry-run → preview → один undo), что и aiSuggest для одного
         // блока; отличается только контекст (весь документ, а не поддерево выбранного блока) и
         // инструкция. Ноль новых типов команд/whitelist — только другая сериализация на клиенте.
         function aiFillPackText() {
             if (!getCmdStore()) { alert("AI-правки доступны в режиме команд."); return; }
-            // doc.pack штампуется для ЛЮБОГО шаблона (Milestone 4, applyTemplateByKey) — проверять
+            // doc.pack штампуется для ЛЮБОГО шаблона (applyTemplateByKey) — проверять
             // нужно, что он резолвится в НАСТОЯЩИЙ Experience Pack, а не просто что поле не пустое.
             var packInfo = win.LimeExperiencePacks && win.LimeExperiencePacks.resolve(doc.pack);
             if (!packInfo) { alert("Это работает только для сайтов, собранных из готового пака (Experience Pack)."); return; }
@@ -385,12 +385,11 @@
         var aiFillTextBtn = document ? document.querySelector("[data-doc-ai-fill-text]") : null;
         if (aiFillTextBtn) aiFillTextBtn.addEventListener("click", aiFillPackText);
 
-        // Фаза B Milestone 5: «подобрать тему + motion под настроение» для пак-документа.
+        // «подобрать тему + motion под настроение» для пак-документа.
         // Тот же /Ai/Suggest + applyAiCommands (validate → dry-run → preview → один undo).
-        // Новое здесь — только setTheme (Фаза B добавила команду в allowlist) и то, что
-        // setBlockProp впервые реально документирован модели (раньше был разрешён, но не описан
-        // в системном промпте — см. experience-builder-plan.md). Выбор пака НЕ входит в эту фазу:
-        // паков сегодня ровно один (neo-lore-drop), выбирать не из чего — решение пользователя.
+        // Новое здесь — только команда setTheme в allowlist и то, что setBlockProp описан
+        // модели в системном промпте. Выбора пака здесь нет: пак сегодня ровно один
+        // (neo-lore-drop), выбирать не из чего.
         function aiRestylePack() {
             if (!getCmdStore()) { alert("AI-правки доступны в режиме команд."); return; }
             var packInfo = win.LimeExperiencePacks && win.LimeExperiencePacks.resolve(doc.pack);
@@ -432,7 +431,7 @@
         var aiMobileBtn = document ? document.querySelector("[data-doc-ai-mobile]") : null;
         if (aiMobileBtn) aiMobileBtn.addEventListener("click", aiAdaptPackMobile);
 
-        // Milestone 5, Фаза C: «✦ Промпт для ассета» — не трогает документ (ни content, ни
+        // «✦ Промпт для ассета» — не трогает документ (ни content, ни
         // commands), просто предлагает текст-бриф для внешнего инструмента (Midjourney/Spline/
         // поиск ассетов). Данные слота/пака уже посчитаны один раз в slotHintSection
         // (lime-editor-content-binding.js) и лежат в data-* атрибутах самой кнопки — здесь их

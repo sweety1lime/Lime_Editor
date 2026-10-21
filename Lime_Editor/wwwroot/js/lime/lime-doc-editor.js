@@ -1,5 +1,5 @@
 /*
- * Lime Document Editor (Трек B, B1 срез 2) — новый редактор поверх движка lime-doc.
+ * Lime Document Editor — редактор поверх движка lime-doc.
  *
  * Источник правды — объект `doc` (JSON-документ). DOM рендерится из него (editable-режим).
  * Inline-правка пишет обратно в doc.content по data-field (без ре-рендера, чтобы не терять курсор).
@@ -81,12 +81,12 @@
     var currentState = "normal"; // normal | hover — редактируемое состояние блока (1.2)
     var currentClass = null;   // если задан cls — инспектор правит этот класс, а не блок (0.1)
     var currentInspectorTab = "style"; // style | fx | motion — активная вкладка инспектора
-    // UI-уровень (Milestone 2 experience-builder-plan.md): basic|design|motion|pro — прогрессивное
+    // UI-уровень: basic|design|motion|pro — прогрессивное
     // раскрытие инспектора. Дефолт см. lime-editor-ui-level.js (новый юзер → basic, иначе pro).
     var currentUiLevel = EditorUiLevel.get(window);
     var paletteJustDragged = false; // подавляет click палитры после drag-and-drop из палитры (DnD A)
 
-    // Версия документа для optimistic concurrency (этап 0.4): Site.UpdatedAt.Ticks.
+    // Версия документа для optimistic concurrency: Site.UpdatedAt.Ticks.
     // Шлём с каждым сохранением; 409 = документ сохранили из другого окна.
     var docVersion = window.__LIME_DOC_VERSION__ || 0;
 
@@ -121,7 +121,7 @@
         var h = function (n) { var x = parseInt(n, 10).toString(16); return x.length < 2 ? "0" + x : x; };
         return "#" + h(m[1]) + h(m[2]) + h(m[3]);
     }
-    // Глубокий поиск блока (этап 1: блоки бывают вложены в контейнеры/колонки и в
+    // Глубокий поиск блока (блоки бывают вложены в контейнеры/колонки и в
     // children определений компонентов). Возвращает { block, parent: массив-владелец,
     // index, parentBlock: блок-контейнер или null (верхний уровень страницы) }.
     function findIn(arr, id, parentBlock) {
@@ -141,7 +141,7 @@
         var r = findBlock(id);
         return r ? r.block : null;
     }
-    // ===== Переиспользуемые style-классы (этап 0.1) =====
+    // ===== Переиспользуемые style-классы =====
     // theme.classes = [{ cls, name, styles:{base,tablet,mobile,hover} }]; блок ссылается
     // block.classes:["cls"]. cls — CSS-безопасный id (генерим), name — для показа.
     function classDefs() {
@@ -218,7 +218,7 @@
         markDirty: markDirty
     });
     var blockFromSpec = presetTools.blockFromSpec;
-    // Старт с шаблона (Фаза 3.2): ?template=key на пустом новом документе.
+    // Старт с шаблона: ?template=key на пустом новом документе.
     // Применяется до cmdStore/cmdPrev, чтобы история стартовала уже от шаблонного документа.
     if (window.__LIME_TEMPLATE__ && pageBlocks().length === 0) {
         presetTools.applyTemplateByKey(window.__LIME_TEMPLATE__);
@@ -239,7 +239,7 @@
         if (inspectorEl) inspectorEl.setAttribute("aria-hidden", hidden ? "true" : "false");
     }
 
-    // ===== Stage 7 perf-инструмент — module lime-editor-perf.js =====
+    // ===== Perf-инструмент — module lime-editor-perf.js =====
     var perfTools = EditorPerf.create({
         window: window,
         location: location,
@@ -303,12 +303,12 @@
     }
     // Частый шов для media/content-инспектора (image/gallery/video/embed). У компонента-инстанса
     // content-правки локальны: пишем в overrides.content, не трогая definition и другие копии —
-    // тем же путём, что inline-текст (6.2). Это закрывает «overrides изображений» из §8 этап 6.
+    // тем же путём, что inline-текст.
     function setContentValue(source, field, value, remove) {
         var componentInstance = source && source.type === "component" && componentRecord(source.ref);
         if (componentInstance) {
             if (runCommand("setComponentContentOverride", { id: source.id, field: field, value: value, remove: !!remove })) {
-                patchBlockDom(source.id); scheduleAutosave(); // Stage 7: точечно вместо полного render
+                patchBlockDom(source.id); scheduleAutosave(); // Точечно вместо полного render
                 return true;
             }
             beginCheckpointMutation();
@@ -322,7 +322,7 @@
             var changed = runCommand("setContent", {
                 id: source.id, field: field, value: value, remove: !!remove
             });
-            patchBlockDom(source.id); // Stage 7: точечно вместо полного render
+            patchBlockDom(source.id); // Точечно вместо полного render
             if (changed) scheduleAutosave();
             return true;
         }
@@ -432,19 +432,19 @@
         // (фиксация через debounce), нативный undo браузера дал бы рассинхрон с doc.
         if (k === "z" && !e.shiftKey) { e.preventDefault(); undo(); }
         else if (k === "y" || (k === "z" && e.shiftKey)) { e.preventDefault(); redo(); }
-        // Copy/paste/duplicate блока — только когда фокус не в тексте (этап 0.4).
+        // Copy/paste/duplicate блока — только когда фокус не в тексте.
         else if (k === "c" && !isTextField(e) && selectedId) { e.preventDefault(); copyBlock(); }
         else if (k === "v" && !isTextField(e) && readClip()) { e.preventDefault(); pasteBlock(); }
         else if (k === "d" && !isTextField(e) && selectedId) { e.preventDefault(); dupBlock(); }
     });
-    // Delete — удалить выбранный блок; Esc — снять выбор / закрыть контекст-меню (этап 0.4).
+    // Delete — удалить выбранный блок; Esc — снять выбор / закрыть контекст-меню.
     document.addEventListener("keydown", function (e) {
         if (e.ctrlKey || e.metaKey || isTextField(e)) return;
         if ((e.key === "Delete" || e.key === "Backspace") && selectedId) { e.preventDefault(); delBlock(); }
         else if (e.key === "Escape") { hideCtxMenu(); if (selectedId) deselect(); }
     });
 
-    // ===== RENDER / STAGE 7 PATCH PIPELINE — module lime-editor-render.js =====
+    // ===== RENDER / PATCH PIPELINE — module lime-editor-render.js =====
     // Обёртки — function declarations (hoisted): их получают по значению модули, создающиеся
     // раньше и позже (perf/add-block/block-actions/dnd/ai-generate). editorCollectionData/
     // templateSampleRecord/initLayerDrag — thunk'и: их var-алиасы присваиваются НИЖЕ этой точки.
@@ -493,7 +493,7 @@
     function removeBlocksDom(ids) { return renderPipeline.removeBlocksDom(ids); }
     function finishInsert(block, parentId, index, commandApplied) {
         renderPipeline.finishInsert(block, parentId, index, commandApplied);
-        // Инкрементальная вставка (Stage 7) минует полный render() — intro гасим и здесь.
+        // Инкрементальная вставка минует полный render() — intro гасим и здесь.
         if (intro && intro.maybeHide) intro.maybeHide();
     }
     function finishRemove(id, commandApplied) { renderPipeline.finishRemove(id, commandApplied); }
@@ -563,7 +563,7 @@
         refreshLayers(); // подсветить выбранный блок в дереве слоёв (0.4)
     });
 
-    // Контекстное меню блока (ПКМ, этап 0.4)
+    // Контекстное меню блока (ПКМ)
     ws.addEventListener("contextmenu", function (e) {
         var sec = e.target.closest(".lime-block");
         if (!sec) return;
@@ -664,7 +664,7 @@
     function pasteBlock() { blockActions.pasteBlock(); }
     function selectById(id) { blockActions.selectById(id); }
     function deselect() { blockActions.deselect(); }
-    // ===== ДЕРЕВО СЛОЁВ (outline-навигатор, этап 0.4) =====
+    // ===== ДЕРЕВО СЛОЁВ (outline-навигатор) =====
     var layerHelpers = EditorLayers.create({
         document: document,
         window: window,
@@ -689,7 +689,7 @@
     var blockLabel = layerHelpers.blockLabel;
     function refreshLayers() { layerHelpers.refreshLayers(); }
 
-    // ===== КОНТЕКСТНОЕ МЕНЮ блока (ПКМ, этап 0.4) =====
+    // ===== КОНТЕКСТНОЕ МЕНЮ блока (ПКМ) =====
     var contextMenu = EditorContextMenu.create({
         document: document,
         iconHtml: ico,
@@ -819,7 +819,7 @@
     var tokenSwatches = inspectorControls.tokenSwatches;
     var unitSelectHtml = inspectorControls.unitSelectHtml;
 
-    // ----- Панель «Классы» (этап 0.1) — модуль lime-editor-classes.js. -----
+    // ----- Панель «Классы» — модуль lime-editor-classes.js. -----
     var classTools = EditorClasses.create({
         window: window,
         getDoc: function () { return doc; },
@@ -1238,12 +1238,12 @@
     function aiGenerate() { aiGenerateFlow.aiGenerate(); }
     function aiRewrite() { aiGenerateFlow.aiRewrite(); }
     function aiEditBlock() { aiGenerateFlow.aiEditBlock(); }
-    // Фаза C Milestone 5: hoisted wrapper — EditorInspectorEvents.create() выше регистрируется
+    // Hoisted wrapper — EditorInspectorEvents.create() выше регистрируется
     // ДО того, как aiPipeline создаётся ниже; функция-объявление хоистится, значит к моменту
     // реального клика aiPipeline уже точно инициализирован (тот же приём, что и у aiRewrite).
     function aiSuggestAssetPrompt(el) { aiPipeline.aiSuggestAssetPrompt(el); }
 
-    // ===== AI COMMAND PIPELINE (этап 10.1) — модуль lime-editor-ai-pipeline.js =====
+    // ===== AI COMMAND PIPELINE — модуль lime-editor-ai-pipeline.js =====
     // Изменяемое состояние (cmdStore/selectedId) отдаём геттерами; leStatus остаётся в main (его
     // делит секция генерации). Наружу — applyAiCommands/aiSuggest/aiAdaptMobile (ниже идут в
     // window.__LIME_AI__, command palette и op-хендлеры).
@@ -1291,7 +1291,7 @@
     // ===== Топбар: overflow-меню «⋯» — модуль lime-editor-topbar.js =====
     EditorTopbar.init({ document: document });
 
-    // ===== UI-уровень (Milestone 2 experience-builder-plan.md) — модуль lime-editor-ui-level.js =====
+    // ===== UI-уровень — модуль lime-editor-ui-level.js =====
     // Тумблер живёт в topbar-more меню; смена уровня перекрашивает chrome (Pro/Motion-only пункты)
     // и просит инспектор перерисоваться с новым фильтром — сам холст/документ не меняется.
     EditorUiLevel.wireToggle({
@@ -1317,7 +1317,7 @@
         if (themeModal && e.target.closest("[data-doc-theme-close]")) themeModal.classList.remove("is-open");
     });
 
-    // ===== КОД САЙТА (этап 0.2): глобальный CSS + кастомный head — модуль lime-editor-site-code.js =====
+    // ===== КОД САЙТА: глобальный CSS + кастомный head — модуль lime-editor-site-code.js =====
     // codeModal объявлен здесь (на него ссылается command palette ниже), логику ведёт модуль.
     var codeModal = document.getElementById("lime-doc-code-modal");
     EditorSiteCode.create({
@@ -1372,7 +1372,7 @@
         applyPack: function (key) { presetTools.applyTemplateByKey(key); render(); markDirty(); }
     });
 
-    // ===== ONBOARDING (этап 9.4): coachmark-тур — модуль lime-editor-onboarding.js =====
+    // ===== ONBOARDING: coachmark-тур — модуль lime-editor-onboarding.js =====
     // Авто-показ один раз (флаг в localStorage); ?tour=1 форсит. Документ не пуст — иначе
     // показ перехватывает intro-оверлей (поэтому при форсе intro прячем).
     EditorOnboarding.create({ document: document, window: window }).maybeAutoRun({
@@ -1427,7 +1427,7 @@
     render();
     pushHistory(); // стартовое состояние — дно стека undo
     initV2Viewport();
-    maybeOfferRecovery(); // этап 9.2: предложить восстановить несохранённый черновик
+    maybeOfferRecovery(); // Предложить восстановить несохранённый черновик
 
     // Подгружаем коллекции сайта заранее — чтобы блок collectionList показывал превью схемы.
     if (siteId) {

@@ -9,7 +9,7 @@ using Xunit;
 
 namespace Lime.Tests.Services
 {
-    // Этап 2: контракт «модель возвращает JSON-блоки, сервер валидирует».
+    // Контракт «модель возвращает JSON-блоки, сервер валидирует».
     // TryParseBlocks — единственная точка, через которую вывод модели попадает в документ.
     public class AiContentServiceTests
     {
@@ -107,7 +107,7 @@ namespace Lime.Tests.Services
             Assert.Equal(DateTimeKind.Utc, p.Kind);
         }
 
-        // ===== Этап 2.1: AI-правка выделенного блока =====
+        // ===== AI-правка выделенного блока =====
         // Тот же контракт: модель отдаёт только текст, сервер применяет по известным путям.
         private sealed class StubProvider : IAiProvider
         {
@@ -183,7 +183,7 @@ namespace Lime.Tests.Services
             Assert.Null(AiContentService.TryParseEditMap(""));
         }
 
-        // ===== Этап 10.2: AI отдаёт список команд =====
+        // ===== AI отдаёт список команд =====
         [Fact]
         public void TryParseCommands_KeepsAllowedDropsRest()
         {
@@ -204,7 +204,7 @@ namespace Lime.Tests.Services
         [Fact]
         public void TryParseCommands_KeepsSetTheme()
         {
-            // Milestone 5, Фаза B (experience-builder-plan.md): setTheme — новая команда, добавлена
+            // SetTheme — новая команда, добавлена
             // в AllowedCommands наравне с setBlockProp; неизвестный тип по-прежнему отсеивается.
             var raw = @"{""commands"":[
                 {""type"":""setTheme"",""payload"":{""key"":""accent"",""value"":""#42ffa3""}},
@@ -232,9 +232,8 @@ namespace Lime.Tests.Services
         [Fact]
         public void TryParseCommands_EnforcesCountAndLength()
         {
-            // Milestone 5, Фаза A (experience-builder-plan.md): MaxCommands поднят 40 -> 100 —
-            // «заполнить пак текстом» шлёт один батч setContent на ВСЕ текстовые поля документа
-            // (71 поле у neo-lore-drop), а не на один блок, как раньше было единственным сценарием.
+            // MaxCommands = 100: «заполнить пак текстом» шлёт один батч setContent на ВСЕ текстовые
+            // поля документа (71 поле у neo-lore-drop).
             var many = string.Join(",", Enumerable.Repeat(@"{""type"":""removeBlock"",""payload"":{""id"":""b""}}", 150));
             Assert.Equal(100, AiContentService.TryParseCommands($@"{{""commands"":[{many}]}}").Count);
 
@@ -271,7 +270,7 @@ namespace Lime.Tests.Services
             await Assert.ThrowsAsync<FormatException>(() => svc.SuggestCommandsAsync("{}", "правка", 4000));
         }
 
-        // ===== Этап 10.4: insertBlock несёт целую секцию — структура валидируется whitelist'ом =====
+        // ===== InsertBlock несёт целую секцию — структура валидируется whitelist'ом =====
         [Fact]
         public void TryParseCommands_InsertBlock_KeepsCleanSectionDropsEvil()
         {
@@ -298,7 +297,7 @@ namespace Lime.Tests.Services
             Assert.Single((JArray)feat["content"]["items"]);
         }
 
-        // ===== Этап 10.5: Responsive-AI «адаптировать мобилку» — фильтр защищает десктоп =====
+        // ===== Responsive-AI «адаптировать мобилку» — фильтр защищает десктоп =====
         [Fact]
         public void FilterResponsiveCommands_KeepsOnlyTargetBreakpointStyleAndDesign()
         {
@@ -341,7 +340,7 @@ namespace Lime.Tests.Services
             Assert.Equal("18px", arr[0]["payload"]["value"].ToString());
         }
 
-        // ===== Этап 2.4: AI CMS-ассистент — схема коллекции + примеры записей =====
+        // ===== AI CMS-ассистент — схема коллекции + примеры записей =====
         [Fact]
         public void TryParseCollection_ValidSchemaAndRecords()
         {
@@ -428,7 +427,7 @@ namespace Lime.Tests.Services
             Assert.Equal("Латте", ((JArray)col["records"])[0]["dish"].ToString());
         }
 
-        // Milestone 5, Фаза C (experience-builder-plan.md): «✦ Промпт для ассета» — не мутирует
+        // «✦ Промпт для ассета» — не мутирует
         // документ, просто отдаёт короткий текст-бриф. Мокаем провайдер, проверяем trim/
         // quote-strip/length-cap (тот же паттерн, что RewriteTextAsync) + что contextJson уходит
         // в CompleteAsync как есть (без доп. "Инструкция:"-обёртки — она тут не нужна).

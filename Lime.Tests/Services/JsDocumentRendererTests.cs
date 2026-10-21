@@ -6,7 +6,7 @@ using Xunit;
 
 namespace Lime.Tests.Services
 {
-    // Этап 0.2: серверная компиляция JSON-документа движка B.
+    // Серверная компиляция JSON-документа.
     // Главная гарантия — golden-тест: Jint на сервере и node (как прокси клиента)
     // исполняют один и тот же lime-doc.js и обязаны дать байт-в-байт одинаковый HTML.
     public class JsDocumentRendererTests
@@ -55,9 +55,9 @@ namespace Lime.Tests.Services
             ] }]
         }";
 
-        // Stage 8.2: общий комплексный fixture (тот же файл гоняет node self-test) — 5 эталонных
+        // Общий комплексный fixture (тот же файл гоняет node self-test) — 5 эталонных
         // макетов + v2 design + компоненты/варианты/overrides + формы/медиа/CMS/анимации старого
-        // формата + неизвестный тип/поля. Критерий §8: один fixture без структурных различий.
+        // формата + неизвестный тип/поля. Критерий: один fixture без структурных различий.
         private static string ParityFixturePath()
         {
             var dir = AppContext.BaseDirectory;
@@ -137,7 +137,7 @@ namespace Lime.Tests.Services
         [Fact]
         public void RenderSite_CompilesReusableClassesAndTokens()
         {
-            // Этап 0.1: переиспользуемые style-классы и расширенные токены должны компилироваться
+            // Переиспользуемые style-классы и расширенные токены должны компилироваться
             // и на сервере (Jint исполняет тот же lime-doc.js) — инвариант «один рендер везде».
             var renderer = new JsDocumentRenderer(EnginePath());
             var doc = /*lang=json*/ @"{
@@ -288,7 +288,7 @@ namespace Lime.Tests.Services
             Assert.Contains("youtube.com/embed/dQw4w9WgXcQ", html); // …и блок откатился на YouTube
         }
 
-        // Stage 8.1: значения/имена стилей и сырой block.css не должны выходить из CSS-правила (})
+        // Значения/имена стилей и сырой block.css не должны выходить из CSS-правила (})
         // или закрывать <style> (</style>) на серверном publish-пути (он НЕ прогоняет HTML-санитайзер
         // — экранирование рендерера и есть граница безопасности, см. PublishedSiteController).
         private const string MaliciousStylesDoc = /*lang=json*/ @"{

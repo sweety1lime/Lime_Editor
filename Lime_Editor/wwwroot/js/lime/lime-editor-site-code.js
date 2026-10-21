@@ -1,4 +1,4 @@
-/* Lime editor site code (этап 0.2: глобальный кастомный CSS + вставка в head). */
+/* Lime editor site code (глобальный кастомный CSS + вставка в head). */
 (function (root, factory) {
     if (typeof module === "object" && module.exports) module.exports = factory();
     else root.LimeEditorSiteCode = factory();

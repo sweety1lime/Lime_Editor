@@ -114,7 +114,7 @@
 
         // Привязка к данным (фуллстак): форма пишет в коллекцию, collectionList читает из неё.
         // Select наполняется асинхронно после рендера (см. populateCollectionPickers).
-        // Milestone 4 (experience-builder-plan.md): требования к asset slot'у пака (формат/
+        // Требования к asset slot'у пака (формат/
         // прозрачность/размер/mobile-crop) — если блок пришёл из Experience Pack и несёт
         // content.__slot, штампованный при вставке (см. lime-presets.js/lime-editor-presets.js).
         // Безопасный no-op для любого документа без doc.pack (все существующие/старые доки) —
@@ -144,7 +144,7 @@
 
         function contentExtras(t) {
             var slotHtml = slotHintSection(t);
-            // Обратный отсчёт (этап 1.2): дата окончания. Заголовок правится прямо в блоке.
+            // Обратный отсчёт: дата окончания. Заголовок правится прямо в блоке.
             if (t.type === "countdown") {
                 var cdTarget = (t.content && t.content.target) || "";
                 return slotHtml + sec("Обратный отсчёт",

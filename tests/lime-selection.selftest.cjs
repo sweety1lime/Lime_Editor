@@ -51,4 +51,4 @@ if (failed) {
     console.error("\nSELECTION-SELFTEST FAILED: " + failed);
     process.exit(1);
 }
-console.log("\nSELECTION-OK (Stage 2): state, multi-select, hit-test, marquee — зелёные");
+console.log("\nSELECTION-OK: state, multi-select, hit-test, marquee — зелёные");

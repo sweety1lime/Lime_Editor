@@ -31,7 +31,7 @@
         var getCurrentState = options.getCurrentState || function () { return "normal"; };
         var getCurrentBp = options.getCurrentBp || function () { return "base"; };
         var getCurrentInspectorTab = options.getCurrentInspectorTab || function () { return "style"; };
-        // UI-уровни (Milestone 2 experience-builder-plan.md): дефолт "pro" — если уровень не
+        // UI-уровни: дефолт "pro" — если уровень не
         // инжектнут (напр. старые тесты), поведение как раньше — ничего не сворачивается.
         var getCurrentUiLevel = options.getCurrentUiLevel || function () { return "pro"; };
         var UiLevel = options.uiLevel || (win && win.LimeEditorUiLevel) || { atOrBelow: function () { return true; } };
@@ -68,7 +68,7 @@
         var recipesInspector = options.recipesInspector || noop;
         var populateCollectionPickers = options.populateCollectionPickers || function () {};
 
-        // Развёрнутость группы «Дополнительно» переживает перерисовки инспектора (redesign фаза 2).
+        // Развёрнутость группы «Дополнительно» переживает перерисовки инспектора.
         var inspectorAdvOpen = false;
 
         function curStyle(b) {
@@ -112,7 +112,7 @@
             if (props.some(function (p) { return hasOwn(info.cls, p) && !hasOwn(info.own, p) && !hasOwn(info.tablet, p) && !hasOwn(info.base, p); })) return "class";
             return null;
         }
-        // редизайн редактора (фаза 2 инспектора) + Milestone 2 (UI-уровни): секции с tier
+        // UI-уровни: секции с tier
         // не выше текущего UI-уровня показываем сразу, всё, что выше — сворачиваем в одну
         // группу «Дополнительно» (не убираем совсем — раскрытие обучающее, не paywall).
         // Сами контролы и их data-doc-* хуки не меняются.
@@ -178,14 +178,14 @@
                 return;
             }
             var s = curStyle(b);
-            // Stage 5 multi-select: стилевые секции читают синтетический мульти-бакет (общее/Mixed),
+            // Multi-select: стилевые секции читают синтетический мульти-бакет (общее/Mixed),
             // правки разветвляются на все выбранные узлы. Layout/fx/фон остаются на primary.
             var multiIds = v2SelectionIds();
             var multiSel = multiIds.length >= 2 && !currentClass;
             var multiStyles = multiSel ? multiStyleModel(multiIds, currentState === "hover" ? "hover" : currentBp) : null;
             var styleSecBucket = multiStyles ? multiStyles.values : s;
             var styleMixed = multiStyles ? multiStyles.mixed : {};
-            // Stage 5 source/reset: секция показывает провенанс — own (переопределено здесь → «сбросить»),
+            // Source/reset: секция показывает провенанс — own (переопределено здесь → «сбросить»),
             // tablet/base (унаследовано), class (из класса). Multi: reset, когда все выбранные переопределены
             // на этом бр. (own = пересечение); inherited/class-бейджи для multi не показываем (гетерогенно).
             var singleInstance = !multiSel && b.type === "component" && componentRecord(b.ref);
@@ -255,7 +255,7 @@
                 '</div>';
 
             // Вкладки инспектора (Фаза удобства): режут длинный скролл втрое. FX/Движение —
-            // Motion-tier и выше (Milestone 2): ниже уровня они просто не показываются в баре,
+            // Motion-tier и выше: ниже уровня они просто не показываются в баре,
             // раскрыть — один клик по тумблеру уровня в topbar-more, не paywall.
             var uiLevel = getCurrentUiLevel();
             var allTabs = [["style", "Стиль"], ["fx", "Эффекты"], ["motion", "Движение"]];

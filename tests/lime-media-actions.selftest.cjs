@@ -60,7 +60,7 @@ function makeHarness(answers, opts) {
     check("promptEmbed rejects URL outside allowlist", h.calls.length === 0 && h.alerts.length === 1);
 }
 
-// --- Milestone 4 (experience-builder-plan.md): slot-aware prompt copy ---
+// --- Slot-aware prompt copy ---
 {
     const fakePacks = {
         resolve(key) {

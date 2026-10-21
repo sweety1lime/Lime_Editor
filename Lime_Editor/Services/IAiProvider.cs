@@ -3,7 +3,7 @@ using System.Threading.Tasks;
 
 namespace Lime_Editor.Services
 {
-    // Абстракция LLM-провайдера (этап 2). Сегодня — один OpenAI-совместимый агрегатор
+    // Абстракция LLM-провайдера. Сегодня — один OpenAI-совместимый агрегатор
     // (VseGPT/OpenRouter/ProxyAPI), завтра — маршрутизация по тарифам: free → дешёвая
     // модель, платный → сильнее. Смена провайдера/модели = конфиг, не код.
     public interface IAiProvider

@@ -1,7 +1,7 @@
 /*
- * Node self-test движка lime-doc.js (без браузера). Паттерн B*-RENDER-OK из Трека B.
+ * Node self-test движка lime-doc.js (без браузера).
  * Запуск: node tests/lime-doc.selftest.cjs
- * Покрывает этап 0.1 (children[]) + регрессию плоского рендера (B2/B3).
+ * Покрывает children[] и регрессию плоского рендера.
  */
 "use strict";
 
@@ -181,7 +181,7 @@ function check(name, cond) {
     check("v2 additive: v1 markup has no design marker", !legacy.includes("data-design"));
 }
 
-// --- Регрессия: плоский документ рендерится как раньше (B2) ---
+// --- Регрессия: плоский документ рендерится как раньше ---
 {
     const doc = {
         version: 1,
@@ -306,7 +306,7 @@ function check(name, cond) {
     check("editor: плейсхолдеры пустых image/video", empty.html.includes("выбрать изображение") && empty.html.includes("data-doc-video"));
 }
 
-// --- Этап 1: структурные блоки container / columns ---
+// --- Структурные блоки container / columns ---
 {
     const cols = L.createBlock("columns");
     check("columns: createBlock даёт children[] и cols=2", Array.isArray(cols.children) && cols.content.cols === 2);
@@ -365,7 +365,7 @@ function check(name, cond) {
     check("renderPage: одностраничный без nav", single.body.includes("Один") && !single.body.includes("lime-doc-nav"));
 }
 
-// --- Регрессия: многостраничный renderSite с hash-роутингом (B3) ---
+// --- Регрессия: многостраничный renderSite с hash-роутингом ---
 {
     const doc = {
         version: 1,
@@ -379,7 +379,7 @@ function check(name, cond) {
     check("pages: обе страницы в выдаче", html.includes("Стр1") && html.includes("Стр2"));
 }
 
-// --- Фаза 0.3: фон-слои секции (видео + затемнение) ---
+// --- Фон-слои секции (видео + затемнение) ---
 {
     const doc = {
         version: 1,
@@ -406,7 +406,7 @@ function check(name, cond) {
     check("bg: без bg нет слоёв", !plain.html.includes("lime-block__overlay") && !plain.html.includes("lime-block__bgvideo"));
 }
 
-// --- Фаза 2: движение (parallax/sticky/marquee) + декор-слои ---
+// --- Движение (parallax/sticky/marquee) + декор-слои ---
 {
     const doc = {
         version: 1,
@@ -437,7 +437,7 @@ function check(name, cond) {
     check("layers: в редакторе есть data-layer-id для драга", ed.html.includes('data-layer-id="l1"'));
 }
 
-// --- Фаза 6.1: широта блоков (navbar/footer/accordion/pricing/.../form) ---
+// --- Широта блоков (navbar/footer/accordion/pricing/.../form) ---
 {
     const types = ["navbar", "footer", "accordion", "pricing", "testimonials", "logos", "steps", "imageText", "socials", "form"];
     const blocks = types.map(function (t, i) { return Object.assign(L.createBlock(t), { id: "n" + i }); });
@@ -478,7 +478,7 @@ function check(name, cond) {
     check("layout: bento → data-bento", pub.html.includes('data-bento="1"'));
 }
 
-// --- Фаза 8: embed/3D + scrollytelling ---
+// --- Embed/3D + scrollytelling ---
 {
     const doc = {
         version: 1,
@@ -519,7 +519,7 @@ function check(name, cond) {
     check("рендер: хост вне allowlist не даёт iframe на publish", !badPub.html.includes("<iframe"));
 }
 
-// --- Фуллстак (B3): блок collectionList читает opts.data[slug] = { fields, records } ---
+// --- Фуллстак: блок collectionList читает opts.data[slug] = { fields, records } ---
 {
     const doc = { version: 1, blocks: [{ id: "cl1", type: "collectionList", content: { collection: "goods" } }] };
     const data = {
@@ -743,7 +743,7 @@ function check(name, cond) {
     check("migrate: результат рендерится (renderSite)", L.renderSite(m).includes("Old"));
 }
 
-// --- Stage 7 performance tripwire: 500-node fixture, renderer build budget + renderOneBlock ---
+// --- Performance tripwire: 500-node fixture, renderer build budget + renderOneBlock ---
 {
     function buildPerfDoc(target) {
         const blocks = []; let made = 0;
@@ -764,7 +764,7 @@ function check(name, cond) {
     const css = L.compileDocCss(perfDoc);
     const ms = Date.now() - t0;
     // Строковый рендер 500 узлов измеряется единицами мс; бюджет щедрый — это tripwire против
-    // регрессии до O(n²)/экспоненты, а не точный SLA (тот — про DOM в браузере, Stage 7 §7).
+    // регрессии до O(n²)/экспоненты, а не точный SLA (тот — про DOM в браузере).
     check("perf: renderSite+compileDocCss(500) under budget (" + ms + "ms)", ms < 400 && html.length > 0 && css.length > 0);
     // renderOneBlock: точечный рендер одного блока даёт тот же <section>, что и полный путь.
     const firstSection = perfDoc.pages[0].blocks[0];
@@ -777,7 +777,7 @@ function check(name, cond) {
     check("perf: renderOneBlock resolves component instance", oneInst.includes('data-block-id="i1"') && oneInst.includes("Shared one"));
 }
 
-// --- Stage 8.1: sanitization стилевых пропов (block.styles/theme.classes/block.css) ---
+// --- Sanitization стилевых пропов (block.styles/theme.classes/block.css) ---
 // designRules уже валидирует v2-значения; styleDecls/scopeCss были «сырыми» сиблингами и
 // могли вывести из CSS-правила (}) или закрыть <style> (</style>) — HTML/CSS-инъекция.
 {
@@ -820,8 +820,8 @@ function check(name, cond) {
     check("sanitize: safeStyleProp/Value экспортированы и работают", L.safeStyleProp("fontSize") === "font-size" && L.safeStyleProp("a}b") === null && L.safeStyleValue("12px") === "12px" && L.safeStyleValue("a}b") === null);
 }
 
-// --- Stage 8.2: golden-фикстура паритета preview/publish/export на одном документе ---
-// Критерий готовности §8: один fixture проходит preview, Jint render и Next-экспорт без
+// --- Golden-фикстура паритета preview/publish/export на одном документе ---
+// Критерий готовности: один fixture проходит preview, Jint render и Next-экспорт без
 // структурных различий. Здесь — render-граница (preview↔publish) + устойчивость к
 // неизвестному типу/полям; байт-в-байт Jint↔Node на этом же файле проверяет dotnet golden.
 {
@@ -878,4 +878,4 @@ if (failed) {
     console.error("\nSELFTEST FAILED: " + failed);
     process.exit(1);
 }
-console.log("\nCHILDREN-RENDER-OK (0.1) + MEDIA-RENDER-OK (0.5) + BG-LAYERS-OK (0.3) + MOTION/LAYERS-OK (2) + HOVER-OK (1.2) + CLASSES/TOKENS-OK (0.1) + MIGRATE-OK (v2-страховка) + B2/B3 регрессия зелёные");
+console.log("\nCHILDREN-RENDER-OK + MEDIA-RENDER-OK + BG-LAYERS-OK + MOTION/LAYERS-OK + HOVER-OK + CLASSES/TOKENS-OK + MIGRATE-OK (v2-страховка) + регрессия многостраничного рендера зелёные");

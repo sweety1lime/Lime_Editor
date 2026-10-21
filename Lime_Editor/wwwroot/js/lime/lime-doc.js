@@ -1,5 +1,5 @@
 /*
- * Lime Document Engine (Трек B, B1) — ядро нового конструктора.
+ * Lime Document Engine — ядро конструктора.
  *
  * Источник правды страницы — JSON-документ:
  *   {
@@ -16,11 +16,11 @@
  *           "hover":  { "color": "#84cc16" }  // опц. стили на :hover (1.2), вне брейкпоинтов
  *         },
  *         "css": "h2 { letter-spacing: 1px }", // опц. свой CSS (auto-scoped к блоку)
- *         "classes": ["c1ab2cd"],             // опц. переиспользуемые style-классы (этап 0.1)
- *         "children": []                      // опц. вложенные блоки (контейнеры, этап 0.1/1.1)
+ *         "classes": ["c1ab2cd"],             // опц. переиспользуемые style-классы
+ *         "children": []                      // опц. вложенные блоки (контейнеры)
  *       }
  *     ],
- *     "theme": {                              // токены сайта (этап 0.1):
+ *     "theme": {                              // токены сайта:
  *       "accent": "#84cc16", "palette": ["#..."],   // палитра → --lt-c1..cN
  *       "classes": [ { "cls": "c1ab2cd", "name": "Кнопка", "styles": { "base": {...}, "hover": {...} } } ]
  *     }
@@ -47,7 +47,7 @@
     // вложенности (компонент содержит сам себя прямо или транзитивно). Рантайм-only, не персистится.
     var COMPONENT_CYCLE = "__component_cycle";
 
-    // Белый список универсальных эффектов (Фаза 6.3): только эти ключи превращаются
+    // Белый список универсальных эффектов: только эти ключи превращаются
     // в классы lime-fx-* на секции — защита от инъекции произвольных классов из документа.
     // grain — зерно-оверлей (CSS), magnetic — «магнитные» кнопки (lime-polish.js),
     // gl-distort — WebGL-искажение картинок по ховеру (lime-webgl.js, с graceful fallback).
@@ -71,7 +71,7 @@
         { key: "muted", label: "Приглушённый", var: "--lt-muted" }
     ];
 
-    // Фиксированные шкалы дизайн-системы (этап 0.1): спейсинг и типографика как CSS-переменные,
+    // Фиксированные шкалы дизайн-системы: спейсинг и типографика как CSS-переменные,
     // чтобы классы/блоки/AI ссылались на var(--lt-space-*) / var(--lt-text-*), а не на «магические px».
     var SPACE_SCALE = { 1: "4px", 2: "8px", 3: "12px", 4: "16px", 5: "24px", 6: "32px", 7: "48px", 8: "64px", 9: "96px" };
     var TEXT_SCALE = { xs: ".75rem", sm: ".875rem", base: "1rem", lg: "1.125rem", xl: "1.25rem", "2xl": "1.5rem", "3xl": "2rem", "4xl": "2.5rem", "5xl": "3.25rem" };
@@ -103,7 +103,7 @@
     function themeCss(theme) {
         var t = {};
         Object.assign(t, DEFAULT_THEME, theme || {});
-        // Дополнительная палитра (этап 0.1): theme.palette = ["#hex", ...] → --lt-c1..cN.
+        // Дополнительная палитра: theme.palette = ["#hex", ...] → --lt-c1..cN.
         var palette = "";
         if (t.palette && t.palette.length) {
             for (var pi = 0; pi < t.palette.length; pi++) palette += "--lt-c" + (pi + 1) + ":" + t.palette[pi] + ";";
@@ -124,7 +124,7 @@
     }
 
     // Стили по бакетам (base + media tablet/mobile + hover) для произвольного селектора —
-    // общая логика блока и переиспользуемого класса (этап 0.1).
+    // общая логика блока и переиспользуемого класса.
     function bucketsCss(sel, s) {
         var css = "";
         if (s.base) css += sel + "{" + styleDecls(s.base) + "}";
@@ -138,7 +138,7 @@
         return css;
     }
 
-    // Переиспользуемые style-классы сайта (этап 0.1, аналог Webflow classes): один набор
+    // Переиспользуемые style-классы сайта (аналог Webflow classes): один набор
     // стилей, на который ссылаются много блоков (block.classes:["cls"]). Меняешь класс —
     // меняются все блоки с ним. Эмитится ПОСЛЕ темы и ДО per-block css, чтобы свой стиль
     // блока перебивал класс при равной специфичности.
@@ -154,7 +154,7 @@
         return css;
     }
 
-    // Глобальный CSS сайта (этап 0.2): сырой CSS владельца, применяется ко всему сайту.
+    // Глобальный CSS сайта: сырой CSS владельца, применяется ко всему сайту.
     // Идёт ПОСЛЕДНИМ в style-блоке → может перебить любой блок (escape hatch). Единственная
     // защита — нельзя закрыть <style> изнутри (вырезаем последовательность "</style").
     function customCssOf(doc) {
@@ -588,7 +588,7 @@
                     "</div>";
             }).join("") + "</div>";
         },
-        // --- Структура страницы и контентные блоки (Фаза 6.1: широта) ---
+        // --- Структура страницы и контентные блоки (широта) ---
         navbar: function (b, o) {
             var c = b.content || {};
             var links = c.links || [{ label: "Главная" }, { label: "О нас" }, { label: "Цены" }];
@@ -626,7 +626,7 @@
                     "</details>";
             }).join("") + "</div>";
         },
-        // --- Интерактивные блоки (этап 1.2). Рендер — чистая разметка + data-* (Jint-safe);
+        // --- Интерактивные блоки. Рендер — чистая разметка + data-* (Jint-safe);
         // поведение оживляет lime-interactions.js ТОЛЬКО на публикации. В редакторе (editable)
         // всё показано развёрнутым для правки, data-lime-* не эмитятся (рантайм не вмешивается). ---
         tabs: function (b, o) {
@@ -773,7 +773,7 @@
                 '<button type="submit" class="lime-block__cta-btn"' + edattr(o, "submitLabel") + ">" + escHtml(c.submitLabel || "Отправить") + "</button>" +
                 "</form>";
         },
-        // Список из коллекции (фуллстак, B3): читает записи из opts.data[slug] = { fields, records }.
+        // Список из коллекции (фуллстак): читает записи из opts.data[slug] = { fields, records }.
         // На публикации данные подаёт сервер (per-request из БД); в редакторе — превью схемы.
         collectionList: function (b, o) {
             var c = b.content || {};
@@ -862,7 +862,7 @@
         },
         divider: function () { return '<div class="lime-block__divider"><span></span></div>'; },
         spacer: function () { return '<div class="lime-block__spacer"></div>'; },
-        // --- Медиа-блоки (этап 0.5). data-doc-pick/data-doc-video — хуки редактора,
+        // --- Медиа-блоки. data-doc-pick/data-doc-video — хуки редактора,
         // на публикации (editable=false) они не рендерятся вовсе.
         image: function (b, o) {
             var c = b.content || {};
@@ -950,7 +950,7 @@
             }
             return '<div class="lime-block__lottie">' + inner + "</div>";
         },
-        // Embed/3D (Фаза 8.1): готовая сцена по https-ссылке в sandbox-iframe (Spline/Rive/Lottie/iframe).
+        // Embed/3D: готовая сцена по https-ссылке в sandbox-iframe (Spline/Rive/Lottie/iframe).
         // Принимаем ТОЛЬКО https И только доверенные хосты (allowlist) — защита от javascript:/data:,
         // подмешивания протокола и произвольных iframe. Проверка живёт в общем рендере, поэтому
         // действует одинаково в редакторе, node-тестах и на publish-пути (Jint).
@@ -979,7 +979,7 @@
                 ? '<div class="lime-block__embed"><div class="lime-block__embed-placeholder" data-doc-embed>◈ Вставить 3D/сцену (Spline · Rive · Lottie · iframe)</div></div>'
                 : "";
         },
-        // --- Структурные блоки (этап 1): сами не рисуют контент, их смысл — children.
+        // --- Структурные блоки: сами не рисуют контент, их смысл — children.
         // Пустые в редакторе показывают подсказку; в publish пустой контейнер невидим.
         container: function (b, o) {
             if (o && o.editable && (!b.children || !b.children.length)) {
@@ -1190,7 +1190,7 @@
         // Каскад (stagger): дети контейнера проявляются одной timeline с шагом animStagger (сек).
         // Живёт отдельно от block.anim — контейнер может каскадить детей, не анимируясь сам.
         if (block.animStagger) anim += ' data-anim-stagger="' + escAttr(block.animStagger) + '"';
-        // Движение секции (этап 2): параллакс + sticky. Marquee живёт на children-обёртке
+        // Движение секции: параллакс + sticky. Marquee живёт на children-обёртке
         // (ниже), а не на секции — чтобы reveal-анимация и бегущая строка не дрались за transform.
         var motion = "";
         if (block.parallax) motion += ' data-parallax="' + escAttr(block.parallax) + '"';
@@ -1198,7 +1198,7 @@
             motion += ' data-sticky="1"';
             if (block.stickyOffset) motion += ' data-sticky-offset="' + escAttr(block.stickyOffset) + '"';
         }
-        // Scrollytelling (этап 8.2): закреплённая сцена, анимируемая по прогрессу скролла.
+        // Scrollytelling: закреплённая сцена, анимируемая по прогрессу скролла.
         if (block.scene && block.scene.mode) {
             motion += ' data-scene="' + escAttr(block.scene.mode) + '"';
             if (block.scene.length) motion += ' data-scene-length="' + escAttr(block.scene.length) + '"';
@@ -1217,7 +1217,7 @@
                 kidsAttr = ' data-marquee="' + escAttr(block.marquee.speed || 40) + '"' +
                     (block.marquee.reverse ? ' data-marquee-reverse="1"' : "");
             }
-            // Горизонтальная сцена: дети в ряд, рантайм пинит секцию и едет по X (этап 8.2).
+            // Горизонтальная сцена: дети в ряд, рантайм пинит секцию и едет по X.
             if (block.scene && block.scene.mode === "horizontal") kidsCls += " lime-block__children--scene";
             var childChain = block.__chain || chain || [];
             kids = '<div class="' + kidsCls + '"' + kidsAttr + ">" + (block.children || []).map(function (ch) {
@@ -1227,14 +1227,14 @@
         // Колонки: число колонок уходит в data-cols, сетку рисует CSS (на мобиле — одна).
         var cols = (block.type === "columns" && block.content && block.content.cols)
             ? ' data-cols="' + escAttr(block.content.cols) + '"' : "";
-        // Универсальные эффекты (Фаза 6.3): классы lime-fx-* по белому списку (тяжёлый CSS — в constructor.css).
+        // Универсальные эффекты: классы lime-fx-* по белому списку (тяжёлый CSS — в constructor.css).
         var fxCls = "";
         if (block.fx && block.fx.length) {
             for (var fi = 0; fi < block.fx.length; fi++) {
                 if (FX_KEYS[block.fx[fi]]) fxCls += " lime-fx-" + block.fx[fi];
             }
         }
-        // Переиспользуемые style-классы (этап 0.1): lime-c-* по белому списку safeCls.
+        // Переиспользуемые style-классы: lime-c-* по белому списку safeCls.
         var userCls = "";
         if (block.classes && block.classes.length) {
             for (var uci = 0; uci < block.classes.length; uci++) {
@@ -1242,7 +1242,7 @@
                 if (sc) userCls += " lime-c-" + sc;
             }
         }
-        // Макет (Фаза 6.2): boxed — контент в колонку по центру (фон остаётся full-bleed); bento — плотная сетка.
+        // Макет: boxed — контент в колонку по центру (фон остаётся full-bleed); bento — плотная сетка.
         var layout = "";
         if (block.content) {
             if (block.content.width === "boxed") layout += ' data-width="boxed"';
@@ -1310,7 +1310,7 @@
     }
 
     // Рендер ОДНОГО блока (резолв инстанса + cycle chain) → HTML его <section>. Для точечного
-    // DOM-патча в редакторе (Stage 7): обновить затронутый узел, не пересобирая всю страницу.
+    // DOM-патча в редакторе: обновить затронутый узел, не пересобирая всю страницу.
     function renderOneBlock(block, components, opts) {
         return renderBlock(resolve(block, components, []), opts, components, 0, []);
     }
@@ -1372,7 +1372,7 @@
         return [{ slug: "", title: "Главная", blocks: (doc && doc.blocks) || [] }];
     }
 
-    // Рендер ОДНОЙ страницы сайта с реальными URL в навигации (этап 0.3).
+    // Рендер ОДНОЙ страницы сайта с реальными URL в навигации.
     // Используется сервером: /u/{user}/{slug}/{page} отдаёт только нужную страницу.
     // opts.baseUrl — корень сайта ("/u/user/slug"); главная (slug="") живёт на нём,
     // остальные — на baseUrl + "/" + slug. Возвращает { title, body } или null,
@@ -1448,7 +1448,7 @@
                 css += "\n" + compileBlockCss(resolve(b, comps, []), comps, 0, {}, []);
             });
         });
-        css += customCssOf(doc); // глобальный CSS сайта — и в Next-экспорт (этап 0.2)
+        css += customCssOf(doc); // глобальный CSS сайта — и в Next-экспорт
         return css;
     }
 

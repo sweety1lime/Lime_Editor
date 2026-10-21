@@ -465,7 +465,7 @@
             ];
         },
         // Тема документа: doc.theme[key] = value (документ-уровень, не блок — путь абсолютный
-        // от корня doc, findPath тут не нужен). Milestone 5, Фаза B (experience-builder-plan.md).
+        // от корня doc, findPath тут не нужен).
         setTheme: function (doc, c) {
             var allowed = { accent: 1, accent2: 1, bg: 1, fg: 1, muted: 1, font: 1 };
             if (!allowed[c.key] || typeof c.value !== "string") return [];
@@ -480,7 +480,7 @@
         }
     };
 
-    // ===== AI command pipeline (этап 10.1) =====
+    // ===== AI command pipeline =====
     // AI отдаёт список команд; применяем только разрешённый безопасный поднабор. Per-команда
     // payload всё равно валидируется builder'ом (невалид → no-op), но allowlist + лимит + проверка
     // формы отсекают мусор/опасное ДО применения, чтобы некорректный ответ не портил документ.

@@ -14,10 +14,10 @@ namespace Lime_Editor.Models
         public string Folder { get; set; }
         // DraftFolder — рабочая версия из конструктора. Публикация копирует Draft → Folder.
         public string DraftFolder { get; set; }
-        // DocumentJson — JSON-документ нового движка (Трек B). null у legacy блоб-сайтов.
+        // DocumentJson — JSON-документ сайта. null у legacy блоб-сайтов.
         // Это ЧЕРНОВИК: автосейв конструктора перезаписывает его.
         public string DocumentJson { get; set; }
-        // Снапшот JSON на момент публикации (этап 0.2). Folder опубликованного сайта
+        // Снапшот JSON на момент публикации. Folder опубликованного сайта
         // компилируется сервером именно из него — republish не утащит черновик в прод.
         public string PublishedDocumentJson { get; set; }
         // Резервная копия документа на момент ПЕРВОЙ правки в новом редакторе (раскатка Editor V2).
@@ -27,12 +27,12 @@ namespace Lime_Editor.Models
         public int UserId { get; set; }
         public int TemplateId { get; set; }
 
-        // Публикация (Фаза 3): сайт доступен по /u/{username}/{slug}, когда IsPublished = true.
+        // Публикация: сайт доступен по /u/{username}/{slug}, когда IsPublished = true.
         public string Slug { get; set; }
         public bool IsPublished { get; set; }
         public DateTime? PublishedAt { get; set; }
 
-        // Момент последнего сохранения из конструктора (этап 0.4). Используется как
+        // Момент последнего сохранения из конструктора. Используется как
         // версия для optimistic concurrency: клиент шлёт Ticks, расхождение → 409.
         public DateTime? UpdatedAt { get; set; }
 
@@ -51,7 +51,7 @@ namespace Lime_Editor.Models
         public string MetaDescription { get; set; }
         public string OgImage { get; set; }
 
-        // Сообщество (этап 3): показывать в публичной галерее /Community.
+        // Сообщество: показывать в публичной галерее /Community.
         // Publish ставит true (сайт и так публичен по ссылке), владелец может скрыть.
         public bool ShowInGallery { get; set; }
         // Счётчик просмотров публичной страницы (все страницы сайта суммарно).

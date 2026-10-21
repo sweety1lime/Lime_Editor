@@ -64,7 +64,7 @@ namespace Lime_Editor.Services
                 Add(zip, "app/[slug]/[record]/page.jsx", RecordPageJsx); // CMS 2.0: динамические страницы записей
                 Add(zip, "public/js/lime-animate.js", ReadWebFile("js/lime/lime-animate.js"));
                 Add(zip, "public/js/lime-polish.js", ReadWebFile("js/lime/lime-polish.js"));
-                Add(zip, "public/js/lime-interactions.js", ReadWebFile("js/lime/lime-interactions.js")); // интерактивные блоки (этап 1.2)
+                Add(zip, "public/js/lime-interactions.js", ReadWebFile("js/lime/lime-interactions.js")); // интерактивные блоки
 
                 if (idiomatic)
                 {

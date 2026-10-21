@@ -1,6 +1,6 @@
 "use strict";
 
-// Самотест render-пайплайна. Full render / инкрементальные пути Stage 7 проверяются e2e через UI,
+// Самотест render-пайплайна. Full render / инкрементальные пути проверяются e2e через UI,
 // здесь — safe-gates и обвязка, которые e2e не изолирует: fallback на полный render (нет узла,
 // дочерние drop-зоны, design-блок, компонент-родитель, пустая страница), finish* → autosave/dirty,
 // batch rAF у scheduleLayersRefresh, инлайн hover-превью только у выбранного блока.

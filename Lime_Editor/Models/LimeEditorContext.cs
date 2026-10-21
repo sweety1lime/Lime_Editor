@@ -163,7 +163,7 @@ namespace Lime_Editor.Models
                     .OnDelete(DeleteBehavior.Cascade);
             });
 
-            // ===== Биллинг/тарифы (этап 3.4) =====
+            // ===== Биллинг/тарифы =====
             modelBuilder.Entity<Plan>(entity =>
             {
                 entity.HasKey(e => e.Code);
@@ -319,7 +319,7 @@ namespace Lime_Editor.Models
                 new Template { IdTemplate = 4, Name = "Custom",      FolderPreview = "/images/cover-1.jpg",                     TypeId = 1 }
             );
 
-            // Тарифы (этап 3.4). Free.MonthlyAiCredits совпадает с прежней квотой Ai:MonthlyFreeQuota.
+            // Тарифы. Free.MonthlyAiCredits совпадает с прежней квотой Ai:MonthlyFreeQuota.
             // Лимит -1 = безлимит. Платежей пока нет — Pro/Business выдаются вручную (админ).
             modelBuilder.Entity<Plan>().HasData(
                 new Plan { Code = "free",     Name = "Free",     Description = "Старт: попробовать конструктор.",        PriceMonthly = 0m,    Currency = "RUB", MaxSites = 3,  MonthlyAiCredits = 10,   MaxStorageMb = 100,   MaxCustomDomains = 0,  AllowExport = false, AllowCustomCode = false, FeaturesJson = "{}" },

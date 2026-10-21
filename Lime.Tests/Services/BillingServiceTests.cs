@@ -7,7 +7,7 @@ using Xunit;
 
 namespace Lime.Tests.Services
 {
-    // Этап 3.4: идемпотентный приём вебхуков платёжного провайдера.
+    // Идемпотентный приём вебхуков платёжного провайдера.
     public class BillingServiceTests
     {
         private static LimeEditorContext NewDb()

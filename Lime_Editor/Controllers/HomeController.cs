@@ -116,7 +116,7 @@ namespace Lime_Editor.Controllers
             var vm = new ConstructorViewModel
             {
                 SiteId = null,
-                SiteName = "Новый сайт (движок B)",
+                SiteName = "Новый сайт",
                 DocumentJson = null,
             };
 
@@ -130,7 +130,7 @@ namespace Lime_Editor.Controllers
 
                 if (site.TemplateId != TemplateExportConfigs.CustomTemplateId)
                 {
-                    return BadRequest("Этот сайт нельзя редактировать через движок B.");
+                    return BadRequest("Этот сайт нельзя открыть в редакторе.");
                 }
 
                 vm.SiteId = site.IdSite;
@@ -241,8 +241,7 @@ namespace Lime_Editor.Controllers
             }
 
             // Кнопка нового сайта в редакторе называется «Опубликовать» — она обязана публиковать,
-            // а не только сохранять (раньше пользователю приходилось жать «Опубликовать» второй
-            // раз на карточке MySites). Один SaveChanges на создание+публикацию.
+            // а не только сохранять. Один SaveChanges на создание+публикацию.
             await PublishCoreAsync(created, userId);
             await db.SaveChangesAsync();
             _previews.Enqueue(created.IdSite ?? 0); // скриншот-превью — фоном, публикация не ждёт

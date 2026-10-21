@@ -129,7 +129,7 @@
             styleDebounce = setTimeout(settleStyleGesture, 400);
             return true;
         }
-        // Stage 5 multi-select: id'шники V2-выбора (≥1). Один блок — обычный путь, несколько —
+        // Multi-select: id'шники V2-выбора (≥1). Один блок — обычный путь, несколько —
         // fan-out стилевых правок на все как одна undo-транзакция.
         function v2SelectionIds() {
             if (win.__LIME_SELECTION__) {
@@ -192,7 +192,7 @@
             var cs = getCmdStore();
             var ids = v2SelectionIds();
             var bucket = getCurrentState() === "hover" ? "hover" : getCurrentBp();
-            if (ids.length >= 2) { // multi-select fan-out (Stage 5)
+            if (ids.length >= 2) { // multi-select fan-out
                 if (cs && commandStyleMulti(ids, bucket, prop, val)) { applyPreviewStyles(); return; }
                 commitStyleEdit();
                 beginCheckpointMutation();
@@ -246,7 +246,7 @@
             applyPreviewStyles();
             markDirty();
         }
-        // Stage 5 reset override: снять переопределения секции на текущем бакете → значение наследуется
+        // Reset override: снять переопределения секции на текущем бакете → значение наследуется
         // с base/tablet. Одна транзакция на все пропы секции (и все выбранные узлы), затем re-render.
         function resetStyleProps(props) {
             if (!props || !props.length || getCurrentClass()) return;

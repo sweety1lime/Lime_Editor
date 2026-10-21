@@ -63,7 +63,7 @@ services:
     expose:
       - "8080"
     volumes:
-      # Загруженные юзерами медиа — на хост-volume. В Phase 3 §3.2 плана переезд на S3.
+      # Загруженные юзерами медиа — на хост-volume (S3MediaStorage позволяет вынести их в S3).
       - media_data:/app/wwwroot/media
       - dataprotection_keys:/app/keys
     healthcheck:

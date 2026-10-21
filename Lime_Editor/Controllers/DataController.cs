@@ -125,7 +125,7 @@ namespace Lime_Editor.Controllers
             return RedirectToAction(nameof(Edit), new { id = col.Id });
         }
 
-        // AI CMS-ассистент (этап 2.4): «опиши коллекцию» → AI собирает схему + примеры записей,
+        // AI CMS-ассистент: «опиши коллекцию» → AI собирает схему + примеры записей,
         // создаём коллекцию и редиректим в редактор схемы (всё дальше правится вручную).
         [HttpPost]
         [ValidateAntiForgeryToken]

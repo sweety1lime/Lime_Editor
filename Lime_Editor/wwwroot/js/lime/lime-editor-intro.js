@@ -6,8 +6,8 @@
     "use strict";
 
     // Оверлей с промптом на пустом новом документе: ввод → AI-генерация (runGenerate),
-    // чипы-подсказки, Ctrl/Cmd+Enter, плюс вторичная панель Experience Packs (Milestone 1
-    // experience-builder-plan.md) — applyPack(key) вместо навигации на ?template=key.
+    // чипы-подсказки, Ctrl/Cmd+Enter, плюс вторичная панель Experience Packs:
+    // applyPack(key) вместо навигации на ?template=key.
     // Внешние зависимости инжектятся: totalBlocks (пуст ли документ), runGenerate (запуск
     // генерации), packs (LimeExperiencePacks), applyPack (применить пак по key). Возвращает
     // { hide } — чтобы onboarding-тур мог спрятать оверлей при форсе (?tour=1).

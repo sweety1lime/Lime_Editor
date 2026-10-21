@@ -206,7 +206,7 @@ namespace Lime_Editor.Controllers
                 return ("Тип файла не совпадает с расширением.", null);
             }
 
-            // Лимит хранилища по тарифу (этап 3.4). file.Length — верхняя оценка (после сжатия меньше).
+            // Лимит хранилища по тарифу. file.Length — верхняя оценка (после сжатия меньше).
             if (!await _entitlements.CanUploadAsync(OwnerRef.ForUser(CurrentUserId), file.Length))
             {
                 return ("Достигнут лимит хранилища по вашему тарифу.", null);

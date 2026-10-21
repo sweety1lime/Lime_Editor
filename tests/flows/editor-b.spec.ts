@@ -1,14 +1,14 @@
 /**
- * Движок B (Трек B) — критичный путь нового редактора (authed).
+ * Критичный путь редактора (authed).
  * Покрывает: добавление блоков, вложенность в контейнер, undo, грипы DnD,
- * AI-модалку, сохранение и переоткрытие через «✦ Движок B».
+ * AI-модалку, сохранение и переоткрытие через «Открыть в редакторе».
  */
 import { test, expect, type Page } from "@playwright/test";
 
 const topBlocks = "#lime-doc-workspace .lime-doc-page > .lime-block";
 const nestedBlocks = "#lime-doc-workspace .lime-block .lime-block";
 
-// Milestone 2 (UI-уровни): дефолт свежей сессии — Basic, он прячет Design/Motion/Pro-секции
+// UI-уровни: дефолт свежей сессии — Basic, он прячет Design/Motion/Pro-секции
 // инспектора и часть тулбара. Тесты редактора работают с полным инспектором, поэтому фиксируем
 // уровень Pro до загрузки страницы (эквивалент пользователя, прошедшего онбординг).
 // Дефолт Basic для новичка покрыт отдельно в tests/flows/showcase-progressive-ui.spec.ts.
@@ -70,7 +70,7 @@ test("editor-v2 D2: command flag keeps structural and checkpoint history coheren
   await page.locator('[data-doc-cols="3"]').click();
   await expect(page.locator(`[data-block-id="${columnsId}"]`)).toHaveAttribute("data-cols", "3");
 
-  // Sticky и parallax-пресет (Milestone 3: сегменты вместо range) — top-level op/gesture-команды.
+  // Sticky и parallax-пресет (сегменты вместо range) — top-level op/gesture-команды.
   await page.locator('[data-doc-insp-tab="motion"]').click();
   await page.locator('[data-doc-sticky="1"]').click();
   await expect(page.locator(`[data-block-id="${columnsId}"][data-sticky]`)).toHaveCount(1);
@@ -137,7 +137,7 @@ test("editor-b: startup template materializes preset sections (@flow)", async ({
   await expect(page.locator("#lime-doc-workspace")).toContainText("Начать бесплатно");
 });
 
-test("editor-v2 Stage 2: canvas flag enables zoom and Space-pan without document mutation (@flow)", async ({ page }) => {
+test("editor-v2: canvas flag enables zoom and Space-pan without document mutation (@flow)", async ({ page }) => {
   // Канвас не клипается и тянется выше 900px — берём высокий вьюпорт, чтобы блоки/оверлей были на экране.
   await page.setViewportSize({ width: 1440, height: 1400 });
   await page.goto("/Home/EditDoc?canvas=1");
@@ -179,7 +179,7 @@ test("editor-v2 Stage 2: canvas flag enables zoom and Space-pan without document
   await expect(page.locator("[data-selection-id]")).toHaveCount(0);
 });
 
-test("editor-v2 Stage 3: layers control node name, lock, visibility and z-order (@flow)", async ({ page }) => {
+test("editor-v2: layers control node name, lock, visibility and z-order (@flow)", async ({ page }) => {
   await page.goto("/Home/EditDoc?canvas=1&cmd=1");
   if (await page.locator("#lime-doc-intro-skip").isVisible()) await page.locator("#lime-doc-intro-skip").click();
 
@@ -228,7 +228,7 @@ test("editor-v2 Stage 3: layers control node name, lock, visibility and z-order 
   await expect(row.locator(".lime-doc-layer__name")).toHaveText("Заголовок");
 });
 
-test("editor-v2 Stage 3: rotate handle and resize snapping commit one frame (@flow)", async ({ page }) => {
+test("editor-v2: rotate handle and resize snapping commit one frame (@flow)", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1400 });
   await page.goto("/Home/EditDoc?canvas=1&cmd=1");
   if (await page.locator("#lime-doc-intro-skip").isVisible()) await page.locator("#lime-doc-intro-skip").click();
@@ -306,7 +306,7 @@ test("editor-v2 Stage 3: rotate handle and resize snapping commit one frame (@fl
   expect(perf.resize.p95, "resize pointermove p95 budget").toBeLessThanOrEqual(16);
 });
 
-test("editor-v2 Stage 3: layout inspector converts stack to free atomically (@flow)", async ({ page }) => {
+test("editor-v2: layout inspector converts stack to free atomically (@flow)", async ({ page }) => {
   // Канвас не клипается и тянется выше 900px — высокий вьюпорт держит нижние resize-хэндлы группы
   // на экране (иначе Playwright не доставит туда мышь), не трогая авто-fit и геометрию move.
   await page.setViewportSize({ width: 1440, height: 1400 });
@@ -393,7 +393,7 @@ test("editor-v2 Stage 3: layout inspector converts stack to free atomically (@fl
   await expect(child).not.toHaveCSS("position", "absolute");
 });
 
-test("editor-v2 Stage 9.1: align toolbar aligns and distributes free-siblings in one undo (@flow)", async ({ page }) => {
+test("editor-v2: align toolbar aligns and distributes free-siblings in one undo (@flow)", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1400 });
   await page.goto("/Home/EditDoc?canvas=1&cmd=1");
   if (await page.locator("#lime-doc-intro-skip").isVisible()) await page.locator("#lime-doc-intro-skip").click();
@@ -446,7 +446,7 @@ test("editor-v2 Stage 9.1: align toolbar aligns and distributes free-siblings in
   expect(afterUndoMidY).toBeCloseTo(beforeMidY, 0);
 });
 
-test("editor-v2 Stage 9.2: local draft restores unsaved work after reload (@flow)", async ({ page }) => {
+test("editor-v2: local draft restores unsaved work after reload (@flow)", async ({ page }) => {
   await page.goto("/Home/EditDoc?canvas=1&cmd=1");
   if (await page.locator("#lime-doc-intro-skip").isVisible()) await page.locator("#lime-doc-intro-skip").click();
   // Чистый старт: убираем возможный черновик прошлого прогона и баннер, если успел появиться.
@@ -480,7 +480,7 @@ test("editor-v2 Stage 9.2: local draft restores unsaved work after reload (@flow
   await expect(page.locator("[data-doc-recovery]")).toHaveCount(0);
 });
 
-test("editor-v2 Stage 9.3: single-block context toolbar runs quick actions (@flow)", async ({ page }) => {
+test("editor-v2: single-block context toolbar runs quick actions (@flow)", async ({ page }) => {
   await page.goto("/Home/EditDoc?canvas=1&cmd=1");
   if (await page.locator("#lime-doc-intro-skip").isVisible()) await page.locator("#lime-doc-intro-skip").click();
 
@@ -504,7 +504,7 @@ test("editor-v2 Stage 9.3: single-block context toolbar runs quick actions (@flo
   await expect(page.locator(".lime-block-toolbar")).toHaveCount(0); // нет выбора — нет toolbar
 });
 
-test("editor-v2 Stage 9.4: empty-state placeholder offers quick actions (@flow)", async ({ page }) => {
+test("editor-v2: empty-state placeholder offers quick actions (@flow)", async ({ page }) => {
   await page.goto("/Home/EditDoc?canvas=1&cmd=1");
   if (await page.locator("#lime-doc-intro-skip").isVisible()) await page.locator("#lime-doc-intro-skip").click();
 
@@ -528,7 +528,7 @@ test("editor-v2 Stage 9.4: empty-state placeholder offers quick actions (@flow)"
   await expect(page.locator("[data-doc-empty]")).toHaveCount(0);
 });
 
-test("editor-v2 Stage 9.5: onboarding tour steps through key areas once (@flow)", async ({ page }) => {
+test("editor-v2: onboarding tour steps through key areas once (@flow)", async ({ page }) => {
   // Чистый флаг, затем форсим тур через ?tour=1 (детерминированно, независимо от localStorage).
   await page.goto("/Home/EditDoc?canvas=1&cmd=1&tour=1");
   await page.evaluate(() => localStorage.removeItem("lime-onboarding-seen"));
@@ -558,7 +558,7 @@ test("editor-v2 Stage 9.5: onboarding tour steps through key areas once (@flow)"
   await expect(page.locator("[data-doc-tour]")).toHaveCount(0);
 });
 
-test("editor-v2 Stage 9.6: layers tree is an accessible, keyboard-navigable tree (@flow)", async ({ page }) => {
+test("editor-v2: layers tree is an accessible, keyboard-navigable tree (@flow)", async ({ page }) => {
   await page.goto("/Home/EditDoc?canvas=1&cmd=1");
   if (await page.locator("#lime-doc-intro-skip").isVisible()) await page.locator("#lime-doc-intro-skip").click();
 
@@ -598,7 +598,7 @@ test("editor-v2 Stage 9.6: layers tree is an accessible, keyboard-navigable tree
   await expect(page.locator("#lime-canvas-viewport")).toHaveAttribute("aria-label", "Холст редактора");
 });
 
-test("editor-v2 Stage 10.1: AI command pipeline previews, applies as one undo, rejects garbage (@flow)", async ({ page }) => {
+test("editor-v2: AI command pipeline previews, applies as one undo, rejects garbage (@flow)", async ({ page }) => {
   await page.goto("/Home/EditDoc?canvas=1&cmd=1");
   if (await page.locator("#lime-doc-intro-skip").isVisible()) await page.locator("#lime-doc-intro-skip").click();
 
@@ -643,7 +643,7 @@ test("editor-v2 Stage 10.1: AI command pipeline previews, applies as one undo, r
   await expect(page.locator(topBlocks).first()).not.toContainText("ИИ-заголовок");
 });
 
-test("editor-v2 Stage 10.3: AI preview lists each pending change (@flow)", async ({ page }) => {
+test("editor-v2: AI preview lists each pending change (@flow)", async ({ page }) => {
   await page.goto("/Home/EditDoc?canvas=1&cmd=1");
   if (await page.locator("#lime-doc-intro-skip").isVisible()) await page.locator("#lime-doc-intro-skip").click();
 
@@ -670,7 +670,7 @@ test("editor-v2 Stage 10.3: AI preview lists each pending change (@flow)", async
   await expect(page.locator(topBlocks).first()).toContainText("Новый текст AI");
 });
 
-test("editor-v2 Stage 10.4: AI can insert a whole section as one undo (@flow)", async ({ page }) => {
+test("editor-v2: AI can insert a whole section as one undo (@flow)", async ({ page }) => {
   await page.goto("/Home/EditDoc?canvas=1&cmd=1");
   if (await page.locator("#lime-doc-intro-skip").isVisible()) await page.locator("#lime-doc-intro-skip").click();
 
@@ -693,7 +693,7 @@ test("editor-v2 Stage 10.4: AI can insert a whole section as one undo (@flow)", 
   await expect(page.locator(topBlocks)).toHaveCount(1);
 });
 
-test("editor-v2 Stage 10.5: responsive AI edits are labelled and apply to mobile only (@flow)", async ({ page }) => {
+test("editor-v2: responsive AI edits are labelled and apply to mobile only (@flow)", async ({ page }) => {
   await page.goto("/Home/EditDoc?canvas=1&cmd=1");
   if (await page.locator("#lime-doc-intro-skip").isVisible()) await page.locator("#lime-doc-intro-skip").click();
 
@@ -713,7 +713,7 @@ test("editor-v2 Stage 10.5: responsive AI edits are labelled and apply to mobile
   await expect(page.locator(topBlocks)).toHaveCount(1); // блок на месте, mobile-правка применена
 });
 
-test("editor-v2 Stage 4: stack inspector controls layout and responsive override (@flow)", async ({ page }) => {
+test("editor-v2: stack inspector controls layout and responsive override (@flow)", async ({ page }) => {
   await page.goto("/Home/EditDoc?canvas=1&cmd=1");
   if (await page.locator("#lime-doc-intro-skip").isVisible()) await page.locator("#lime-doc-intro-skip").click();
 
@@ -779,7 +779,7 @@ test("editor-v2 Stage 4: stack inspector controls layout and responsive override
   await expect(children).toHaveCSS("flex-direction", "row");
 });
 
-test("editor-v2 Stage 4: grid inspector controls columns, child span and auto (@flow)", async ({ page }) => {
+test("editor-v2: grid inspector controls columns, child span and auto (@flow)", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1400 });
   await page.goto("/Home/EditDoc?canvas=1&cmd=1");
   if (await page.locator("#lime-doc-intro-skip").isVisible()) await page.locator("#lime-doc-intro-skip").click();
@@ -854,7 +854,7 @@ test("editor-v2 Stage 4: grid inspector controls columns, child span and auto (@
   await expect(page.locator('[data-v2-grid-fill="1"]')).toHaveClass(/is-active/);
 });
 
-test("editor-v2 Stage 5: multi-select applies style to all and shows mixed (@flow)", async ({ page }) => {
+test("editor-v2: multi-select applies style to all and shows mixed (@flow)", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1400 });
   await page.goto("/Home/EditDoc?canvas=1&cmd=1");
   if (await page.locator("#lime-doc-intro-skip").isVisible()) await page.locator("#lime-doc-intro-skip").click();
@@ -899,7 +899,7 @@ test("editor-v2 Stage 5: multi-select applies style to all and shows mixed (@flo
   await expect(second).toHaveCSS("border-top-left-radius", "0px");
 });
 
-test("editor-v2 Stage 5: component multi-select uses one checkpoint (@flow)", async ({ page }) => {
+test("editor-v2: component multi-select uses one checkpoint (@flow)", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1400 });
   await page.goto("/Home/EditDoc?canvas=1&cmd=1");
   if (await page.locator("#lime-doc-intro-skip").isVisible()) await page.locator("#lime-doc-intro-skip").click();
@@ -932,8 +932,8 @@ test("editor-v2 Stage 5: component multi-select uses one checkpoint (@flow)", as
   });
   await expect(firstComponent).toHaveCSS("border-top-left-radius", "36px");
   await expect(text).toHaveCSS("border-top-left-radius", "36px");
-  // Stage 6.6: стиль-правка инстанса теперь ЛОКАЛЬНА (overrides.styles), а не в definition →
-  // вторая копия (НЕ выбрана) остаётся нетронутой (раньше менялись все копии через определение).
+  // Стиль-правка инстанса локальна (overrides.styles), а не в definition →
+  // вторая копия (НЕ выбрана) остаётся нетронутой.
   await expect(secondComponent).toHaveCSS("border-top-left-radius", "0px");
 
   // Один undo откатывает обе правки группы (firstComponent override + text) одной транзакцией.
@@ -943,7 +943,7 @@ test("editor-v2 Stage 5: component multi-select uses one checkpoint (@flow)", as
   await expect(secondComponent).toHaveCSS("border-top-left-radius", "0px");
 });
 
-test("editor-v2 Stage 6.2: component text and visibility overrides stay local (@flow)", async ({ page }) => {
+test("editor-v2: component text and visibility overrides stay local (@flow)", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1400 });
   await page.goto("/Home/EditDoc?canvas=1&cmd=1");
   if (await page.locator("#lime-doc-intro-skip").isVisible()) await page.locator("#lime-doc-intro-skip").click();
@@ -1001,7 +1001,7 @@ test("editor-v2 Stage 6.2: component text and visibility overrides stay local (@
   await expect(page.locator('[data-doc-op="detach"]')).toBeVisible();
 });
 
-test("editor-v2 Stage 6.3: component variants reuse instance snapshots (@flow)", async ({ page }) => {
+test("editor-v2: component variants reuse instance snapshots (@flow)", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1400 });
   await page.goto("/Home/EditDoc?canvas=1&cmd=1");
   if (await page.locator("#lime-doc-intro-skip").isVisible()) await page.locator("#lime-doc-intro-skip").click();
@@ -1046,7 +1046,7 @@ test("editor-v2 Stage 6.3: component variants reuse instance snapshots (@flow)",
   await expect(secondText).toHaveText("Alt title");
 });
 
-test("editor-v2 Stage 6.5: component media override stays local (@flow)", async ({ page }) => {
+test("editor-v2: component media override stays local (@flow)", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1400 });
   // Без ?canvas=1: кликаем РЕАЛЬНЫЕ canvas-кнопки (video placeholder) — без canvas-overlay они доступны.
   await page.goto("/Home/EditDoc?cmd=1&canvas=0");
@@ -1087,7 +1087,7 @@ test("editor-v2 Stage 6.5: component media override stays local (@flow)", async 
   await expect(first.locator('iframe[src*="embed/LOCAL02"]')).toHaveCount(1);
 });
 
-test("editor-v2 Stage 6.6: component style override stays local (@flow)", async ({ page }) => {
+test("editor-v2: component style override stays local (@flow)", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1400 });
   await page.goto("/Home/EditDoc?canvas=1&cmd=1");
   if (await page.locator("#lime-doc-intro-skip").isVisible()) await page.locator("#lime-doc-intro-skip").click();
@@ -1125,7 +1125,7 @@ test("editor-v2 Stage 6.6: component style override stays local (@flow)", async 
   await expect(first).toHaveCSS("border-top-left-radius", "24px");
 });
 
-test("editor-v2 Stage 6.7: instance override reset returns to component (@flow)", async ({ page }) => {
+test("editor-v2: instance override reset returns to component (@flow)", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1400 });
   await page.goto("/Home/EditDoc?canvas=1&cmd=1");
   if (await page.locator("#lime-doc-intro-skip").isVisible()) await page.locator("#lime-doc-intro-skip").click();
@@ -1164,7 +1164,7 @@ test("editor-v2 Stage 6.7: instance override reset returns to component (@flow)"
   await expect(first).toHaveCSS("border-top-left-radius", "0px");
 });
 
-test("editor-v2 Stage 6.8: component property edits stay local (@flow)", async ({ page }) => {
+test("editor-v2: component property edits stay local (@flow)", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1400 });
   await page.goto("/Home/EditDoc?canvas=1&cmd=1");
   if (await page.locator("#lime-doc-intro-skip").isVisible()) await page.locator("#lime-doc-intro-skip").click();
@@ -1198,7 +1198,7 @@ test("editor-v2 Stage 6.8: component property edits stay local (@flow)", async (
   await expect(first).not.toContainText("Локальный заголовок");
 });
 
-test("editor-v2 Stage 7: content edit patches only the affected node (@flow)", async ({ page }) => {
+test("editor-v2: content edit patches only the affected node (@flow)", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1400 });
   // Без ?canvas=1: кликаем реальную canvas-кнопку (video placeholder) — без overlay она доступна.
   await page.goto("/Home/EditDoc?cmd=1&canvas=0");
@@ -1226,7 +1226,7 @@ test("editor-v2 Stage 7: content edit patches only the affected node (@flow)", a
   await expect(b).toHaveAttribute("data-perf-mark", "kept");
 });
 
-test("editor-v2 Stage 7: structural edits patch DOM without full rebuild (@flow)", async ({ page }) => {
+test("editor-v2: structural edits patch DOM without full rebuild (@flow)", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1400 });
   await page.goto("/Home/EditDoc?canvas=1&cmd=1");
   if (await page.locator("#lime-doc-intro-skip").isVisible()) await page.locator("#lime-doc-intro-skip").click();
@@ -1263,7 +1263,7 @@ test("editor-v2 Stage 7: structural edits patch DOM without full rebuild (@flow)
   await expect(page.locator(topBlocks).nth(1)).toHaveAttribute("data-block-id", aId!);
 });
 
-test("editor-v2 Stage 7: perf instrument shows edits avoid full render on 300 nodes (@flow)", async ({ page }) => {
+test("editor-v2: perf instrument shows edits avoid full render on 300 nodes (@flow)", async ({ page }) => {
   test.slow(); // тяжёлый: load(500)+bench; под нагрузкой полного прогона сервер может отвечать медленнее
   await page.setViewportSize({ width: 1440, height: 1400 });
   await page.goto("/Home/EditDoc?canvas=1&cmd=1&perf=1");
@@ -1369,7 +1369,7 @@ test("editor-v2 Stage 7: perf instrument shows edits avoid full render on 300 no
   expect(pointerPerf.p95).toBeLessThanOrEqual(16);
 });
 
-test("editor-v2 Stage 5: breakpoint override shows reset and inherits back (@flow)", async ({ page }) => {
+test("editor-v2: breakpoint override shows reset and inherits back (@flow)", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1400 });
   await page.goto("/Home/EditDoc?canvas=1&cmd=1");
   if (await page.locator("#lime-doc-intro-skip").isVisible()) await page.locator("#lime-doc-intro-skip").click();
@@ -1407,7 +1407,7 @@ test("editor-v2 Stage 5: breakpoint override shows reset and inherits back (@flo
   await expect(block).toHaveCSS("border-top-left-radius", "30px");
 });
 
-test("editor-v2 Stage 5: drag-to-adjust scrubs number fields (@flow)", async ({ page }) => {
+test("editor-v2: drag-to-adjust scrubs number fields (@flow)", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1400 });
   await page.goto("/Home/EditDoc?canvas=1&cmd=1");
   if (await page.locator("#lime-doc-intro-skip").isVisible()) await page.locator("#lime-doc-intro-skip").click();
@@ -1441,7 +1441,7 @@ test("editor-v2 Stage 5: drag-to-adjust scrubs number fields (@flow)", async ({ 
   await expect(gapInput()).toHaveValue("0");
 });
 
-test("editor-v2 Stage 5: unit-flex values render through shared design CSS (@flow)", async ({ page }) => {
+test("editor-v2: unit-flex values render through shared design CSS (@flow)", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1400 });
   await page.goto("/Home/EditDoc?canvas=1&cmd=1");
   if (await page.locator("#lime-doc-intro-skip").isVisible()) await page.locator("#lime-doc-intro-skip").click();
@@ -1465,7 +1465,7 @@ test("editor-v2 Stage 5: unit-flex values render through shared design CSS (@flo
   await expect(container).not.toHaveCSS("max-width", "320px");
 });
 
-test("editor-v2 Stage 5: multi-select reset override clears all (@flow)", async ({ page }) => {
+test("editor-v2: multi-select reset override clears all (@flow)", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1400 });
   await page.goto("/Home/EditDoc?canvas=1&cmd=1");
   if (await page.locator("#lime-doc-intro-skip").isVisible()) await page.locator("#lime-doc-intro-skip").click();
@@ -1500,7 +1500,7 @@ test("editor-v2 Stage 5: multi-select reset override clears all (@flow)", async 
   await expect(second).toHaveCSS("border-top-left-radius", "28px");
 });
 
-test("editor-v2 Stage 5: class-sourced value shows class badge (@flow)", async ({ page }) => {
+test("editor-v2: class-sourced value shows class badge (@flow)", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1400 });
   await page.goto("/Home/EditDoc?canvas=1&cmd=1");
   if (await page.locator("#lime-doc-intro-skip").isVisible()) await page.locator("#lime-doc-intro-skip").click();
@@ -1525,7 +1525,7 @@ test("editor-v2 Stage 5: class-sourced value shows class badge (@flow)", async (
   await expect(page.locator('[data-style-src="class"]').first()).toBeVisible();
 });
 
-test("editor-v2 Stage 5: overflow control clips block (@flow)", async ({ page }) => {
+test("editor-v2: overflow control clips block (@flow)", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1400 });
   await page.goto("/Home/EditDoc?canvas=1&cmd=1");
   if (await page.locator("#lime-doc-intro-skip").isVisible()) await page.locator("#lime-doc-intro-skip").click();
@@ -1543,7 +1543,7 @@ test("editor-v2 Stage 5: overflow control clips block (@flow)", async ({ page })
   await expect(container).not.toHaveCSS("overflow-x", "hidden");
 });
 
-test("editor-v2 Stage 6.1: group and ungroup siblings through command history (@flow)", async ({ page }) => {
+test("editor-v2: group and ungroup siblings through command history (@flow)", async ({ page }) => {
   await page.goto("/Home/EditDoc?canvas=1&cmd=1");
   if (await page.locator("#lime-doc-intro-skip").isVisible()) await page.locator("#lime-doc-intro-skip").click();
 
@@ -1608,7 +1608,7 @@ test("editor-v2 1a: layout inspector shows by default without ?canvas=1 (@flow)"
 });
 
 test("editor-v2 1b: mobile breakpoint preview collapses responsive grids (@flow)", async ({ page }) => {
-  // Регресс-гард (Фаза 1b): статические content-@media(max-width:640px) не срабатывают при
+  // Регресс-гард: статические content-@media(max-width:640px) не срабатывают при
   // сужении холста через [data-device]; редактор-only правила [data-device="mobile"] их зеркалят.
   await page.goto("/Home/EditDoc");
   if (await page.locator("#lime-doc-intro-skip").isVisible()) await page.locator("#lime-doc-intro-skip").click();
@@ -1667,7 +1667,7 @@ test.describe("editor-b save/reopen (свежий пользователь)", ()
   await expect(page.locator(nestedBlocks)).toHaveCount(1);
   await expect(page.locator(topBlocks)).toHaveCount(3);
 
-  // Undo откатывает вложенный блок (кнопка ↶, этап 0.4)
+  // Undo откатывает вложенный блок (кнопка ↶)
   await expect(page.locator("[data-doc-undo]")).toBeEnabled();
   await page.locator("[data-doc-undo]").click();
   await expect(page.locator(nestedBlocks)).toHaveCount(0);
@@ -1688,12 +1688,12 @@ test.describe("editor-b save/reopen (свежий пользователь)", ()
   await expect(page.locator('.lime-alert--success a:has-text("Открыть сайт")')).toBeVisible();
   await expect(page.locator(".lime-site .lime-badge--success").first()).toContainText("Опубликован");
 
-  // У свежего юзера ровно один сайт — наш. Редизайн MySites: ссылка «Движок B»
-  // переехала в меню «Ещё» (details.lime-action-menu) карточки.
+  // У свежего юзера ровно один сайт — наш. Ссылка «Открыть в редакторе»
+  // живёт в меню «Ещё» (details.lime-action-menu) карточки.
   const card = page.locator(".lime-site:not(.lime-site--new)");
   await expect(card).toHaveCount(1);
   await card.locator(".lime-action-menu summary").click();
-  await card.locator('.lime-action-menu__item:has-text("Движок B")').click();
+  await card.locator('.lime-action-menu__item:has-text("Открыть в редакторе")').click();
   await page.waitForURL(/\/Home\/EditDoc\?siteId=/);
 
   // Блоки на месте после переоткрытия
@@ -1749,7 +1749,7 @@ test("editor-v2 redesign: inspector, command palette and rail stay discoverable 
 
 test("editor-b: AI modal opens and reports quota/config status (@flow)", async ({ page }) => {
   await page.goto("/Home/EditDoc?canvas=0");
-  // редизайн: «AI заново» теперь в overflow-меню «⋯» — сначала раскрываем его.
+  // «AI заново» живёт в overflow-меню «⋯» — сначала раскрываем его.
   await page.locator("[data-topbar-more-toggle]").click();
   await page.locator("[data-doc-ai-open]").click();
   await expect(page.locator("#lime-doc-ai-modal")).toHaveClass(/is-open/);

@@ -10,7 +10,7 @@ using Xunit;
 
 namespace Lime.Tests.Services
 {
-    // Этап 3.4: тарифы/лимиты. EntitlementService — единственная точка резолва плана и квот.
+    // Тарифы/лимиты. EntitlementService — единственная точка резолва плана и квот.
     public class EntitlementServiceTests
     {
         // InMemory-контекст с засеянными тарифами (как HasData; страхуемся ручным сидом).

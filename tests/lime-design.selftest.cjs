@@ -132,4 +132,4 @@ if (failed) {
     console.error("\nDESIGN-SELFTEST FAILED: " + failed);
     process.exit(1);
 }
-console.log("\nDESIGN-OK (Stage 0): fixtures, inheritance, runtime index, validation limits — зелёные");
+console.log("\nDESIGN-OK: fixtures, inheritance, runtime index, validation limits — зелёные");

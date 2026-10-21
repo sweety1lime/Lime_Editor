@@ -139,7 +139,7 @@
                 return;
             }
             var preset = providers[provider] || providers.embed || { label: "Embed", aspect: "16/9" };
-            // Milestone 4 (experience-builder-plan.md): если это embed-слот пака (content.__slot),
+            // Если это embed-слот пака (content.__slot),
             // подсказываем требование к нему прямо в промпте — не paywall, а обучающая подсказка.
             var slotHint = "";
             var Packs = win.LimeExperiencePacks;

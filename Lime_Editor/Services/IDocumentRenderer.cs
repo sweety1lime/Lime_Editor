@@ -1,9 +1,9 @@
 namespace Lime_Editor.Services
 {
-    // Серверная компиляция JSON-документа движка B в publish-HTML (этап 0.2).
+    // Серверная компиляция JSON-документа в publish-HTML.
     // Контракт: вывод байт-в-байт совпадает с клиентским LimeDoc.renderSite(doc),
     // потому что исполняется тот же wwwroot/js/lime/lime-doc.js.
-    // Результат рендера одной страницы (этап 0.3).
+    // Результат рендера одной страницы.
     public sealed record DocumentPage(string Title, string Body);
 
     public interface IDocumentRenderer

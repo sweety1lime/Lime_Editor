@@ -1,5 +1,5 @@
 /**
- * Media manager flow + media-picker в конструкторе (движок B).
+ * Media manager flow + media-picker в конструкторе.
  *
  * Свежий юзер на ФАЙЛ (beforeAll → storageState): у него медиатека пуста, счётчики
  * детерминированы (0 → 1 → 0), нет накопления между прогонами, и нет упора в
@@ -96,7 +96,7 @@ test("editor-b: media picker inserts image into gallery block (@flow)", async ({
   await page.waitForLoadState("networkidle");
   await expect(page.locator(".lime-media-card")).toHaveCount(1);
 
-  // В конструктор (движок B) → добавляем галерею
+  // В конструктор → добавляем галерею
   await page.goto("/Home/EditDoc");
   if (await page.locator("#lime-doc-intro-skip").isVisible()) await page.locator("#lime-doc-intro-skip").click();
   await page.evaluate(() => document.querySelectorAll("details.lime-tile-group").forEach((d) => { (d as HTMLDetailsElement).open = true; }));

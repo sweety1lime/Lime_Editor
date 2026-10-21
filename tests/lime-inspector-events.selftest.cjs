@@ -188,7 +188,7 @@ function makeEnv(opts) {
     check("op dup/del/ai маршрутизированы", calls.includes("dup:") && calls.includes("del:") && calls.includes("aiRewrite:"));
 }
 
-// --- click: data-doc-ai-asset-prompt (Milestone 5, Фаза C) → aiSuggestAssetPrompt(el) ---
+// --- click: data-doc-ai-asset-prompt → aiSuggestAssetPrompt(el) ---
 {
     const { calls } = makeEnv();
     const btn = node({ "data-doc-ai-asset-prompt": "" });

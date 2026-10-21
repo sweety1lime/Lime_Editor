@@ -38,7 +38,7 @@ namespace Lime_Editor.Controllers
             var site = await db.Sites.FirstOrDefaultAsync(s => s.IdSite == siteId && s.UserId == CurrentUserId);
             if (site == null) return Forbid();
 
-            // Экспорт в код — фича платных тарифов (этап 3.4).
+            // Экспорт в код — фича платных тарифов.
             var plan = await _entitlements.ResolvePlanAsync(OwnerRef.ForUser(CurrentUserId));
             if (!plan.AllowExport) return RedirectToAction("Index", "Billing");
 

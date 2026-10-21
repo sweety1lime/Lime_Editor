@@ -1,4 +1,4 @@
-/* Lime editor Stage 7 performance instrumentation. */
+/* Lime editor performance instrumentation. */
 (function (root, factory) {
     if (typeof module === "object" && module.exports) module.exports = factory();
     else root.LimeEditorPerf = factory();

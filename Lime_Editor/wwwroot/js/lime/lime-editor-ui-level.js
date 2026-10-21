@@ -1,5 +1,5 @@
 /*
- * Lime UI Levels (план experience-builder-plan.md, Milestone 2) — прогрессивное раскрытие
+ * Lime UI Levels — прогрессивное раскрытие
  * инспектора: Basic -> Design -> Motion -> Pro. Не paywall — просто дефолтная плотность UI;
  * всё, что выше текущего уровня, сворачивается в «Дополнительно», а не пропадает насовсем.
  * Браузер-онли (window.LimeEditorUiLevel).
